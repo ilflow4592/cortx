@@ -8,7 +8,7 @@ const layerLabels: Record<TaskLayer, { label: string; icon: string }> = {
   reactive: { label: 'Reactive', icon: '⚡' },
 };
 
-export function Sidebar() {
+export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
   const { tasks, activeTaskId, setActiveTask, removeTask } = useTaskStore();
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');
@@ -95,7 +95,14 @@ export function Sidebar() {
         )}
       </div>
       <div style={{ borderTop:'1px solid #141418' }}>
-        <div className="sb-section">Today</div>
+        <div className="sb-section" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span>Today</span>
+          {onShowReport && (
+            <button onClick={onShowReport} style={{ background:'none', border:'none', color:'#3f3f46', cursor:'pointer', fontSize:10, fontFamily:'inherit' }}>
+              📊 Report
+            </button>
+          )}
+        </div>
         <div className="sb-summary"><span>Focus</span><span className="val" style={{ color:'#818cf8' }}>{formatTime(totalFocus)}</span></div>
         <div className="sb-summary"><span>Interrupts</span><span className="val" style={{ color:'#eab308' }}>{totalInterrupts} ({formatTime(totalInterruptTime)})</span></div>
         <div className="sb-summary"><span>Done</span><span className="val" style={{ color:'#34d399' }}>{doneList.length}/{tasks.length}</span></div>

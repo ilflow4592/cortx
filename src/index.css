@@ -255,3 +255,41 @@ body {
 .ctx-pin-form input::placeholder { color:#3f3f46 }
 .ctx-pin-actions { display:flex; justify-content:flex-end; gap:6px }
 .ctx-pin-actions button { padding:6px 12px; border-radius:6px; font-size:10px; font-weight:500; cursor:pointer; border:none; font-family:inherit }
+
+/* ── Animations ── */
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
+@keyframes slideInLeft { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:translateX(0) } }
+@keyframes slideInUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+@keyframes scaleIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }
+@keyframes pulse-glow { 0%,100% { box-shadow:0 0 4px currentColor } 50% { box-shadow:0 0 12px currentColor } }
+
+.sb-task { animation: fadeIn 0.15s ease-out }
+.msg { animation: fadeIn 0.2s ease-out }
+.modal { animation: scaleIn 0.15s ease-out }
+.modal-overlay { animation: fadeIn 0.1s ease-out }
+.tab { transition: color 0.1s, background 0.1s, border-color 0.1s }
+.dock-task { transition: background 0.1s, border-color 0.1s, transform 0.1s }
+.dock-task:hover { transform: scale(1.05) }
+.dock-task:active { transform: scale(0.95) }
+.dock-icon { transition: background 0.1s, color 0.1s }
+.mh-btn { transition: background 0.1s, filter 0.1s }
+.sb-dot.running { animation: pulse-glow 2s ease-in-out infinite }
+.delta-banner { animation: slideInUp 0.2s ease-out }
+.cp-item { animation: fadeIn 0.15s ease-out }
+.rp-tab { transition: color 0.1s, border-color 0.1s }
+
+/* ── Onboarding ── */
+.onboarding-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100 }
+.onboarding-card { background:#0a0a0e; border:1px solid #141418; border-radius:16px; width:480px; padding:32px; text-align:center; animation: scaleIn 0.3s ease-out }
+.onboarding-icon { font-size:64px; margin-bottom:20px }
+.onboarding-title { font-size:22px; font-weight:700; color:#fafafa; margin-bottom:8px }
+.onboarding-sub { font-size:14px; color:#71717a; line-height:1.6; margin-bottom:24px }
+.onboarding-steps { text-align:left; margin-bottom:24px }
+.onboarding-step { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #ffffff06 }
+.onboarding-step-num { width:24px; height:24px; border-radius:50%; background:rgba(99,102,241,0.1); color:#818cf8; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0 }
+.onboarding-step-text { font-size:13px; color:#a1a1aa; line-height:1.5 }
+.onboarding-step-text strong { color:#e4e4e7 }
+.onboarding-dots { display:flex; gap:6px; justify-content:center; margin-bottom:20px }
+.onboarding-dot { width:6px; height:6px; border-radius:50%; background:#27272a }
+.onboarding-dot.active { background:#6366f1 }
+.onboarding-actions { display:flex; justify-content:center; gap:10px }

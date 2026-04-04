@@ -49,8 +49,16 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
             return;
           }
         }
+        // Run setup scripts from cortx.yaml
+        if (result.success && worktreePath) {
+          try {
+            const config = await invoke<{ setup: string[]; archive: string[] }>('read_cortx_yaml', { repoPath: repo });
+            if (config.setup.length > 0) {
+              await invoke('run_setup_scripts', { cwd: worktreePath, scripts: config.setup });
+            }
+          } catch { /* no cortx.yaml or scripts failed — not blocking */ }
+        }
       } catch (err) {
-        // Not in Tauri context (e.g. browser dev) — skip worktree
         console.warn('Worktree creation skipped:', err);
         worktreePath = '';
       }

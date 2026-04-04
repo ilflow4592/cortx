@@ -5,6 +5,8 @@ import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
 import { NewTaskModal } from './components/NewTaskModal';
 import { SettingsModal } from './components/SettingsModal';
+import { DailyReport } from './components/DailyReport';
+import { Onboarding } from './components/Onboarding';
 import { useTaskStore } from './stores/taskStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useContextPackStore } from './stores/contextPackStore';
@@ -14,6 +16,8 @@ import { saveData, loadData } from './services/persistence';
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('cortx-onboarded'));
   const { tasks, activeTaskId } = useTaskStore();
   const loaded = useRef(false);
 
@@ -65,11 +69,13 @@ export default function App() {
   return (
     <div className="app-layout">
       <Dock onAddTask={() => setShowNewTask(true)} onOpenSettings={() => setShowSettings(true)} />
-      <Sidebar />
+      <Sidebar onShowReport={() => setShowReport(true)} />
       <MainPanel />
       <StatusBar />
       {showNewTask && <NewTaskModal onClose={() => setShowNewTask(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showReport && <DailyReport onClose={() => setShowReport(false)} />}
+      {showOnboarding && <Onboarding onComplete={() => { setShowOnboarding(false); localStorage.setItem('cortx-onboarded', '1'); }} />}
     </div>
   );
 }

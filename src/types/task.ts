@@ -21,6 +21,11 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface TaskModelConfig {
+  provider?: 'claude' | 'openai' | 'ollama';
+  modelId?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -33,6 +38,7 @@ export interface Task {
   elapsedSeconds: number;
   chatHistory: ChatMessage[];
   interrupts: InterruptEntry[];
+  modelOverride?: TaskModelConfig;
   createdAt: string;
   updatedAt: string;
 }

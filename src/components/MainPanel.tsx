@@ -8,7 +8,9 @@ import { DiffViewer } from './DiffViewer';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
-import type { InterruptReason } from '../types/task';
+import { callAI } from '../services/ai';
+import { useSettingsStore } from '../stores/settingsStore';
+import type { InterruptReason, ChatMessage } from '../types/task';
 
 type Tab = 'chat' | 'terminal' | 'diff' | 'context';
 
@@ -43,9 +45,48 @@ export function MainPanel() {
     pauseWithReason(task.id, reason, memo);
     setShowPause(false);
   };
-  const handleResume = () => {
-    detectDelta(task.id, task.branchName);
+  const handleResume = async () => {
+    await detectDelta(task.id, task.branchName);
     resumeTask(task.id);
+
+    // Generate AI briefing
+    const settings = useSettingsStore.getState();
+    const cpStore = useContextPackStore.getState();
+    const delta = cpStore.deltaItems[task.id] || [];
+    const lastInterrupt = (task.interrupts || []).filter(e => e.resumedAt === null)[0];
+
+    if (settings.apiKey && (delta.length > 0 || task.memo)) {
+      const briefingPrompt = [
+        'You are a concise assistant. Generate a short resume briefing (3-5 bullet points) for the developer.',
+        `Task: "${task.title}"`,
+        task.memo ? `Last memo: "${task.memo}"` : '',
+        lastInterrupt ? `Paused because: ${lastInterrupt.reason} - "${lastInterrupt.memo}"` : '',
+        delta.length > 0 ? `\n${delta.length} updates while away:\n${delta.slice(0, 5).map(d => `- [${d.sourceType}] ${d.title}`).join('\n')}` : '',
+        '\nKeep it brief and actionable. Use bullet points.',
+      ].filter(Boolean).join('\n');
+
+      try {
+        const provider = task.modelOverride?.provider || settings.aiProvider;
+        const modelId = task.modelOverride?.modelId || settings.modelId;
+        const response = await callAI({
+          provider, apiKey: settings.apiKey, modelId, ollamaUrl: settings.ollamaUrl,
+          messages: [{ id: '0', role: 'user', content: briefingPrompt, timestamp: '' }],
+          taskTitle: task.title,
+        });
+
+        const briefingMsg: ChatMessage = {
+          id: `briefing-${Date.now().toString(36)}`,
+          role: 'assistant',
+          content: `📋 **Resume Briefing**\n\n${response}`,
+          model: modelId,
+          timestamp: new Date().toISOString(),
+        };
+        useTaskStore.getState().addChatMessage(task.id, briefingMsg);
+        setActiveTab('chat');
+      } catch {
+        // Briefing failed silently — not critical
+      }
+    }
   };
   const handleDone = () => setTaskStatus(task.id, 'done');
 

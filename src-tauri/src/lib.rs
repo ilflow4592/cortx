@@ -131,6 +131,63 @@ fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
     None
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct CortxConfig {
+    pub setup: Vec<String>,
+    pub archive: Vec<String>,
+}
+
+#[tauri::command]
+fn read_cortx_yaml(repo_path: String) -> Result<CortxConfig, String> {
+    let path = std::path::Path::new(&repo_path).join("cortx.yaml");
+    if !path.exists() {
+        let path_yml = std::path::Path::new(&repo_path).join("cortx.yml");
+        if !path_yml.exists() {
+            return Ok(CortxConfig { setup: vec![], archive: vec![] });
+        }
+        let content = std::fs::read_to_string(path_yml).map_err(|e| e.to_string())?;
+        return parse_cortx_yaml(&content);
+    }
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    parse_cortx_yaml(&content)
+}
+
+fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
+    // Simple YAML parser for our specific format
+    let mut setup = vec![];
+    let mut archive = vec![];
+    let mut current_section = "";
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "setup:" { current_section = "setup"; continue; }
+        if trimmed == "archive:" { current_section = "archive"; continue; }
+        if trimmed.starts_with("- ") {
+            let cmd = trimmed[2..].trim().to_string();
+            match current_section {
+                "setup" => setup.push(cmd),
+                "archive" => archive.push(cmd),
+                _ => {}
+            }
+        }
+    }
+    Ok(CortxConfig { setup, archive })
+}
+
+#[tauri::command]
+fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
+    scripts.iter().map(|script| {
+        match Command::new("sh").args(["-c", script]).current_dir(&cwd).output() {
+            Ok(out) => CommandResult {
+                success: out.status.success(),
+                output: String::from_utf8_lossy(&out.stdout).to_string(),
+                error: String::from_utf8_lossy(&out.stderr).to_string(),
+            },
+            Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
+        }
+    }).collect()
+}
+
 fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
     match Command::new("git").args(args).current_dir(cwd).output() {
         Ok(out) => CommandResult {
@@ -179,6 +236,7 @@ pub fn run() {
         .manage(pty_manager)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -198,6 +256,8 @@ pub fn run() {
             git_diff_staged,
             git_diff_unstaged,
             fetch_link_preview,
+            read_cortx_yaml,
+            run_setup_scripts,
             pty_spawn,
             pty_write,
             pty_resize,
