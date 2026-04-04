@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
+import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem } from '../types/contextPack';
 
 export function ContextPack({ taskId }: { taskId: string }) {
@@ -11,6 +12,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const [pinTitle, setPinTitle] = useState('');
   const [kwInput, setKwInput] = useState('');
   const [filter, setFilter] = useState<'all' | 'pinned' | 'linked' | 'auto'>('all');
+  const [preview, setPreview] = useState<{ url: string; title: string; description: string } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const taskItems = items[taskId] || [];
   const taskDelta = deltaItems[taskId] || [];
@@ -22,6 +25,19 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const handleAddKw = () => { const k = kwInput.trim(); if (k && !taskKw.includes(k)) { setKeywords(taskId, [...taskKw, k]); setKwInput(''); } };
   const handlePin = () => { if (!pinTitle.trim()) return; addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem); setPinUrl(''); setPinTitle(''); setShowPin(false); };
   const icon = (t: string) => t === 'github' ? '🐙' : t === 'slack' ? '💬' : t === 'notion' ? '📄' : '📌';
+
+  const handlePreview = async (url: string) => {
+    if (!url || loadingPreview) return;
+    setLoadingPreview(true);
+    setPreview(null);
+    try {
+      const result = await invoke<{ url: string; title: string; description: string; success: boolean }>('fetch_link_preview', { url });
+      if (result.success) {
+        setPreview({ url: result.url, title: result.title, description: result.description });
+      }
+    } catch { /* ignore */ }
+    setLoadingPreview(false);
+  };
 
   return (
     <div className="ctx-pack">
@@ -83,6 +99,30 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {newCount > 0 && <span className="ctx-new-count">{newCount} NEW</span>}
       </div>
 
+      {/* Link preview panel */}
+      {(preview || loadingPreview) && (
+        <div style={{ padding:'12px 20px', borderBottom:'1px solid #141418', background:'#08080c', flexShrink:0 }}>
+          {loadingPreview ? (
+            <div style={{ fontSize:11, color:'#52525b', display:'flex', alignItems:'center', gap:6 }}>
+              <div className="loading-dot" /> Loading preview...
+            </div>
+          ) : preview && (
+            <div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:4 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#d4d4d8' }}>{preview.title || 'No title'}</div>
+                <button onClick={() => setPreview(null)} style={{ background:'none', border:'none', color:'#3f3f46', cursor:'pointer', fontSize:14 }}>×</button>
+              </div>
+              {preview.description && (
+                <div style={{ fontSize:11, color:'#71717a', lineHeight:1.5, marginBottom:6 }}>{preview.description.slice(0, 200)}</div>
+              )}
+              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'#818cf8', fontFamily:"'JetBrains Mono', monospace", wordBreak:'break-all' }}>
+                {preview.url}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="ctx-items">
         {filtered.length === 0 ? (
           <div className="ctx-empty">
@@ -95,11 +135,14 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <div className="cp-body">
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   {item.url ? (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="cp-name" style={{ cursor:'pointer' }}>{item.title}</a>
+                    <span className="cp-name" style={{ cursor:'pointer', textDecoration:'underline', textDecorationColor:'#27272a' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
                   ) : (
                     <span className="cp-name">{item.title}</span>
                   )}
                   {item.isNew && <span className="cp-new">NEW</span>}
+                  {item.url && (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'#3f3f46', flexShrink:0 }} title="Open in browser">↗</a>
+                  )}
                 </div>
                 <div className="cp-sub">{item.summary}</div>
               </div>

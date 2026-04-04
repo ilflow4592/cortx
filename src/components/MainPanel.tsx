@@ -4,14 +4,18 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { Chat } from './Chat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
+import { DiffViewer } from './DiffViewer';
+import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
+import type { InterruptReason } from '../types/task';
 
-type Tab = 'chat' | 'terminal' | 'context';
+type Tab = 'chat' | 'terminal' | 'diff' | 'context';
 
 export function MainPanel() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
-  const { tasks, activeTaskId, startTask, setTaskStatus } = useTaskStore();
+  const [showPause, setShowPause] = useState(false);
+  const { tasks, activeTaskId, startTask, pauseWithReason, resumeTask, setTaskStatus } = useTaskStore();
   const { takeSnapshot, detectDelta, deltaItems } = useContextPackStore();
   const task = tasks.find((t) => t.id === activeTaskId);
 
@@ -34,41 +38,41 @@ export function MainPanel() {
   const statusLabel = task.status === 'active' ? 'In Progress' : task.status === 'paused' ? 'Paused' : task.status === 'waiting' ? 'Waiting' : task.status;
 
   const handleStart = () => startTask(task.id);
-  const handlePause = () => {
-    const memo = window.prompt('Pause memo:', task.memo || '');
-    if (memo !== null) { takeSnapshot(task.id); setTaskStatus(task.id, 'paused', memo); }
+  const handlePauseConfirm = (reason: InterruptReason, memo: string) => {
+    takeSnapshot(task.id);
+    pauseWithReason(task.id, reason, memo);
+    setShowPause(false);
   };
-  const handleResume = () => { detectDelta(task.id, task.branchName); setTaskStatus(task.id, 'active'); };
+  const handleResume = () => {
+    detectDelta(task.id, task.branchName);
+    resumeTask(task.id);
+  };
   const handleDone = () => setTaskStatus(task.id, 'done');
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'chat', label: '💬 Chat' },
     { key: 'terminal', label: '⌨ Terminal' },
+    { key: 'diff', label: '📋 Diff' },
     { key: 'context', label: '📦 Context Pack', badge: taskDelta.length || undefined },
   ];
 
   return (
     <div className="main">
-      {/* Header */}
       <div className="main-header">
         <div className="mh-left">
           <span className="mh-title">{task.title}</span>
-          <span className={`mh-badge ${badgeCls}`}>
-            <span className="dot" />
-            {statusLabel}
-          </span>
+          <span className={`mh-badge ${badgeCls}`}><span className="dot" />{statusLabel}</span>
           {task.branchName && <span className="mh-branch">{task.branchName}</span>}
         </div>
         <div className="mh-right">
           <span className="mh-timer">{formatTime(task.elapsedSeconds)}</span>
           {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}>▶ Start</button>}
-          {task.status === 'active' && <button className="mh-btn pause" onClick={handlePause}>⏸ Pause</button>}
+          {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}>⏸ Pause</button>}
           {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}>▶ Resume</button>}
           {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}>✓ Done</button>}
         </div>
       </div>
 
-      {/* Delta banner */}
       {task.status === 'active' && taskDelta.length > 0 && (
         <div className="delta-banner">
           <span className="delta-banner-text">⚡ {taskDelta.length} updates while you were away</span>
@@ -76,7 +80,6 @@ export function MainPanel() {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
@@ -86,15 +89,17 @@ export function MainPanel() {
         ))}
       </div>
 
-      {/* Content + Right Panel */}
       <div className="content-split">
         <div className="chat">
           {activeTab === 'chat' && <Chat taskId={task.id} />}
           {activeTab === 'terminal' && <TerminalView taskId={task.id} worktreePath={task.worktreePath || task.repoPath} />}
+          {activeTab === 'diff' && <DiffViewer taskId={task.id} />}
           {activeTab === 'context' && <ContextPack taskId={task.id} />}
         </div>
         <RightPanel />
       </div>
+
+      {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}
     </div>
   );
 }

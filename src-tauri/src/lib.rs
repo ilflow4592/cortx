@@ -29,6 +29,108 @@ fn list_worktrees(repo_path: String) -> CommandResult {
     run_git(&repo_path, &["worktree", "list", "--porcelain"])
 }
 
+#[tauri::command]
+fn git_diff(repo_path: String, branch_name: String) -> CommandResult {
+    // diff between current branch and its merge-base with main
+    let base_result = Command::new("git")
+        .args(["merge-base", "HEAD", "main"])
+        .current_dir(&repo_path)
+        .output();
+
+    let base = match base_result {
+        Ok(out) if out.status.success() => {
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        }
+        _ => "HEAD~1".to_string(),
+    };
+
+    run_git(&repo_path, &["diff", "--stat", &base, "HEAD"])
+}
+
+#[tauri::command]
+fn git_diff_full(repo_path: String) -> CommandResult {
+    let base_result = Command::new("git")
+        .args(["merge-base", "HEAD", "main"])
+        .current_dir(&repo_path)
+        .output();
+
+    let base = match base_result {
+        Ok(out) if out.status.success() => {
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        }
+        _ => "HEAD~1".to_string(),
+    };
+
+    run_git(&repo_path, &["diff", &base, "HEAD"])
+}
+
+#[tauri::command]
+fn git_diff_staged(repo_path: String) -> CommandResult {
+    run_git(&repo_path, &["diff", "--cached"])
+}
+
+#[tauri::command]
+fn git_diff_unstaged(repo_path: String) -> CommandResult {
+    run_git(&repo_path, &["diff"])
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LinkPreview {
+    pub url: String,
+    pub title: String,
+    pub description: String,
+    pub success: bool,
+}
+
+#[tauri::command]
+fn fetch_link_preview(url: String) -> LinkPreview {
+    let result = Command::new("curl")
+        .args(["-sL", "--max-time", "5", &url])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            let html = String::from_utf8_lossy(&output.stdout);
+            let title = extract_meta(&html, "<title>", "</title>")
+                .or_else(|| extract_meta_attr(&html, "og:title"))
+                .unwrap_or_default();
+            let description = extract_meta_attr(&html, "og:description")
+                .or_else(|| extract_meta_attr(&html, "description"))
+                .unwrap_or_default();
+            LinkPreview { url, title, description, success: true }
+        }
+        _ => LinkPreview { url, title: String::new(), description: String::new(), success: false },
+    }
+}
+
+fn extract_meta(html: &str, start_tag: &str, end_tag: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    let start = lower.find(&start_tag.to_lowercase())? + start_tag.len();
+    let end = lower[start..].find(&end_tag.to_lowercase())? + start;
+    Some(html[start..end].trim().to_string())
+}
+
+fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    // Look for <meta property="og:title" content="..."> or <meta name="description" content="...">
+    let patterns = [
+        format!("property=\"{}\"", name),
+        format!("name=\"{}\"", name),
+    ];
+    for pattern in &patterns {
+        if let Some(pos) = lower.find(&pattern.to_lowercase()) {
+            let after = &html[pos..];
+            if let Some(content_start) = after.to_lowercase().find("content=\"") {
+                let start = content_start + 9;
+                if let Some(end) = after[start..].find('"') {
+                    return Some(after[start..start + end].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
     match Command::new("git").args(args).current_dir(cwd).output() {
         Ok(out) => CommandResult {
@@ -91,6 +193,11 @@ pub fn run() {
             create_worktree,
             remove_worktree,
             list_worktrees,
+            git_diff,
+            git_diff_full,
+            git_diff_staged,
+            git_diff_unstaged,
+            fetch_link_preview,
             pty_spawn,
             pty_write,
             pty_resize,

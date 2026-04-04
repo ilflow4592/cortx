@@ -1,5 +1,18 @@
 export type TaskStatus = 'waiting' | 'active' | 'paused' | 'done';
 
+export type TaskLayer = 'focus' | 'batch' | 'reactive';
+
+export type InterruptReason = 'interrupt' | 'other-task' | 'break' | 'meeting' | 'other';
+
+export interface InterruptEntry {
+  id: string;
+  pausedAt: string;
+  resumedAt: string | null;
+  reason: InterruptReason;
+  memo: string;
+  durationSeconds: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -12,12 +25,14 @@ export interface Task {
   id: string;
   title: string;
   status: TaskStatus;
+  layer: TaskLayer;
   branchName: string;
   worktreePath: string;
   repoPath: string;
   memo: string;
   elapsedSeconds: number;
   chatHistory: ChatMessage[];
+  interrupts: InterruptEntry[];
   createdAt: string;
   updatedAt: string;
 }

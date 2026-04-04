@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { formatTime } from '../utils/time';
 
-type RTab = 'worktree' | 'context' | 'memo';
+type RTab = 'worktree' | 'context' | 'log' | 'memo';
+
+const reasonLabel: Record<string, string> = {
+  interrupt: '🔔 Interrupted',
+  'other-task': '🔄 Task switch',
+  break: '☕ Break',
+  meeting: '📅 Meeting',
+  other: '💭 Other',
+};
 
 export function RightPanel() {
   const [tab, setTab] = useState<RTab>('worktree');
@@ -15,12 +24,15 @@ export function RightPanel() {
   const taskItems = items[task.id] || [];
   const taskDelta = deltaItems[task.id] || [];
   const newCount = taskItems.filter((i) => i.isNew).length;
+  const interrupts = task.interrupts || [];
+  const totalInterruptTime = interrupts.reduce((s, e) => s + e.durationSeconds, 0);
 
   const icon = (type: string) => type === 'github' ? '🐙' : type === 'slack' ? '💬' : type === 'notion' ? '📄' : '📌';
 
   const tabs: { key: RTab; label: string; badge?: number }[] = [
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: newCount || undefined },
+    { key: 'log', label: 'Log', badge: interrupts.length || undefined },
     { key: 'memo', label: 'Memo' },
   ];
 
@@ -43,6 +55,7 @@ export function RightPanel() {
               <div className="wt-row"><span>Path</span><span className="val">{task.worktreePath || '—'}</span></div>
               <div className="wt-row"><span>Repo</span><span className="val">{task.repoPath || '—'}</span></div>
               <div className="wt-row"><span>Status</span><span className="val">{task.status}</span></div>
+              <div className="wt-row"><span>Layer</span><span className="val">{task.layer || 'focus'}</span></div>
             </div>
             {task.memo && (
               <>
@@ -93,6 +106,53 @@ export function RightPanel() {
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {tab === 'log' && (
+          <>
+            <div className="rp-section">Interrupt Log</div>
+            {interrupts.length > 0 && (
+              <div className="wt-info" style={{ marginBottom:14 }}>
+                <div className="wt-row"><span>Total interrupts</span><span className="val">{interrupts.length}</span></div>
+                <div className="wt-row"><span>Time lost</span><span className="val" style={{ color:'#eab308' }}>{formatTime(totalInterruptTime)}</span></div>
+              </div>
+            )}
+            {interrupts.length === 0 ? (
+              <div style={{ fontSize:11, color:'#3f3f46', padding:'16px 0', textAlign:'center' }}>No interrupts recorded yet</div>
+            ) : (
+              <div style={{ position:'relative', paddingLeft:16 }}>
+                {/* Timeline line */}
+                <div style={{ position:'absolute', left:5, top:0, bottom:0, width:1, background:'#18181b' }} />
+                {[...interrupts].reverse().map((entry) => (
+                  <div key={entry.id} style={{ position:'relative', paddingBottom:16, paddingLeft:16 }}>
+                    {/* Dot */}
+                    <div style={{
+                      position:'absolute', left:-4, top:4, width:8, height:8, borderRadius:'50%',
+                      background: entry.resumedAt ? '#eab308' : '#ef4444',
+                      boxShadow: entry.resumedAt ? 'none' : '0 0 6px rgba(239,68,68,0.4)',
+                    }} />
+                    <div style={{ fontSize:11, color:'#71717a', marginBottom:2 }}>
+                      {reasonLabel[entry.reason] || entry.reason}
+                    </div>
+                    {entry.memo && (
+                      <div style={{ fontSize:12, color:'#a1a1aa', marginBottom:2 }}>"{entry.memo}"</div>
+                    )}
+                    <div style={{ fontSize:10, color:'#3f3f46', display:'flex', gap:8 }}>
+                      <span>{new Date(entry.pausedAt).toLocaleTimeString()}</span>
+                      {entry.resumedAt && (
+                        <>
+                          <span>→</span>
+                          <span>{new Date(entry.resumedAt).toLocaleTimeString()}</span>
+                          <span style={{ color:'#eab308' }}>{formatTime(entry.durationSeconds)}</span>
+                        </>
+                      )}
+                      {!entry.resumedAt && <span style={{ color:'#ef4444' }}>Still paused</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
