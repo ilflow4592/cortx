@@ -4,10 +4,12 @@ import { Sidebar } from './components/Sidebar';
 import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
 import { NewTaskModal } from './components/NewTaskModal';
+import { NewProjectModal } from './components/NewProjectModal';
 import { SettingsModal } from './components/SettingsModal';
 import { DailyReport } from './components/DailyReport';
 import { Onboarding } from './components/Onboarding';
 import { useTaskStore } from './stores/taskStore';
+import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useContextPackStore } from './stores/contextPackStore';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
@@ -15,10 +17,12 @@ import { saveData, loadData } from './services/persistence';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('cortx-onboarded'));
   const { tasks, activeTaskId } = useTaskStore();
+  const { projects } = useProjectStore();
   const loaded = useRef(false);
 
   useGlobalShortcuts();
@@ -30,9 +34,11 @@ export default function App() {
       useContextPackStore.getState().loadState();
 
       const data = await loadData<{ tasks: typeof tasks; activeTaskId: string | null }>('tasks');
-      if (data?.tasks?.length) {
-        useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
-      }
+      if (data?.tasks?.length) useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
+
+      const projData = await loadData<{ projects: typeof projects }>('projects');
+      if (projData?.projects?.length) useProjectStore.getState().loadProjects(projData.projects);
+
       loaded.current = true;
     })();
   }, []);
@@ -42,6 +48,7 @@ export default function App() {
     const handleBeforeUnload = () => {
       const s = useTaskStore.getState();
       saveData('tasks', { tasks: s.tasks, activeTaskId: s.activeTaskId });
+      saveData('projects', { projects: useProjectStore.getState().projects });
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -57,7 +64,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Persist tasks (debounced)
+  // Persist tasks + projects (debounced)
   useEffect(() => {
     if (!loaded.current) return;
     const timeout = setTimeout(() => {
@@ -66,13 +73,26 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [tasks, activeTaskId]);
 
+  useEffect(() => {
+    if (!loaded.current) return;
+    const timeout = setTimeout(() => {
+      saveData('projects', { projects });
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [projects]);
+
   return (
     <div className="app-layout">
-      <Dock onAddTask={() => setShowNewTask(true)} onOpenSettings={() => setShowSettings(true)} />
+      <Dock
+        onAddTask={() => setShowNewTask(true)}
+        onAddProject={() => setShowNewProject(true)}
+        onOpenSettings={() => setShowSettings(true)}
+      />
       <Sidebar onShowReport={() => setShowReport(true)} />
       <MainPanel />
       <StatusBar />
       {showNewTask && <NewTaskModal onClose={() => setShowNewTask(false)} />}
+      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showReport && <DailyReport onClose={() => setShowReport(false)} />}
       {showOnboarding && <Onboarding onComplete={() => { setShowOnboarding(false); localStorage.setItem('cortx-onboarded', '1'); }} />}

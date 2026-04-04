@@ -31,6 +31,7 @@ export interface Task {
   title: string;
   status: TaskStatus;
   layer: TaskLayer;
+  projectId?: string;
   branchName: string;
   worktreePath: string;
   repoPath: string;

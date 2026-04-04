@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
 import type { TaskLayer } from '../types/task';
 
@@ -11,12 +12,22 @@ const layers: { value: TaskLayer; label: string; desc: string; color: string }[]
 
 export function NewTaskModal({ onClose }: { onClose: () => void }) {
   const addTask = useTaskStore((s) => s.addTask);
+  const projects = useProjectStore((s) => s.projects);
   const [title, setTitle] = useState('');
-  const [repoPath, setRepoPath] = useState('');
-  const [branchName, setBranchName] = useState('');
+  const [projectId, setProjectId] = useState(projects[0]?.id || '');
+  const [repoPath, setRepoPath] = useState(projects[0]?.localPath || '');
   const [layer, setLayer] = useState<TaskLayer>('focus');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+
+  const selectedProject = projects.find((p) => p.id === projectId);
+
+  const handleProjectChange = (id: string) => {
+    setProjectId(id);
+    const proj = projects.find((p) => p.id === id);
+    if (proj) setRepoPath(proj.localPath);
+    else setRepoPath('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,54 +36,26 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
     setError('');
 
     const repo = repoPath.trim();
-    const branch = branchName.trim();
-    let worktreePath = '';
 
-    // Auto-create git worktree if repo + branch provided
-    if (repo && branch) {
-      const slug = branch.replace(/\//g, '-');
-      worktreePath = `${repo}/.worktrees/${slug}`;
+    if (repo) {
       try {
-        const result = await invoke<{ success: boolean; error: string }>('create_worktree', {
-          repoPath: repo,
-          worktreePath,
-          branchName: branch,
-        });
-        if (!result.success) {
-          // Worktree might already exist or branch exists — try without -b
-          const existing = result.error;
-          if (existing.includes('already exists')) {
-            // Use existing worktree path, not an error
-          } else {
-            setError(`Worktree error: ${result.error}`);
-            setCreating(false);
-            return;
-          }
+        const config = await invoke<{ setup: string[]; archive: string[] }>('read_cortx_yaml', { repoPath: repo });
+        if (config.setup.length > 0) {
+          await invoke('run_setup_scripts', { cwd: repo, scripts: config.setup });
         }
-        // Run setup scripts from cortx.yaml
-        if (result.success && worktreePath) {
-          try {
-            const config = await invoke<{ setup: string[]; archive: string[] }>('read_cortx_yaml', { repoPath: repo });
-            if (config.setup.length > 0) {
-              await invoke('run_setup_scripts', { cwd: worktreePath, scripts: config.setup });
-            }
-          } catch { /* no cortx.yaml or scripts failed — not blocking */ }
-        }
-      } catch (err) {
-        console.warn('Worktree creation skipped:', err);
-        worktreePath = '';
-      }
+      } catch { /* not blocking */ }
     }
 
-    addTask(title.trim(), repo, branch);
+    addTask(title.trim(), repo, '');
 
     setTimeout(() => {
       const state = useTaskStore.getState();
       const last = state.tasks[state.tasks.length - 1];
       if (last) {
-        const updates: Partial<typeof last> = { layer };
-        if (worktreePath) updates.worktreePath = worktreePath;
-        state.updateTask(last.id, updates);
+        state.updateTask(last.id, {
+          layer,
+          projectId: projectId || undefined,
+        });
         state.selectTask(last.id);
       }
     }, 0);
@@ -93,31 +76,77 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
             <span className="field-label">Task title <span style={{ color:'#6366f1' }}>*</span></span>
             <input className="field-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. API 인증 리팩토링" />
           </div>
+
+          {/* Project selector */}
+          {projects.length > 0 && (
+            <div className="field">
+              <span className="field-label">Project</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => handleProjectChange('')}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+                    border: !projectId ? '1px solid rgba(99,102,241,0.3)' : '1px solid #18181b',
+                    background: !projectId ? 'rgba(99,102,241,0.06)' : '#06060a',
+                    color: !projectId ? '#818cf8' : '#52525b',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  None
+                </button>
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleProjectChange(p.id)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+                      border: projectId === p.id ? `1px solid ${p.color}40` : '1px solid #18181b',
+                      background: projectId === p.id ? `${p.color}0a` : '#06060a',
+                      color: projectId === p.id ? p.color : '#71717a',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: p.color, flexShrink: 0 }} />
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="field">
             <span className="field-label">Layer</span>
-            <div style={{ display:'flex', gap:6 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
               {layers.map((l) => (
                 <button key={l.value} type="button" onClick={() => setLayer(l.value)} style={{
-                  flex:1, padding:'8px 8px', borderRadius:8, fontSize:11, fontWeight:500, textAlign:'center',
+                  flex: 1, padding: '8px 8px', borderRadius: 8, fontSize: 11, fontWeight: 500, textAlign: 'center',
                   border: layer === l.value ? `1px solid ${l.color}40` : '1px solid #18181b',
                   background: layer === l.value ? `${l.color}0a` : '#06060a',
                   color: layer === l.value ? l.color : '#71717a',
-                  cursor:'pointer', fontFamily:'inherit',
+                  cursor: 'pointer', fontFamily: 'inherit',
                 }}>
-                  {l.label}<br/><span style={{ fontSize:9, opacity:0.6 }}>{l.desc}</span>
+                  {l.label}<br /><span style={{ fontSize: 9, opacity: 0.6 }}>{l.desc}</span>
                 </button>
               ))}
             </div>
           </div>
+
           <div className="field">
-            <span className="field-label">Repository path</span>
-            <input className="field-input mono" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="e.g. /Users/ilya/Dev/my-project" />
-            <span className="field-hint">Git repo root path. Worktree will be created automatically.</span>
+            <span className="field-label">Working directory</span>
+            <input
+              className="field-input mono"
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              placeholder="e.g. /Users/ilya/Dev/my-project"
+            />
+            <span className="field-hint">
+              {selectedProject ? `From project "${selectedProject.name}"` : 'Terminal will start in this directory.'}
+            </span>
           </div>
-          <div className="field">
-            <span className="field-label">Branch name</span>
-            <input className="field-input mono" value={branchName} onChange={(e) => setBranchName(e.target.value)} placeholder="e.g. feat/auth-refactor" />
-          </div>
+
           {error && <div className="error-box">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
