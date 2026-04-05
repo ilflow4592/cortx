@@ -5,7 +5,7 @@ interface TaskState {
   tasks: Task[];
   activeTaskId: string | null;
 
-  addTask: (title: string, repoPath: string, branchName: string) => void;
+  addTask: (title: string, repoPath: string, branchName: string, extras?: Partial<Task>) => string;
   removeTask: (id: string) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   selectTask: (id: string) => void;
@@ -28,14 +28,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   activeTaskId: null,
 
-  addTask: (title, repoPath, branchName) => {
+  addTask: (title, repoPath, branchName, extras) => {
+    const id = genId();
     const task: Task = {
-      id: genId(), title, status: 'waiting', layer: 'focus',
+      id, title, status: 'waiting', layer: 'focus',
       branchName, worktreePath: '', repoPath, memo: '',
       elapsedSeconds: 0, chatHistory: [], interrupts: [],
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      ...extras,
     };
     set((s) => ({ tasks: [...s.tasks, task] }));
+    return id;
   },
 
   removeTask: (id) => set((s) => ({
@@ -120,11 +123,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   })),
 
   loadTasks: (tasks, activeTaskId) => {
-    // Migrate old tasks without new fields
+    // Migrate: ensure ALL fields exist with defaults
     const migrated = tasks.map((t) => ({
-      ...t,
+      id: t.id || genId(),
+      title: t.title || '',
+      status: t.status || 'waiting' as TaskStatus,
       layer: t.layer || 'focus' as TaskLayer,
-      interrupts: t.interrupts || [],
+      projectId: t.projectId || undefined,
+      branchName: t.branchName || '',
+      worktreePath: t.worktreePath || '',
+      repoPath: t.repoPath || '',
+      memo: t.memo || '',
+      elapsedSeconds: t.elapsedSeconds || 0,
+      chatHistory: Array.isArray(t.chatHistory) ? t.chatHistory : [],
+      interrupts: Array.isArray(t.interrupts) ? t.interrupts : [],
+      modelOverride: t.modelOverride || undefined,
+      createdAt: t.createdAt || new Date().toISOString(),
+      updatedAt: t.updatedAt || new Date().toISOString(),
     }));
     set({ tasks: migrated, activeTaskId });
   },

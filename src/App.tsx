@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dock } from './components/Dock';
 import { Sidebar } from './components/Sidebar';
 import { MainPanel } from './components/MainPanel';
@@ -11,11 +11,6 @@ import { Onboarding } from './components/Onboarding';
 import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
-import { useSettingsStore } from './stores/settingsStore';
-import { useContextPackStore } from './stores/contextPackStore';
-import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
-import { saveData, loadData } from './services/persistence';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -28,54 +23,54 @@ export default function App() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [showRightPanel, setShowRightPanel] = useState(true);
-  const resizingRef = useRef(false);
-  const { tasks, activeTaskId } = useTaskStore();
-  const { projects } = useProjectStore();
-  const loaded = useRef(false);
+  const [isResizing, setIsResizing] = useState(false);
 
-  useGlobalShortcuts();
+  // Load persisted data (migration handled in store.loadTasks/loadProjects)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('cortx-tasks');
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data?.tasks?.length) useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem('cortx-projects');
+      if (raw) {
+        const data = JSON.parse(raw);
+        const projects = Array.isArray(data) ? data : data?.projects || [];
+        if (projects.length) useProjectStore.getState().loadProjects(projects);
+      }
+    } catch {}
+    import('./stores/settingsStore').then(({ useSettingsStore }) => useSettingsStore.getState().loadSettings()).catch(() => {});
+    import('./stores/contextPackStore').then(({ useContextPackStore }) => useContextPackStore.getState().loadState()).catch(() => {});
+  }, []);
 
-  // Sidebar resize handlers
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizingRef.current = true;
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (!resizingRef.current) return;
-      const delta = e.clientX - startX;
-      const newWidth = Math.max(160, Math.min(400, startWidth + delta));
-      setSidebarWidth(newWidth);
+  // Persist on unload + periodic save every 5s
+  useEffect(() => {
+    const save = () => {
+      const ts = useTaskStore.getState();
+      const ps = useProjectStore.getState();
+      localStorage.setItem('cortx-tasks', JSON.stringify({ tasks: ts.tasks, activeTaskId: ts.activeTaskId }));
+      localStorage.setItem('cortx-projects', JSON.stringify(ps.projects));
     };
+    window.addEventListener('beforeunload', save);
+    const interval = setInterval(save, 5000);
+    return () => { window.removeEventListener('beforeunload', save); clearInterval(interval); };
+  }, []);
 
-    const onMouseUp = () => {
-      resizingRef.current = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
+  // Timer
+  useEffect(() => {
+    const i = setInterval(() => { const s = useTaskStore.getState(); const t = s.tasks.find((t) => t.id === s.activeTaskId && t.status === 'active'); if (t) s.incrementTimer(t.id); }, 1000);
+    return () => clearInterval(i);
+  }, []);
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, [sidebarWidth]);
-
-  // Keyboard shortcuts for panel toggle + fullscreen
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === 'b' && !e.shiftKey) {
-        e.preventDefault();
-        setShowSidebar((v) => !v);
-      }
-      if (e.metaKey && e.shiftKey && e.key === 'B') {
-        e.preventDefault();
-        setShowRightPanel((v) => !v);
-      }
+      if (e.metaKey && e.key === 'b' && !e.shiftKey) { e.preventDefault(); setShowSidebar((v) => !v); }
+      if (e.metaKey && e.shiftKey && e.key === 'B') { e.preventDefault(); setShowRightPanel((v) => !v); }
       if (e.key === 'Escape') {
-        // Close modals in priority order (last opened first)
         if (editProjectId) { setEditProjectId(null); return; }
         if (showReport) { setShowReport(false); return; }
         if (showSettings) { setShowSettings(false); return; }
@@ -88,108 +83,36 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [editProjectId, showReport, showSettings, showNewProject, showNewTask, showOnboarding]);
 
-  // Header double-click → toggle fullscreen
+  // Global shortcuts (Tauri)
+  useEffect(() => { import('./hooks/useGlobalShortcuts').then(({ registerShortcuts }) => registerShortcuts().catch(() => {})).catch(() => {}); }, []);
+
+  // Header double-click fullscreen
   const handleHeaderDoubleClick = useCallback(async () => {
-    try {
-      const win = getCurrentWindow();
-      const isMax = await win.isMaximized();
-      if (isMax) await win.unmaximize();
-      else await win.maximize();
-    } catch {
-      // Not in Tauri context
-    }
+    try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {}
   }, []);
 
-  // Load persisted data
-  useEffect(() => {
-    (async () => {
-      useSettingsStore.getState().loadSettings();
-      useContextPackStore.getState().loadState();
-      const data = await loadData<{ tasks: typeof tasks; activeTaskId: string | null }>('tasks');
-      if (data?.tasks?.length) useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
-      const projData = await loadData<{ projects: typeof projects }>('projects');
-      if (projData?.projects?.length) useProjectStore.getState().loadProjects(projData.projects);
-      loaded.current = true;
-    })();
-  }, []);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const s = useTaskStore.getState();
-      saveData('tasks', { tasks: s.tasks, activeTaskId: s.activeTaskId });
-      saveData('projects', { projects: useProjectStore.getState().projects });
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const s = useTaskStore.getState();
-      const t = s.tasks.find((t) => t.id === s.activeTaskId && t.status === 'active');
-      if (t) s.incrementTimer(t.id);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!loaded.current) return;
-    const timeout = setTimeout(() => saveData('tasks', { tasks, activeTaskId }), 500);
-    return () => clearTimeout(timeout);
-  }, [tasks, activeTaskId]);
-
-  useEffect(() => {
-    if (!loaded.current) return;
-    const timeout = setTimeout(() => saveData('projects', { projects }), 500);
-    return () => clearTimeout(timeout);
-  }, [projects]);
+  // Sidebar resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); setIsResizing(true);
+    const startX = e.clientX, startW = sidebarWidth;
+    const onMove = (e: MouseEvent) => setSidebarWidth(Math.max(160, Math.min(400, startW + e.clientX - startX)));
+    const onUp = () => { setIsResizing(false); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; };
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
 
   return (
     <div className="app-layout" style={{ gridTemplateColumns: `64px ${showSidebar ? `${sidebarWidth}px` : '0px'} 1fr`, transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-      {/* Titlebar: drag region + double-click to maximize */}
-      <div className="titlebar-region">
-        <div className="titlebar-region-clickable" onDoubleClick={handleHeaderDoubleClick} />
-      </div>
-      <Dock
-        onAddTask={() => setShowNewTask(true)}
-        onAddProject={() => setShowNewProject(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        onEnsureSidebarOpen={() => setShowSidebar(true)}
-      />
-      <div style={{ overflow: 'hidden', width: showSidebar ? sidebarWidth : 0, transition: resizingRef.current ? 'none' : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)', flexShrink: 0, position: 'relative' }}>
+      <div className="titlebar-region"><div className="titlebar-region-clickable" onDoubleClick={handleHeaderDoubleClick} /></div>
+      <Dock onAddTask={() => setShowNewTask(true)} onAddProject={() => setShowNewProject(true)} onOpenSettings={() => setShowSettings(true)} onToggleSidebar={() => setShowSidebar((v) => !v)} onEnsureSidebarOpen={() => setShowSidebar(true)} />
+      <div style={{ overflow: 'hidden', width: showSidebar ? sidebarWidth : 0, transition: isResizing ? 'none' : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)', flexShrink: 0, position: 'relative' }}>
         <div style={{ width: sidebarWidth, minWidth: sidebarWidth, height: '100%' }}>
-        <Sidebar
-          onShowReport={() => setShowReport(true)}
-          onAddTask={() => setShowNewTask(true)}
-          onEditProject={(id) => setEditProjectId(id)}
-          onAddTaskForProject={(id) => { setNewTaskProjectId(id); setShowNewTask(true); }}
-        />
+          <Sidebar onShowReport={() => setShowReport(true)} onAddTask={() => setShowNewTask(true)} onEditProject={(id) => setEditProjectId(id)} onAddTaskForProject={(id) => { setNewTaskProjectId(id); setShowNewTask(true); }} />
         </div>
-        {/* Resize handle */}
-        {showSidebar && (
-          <div
-            onMouseDown={handleResizeStart}
-            style={{
-              position: 'absolute', top: 0, right: 0, width: 4, height: '100%',
-              cursor: 'col-resize', zIndex: 2,
-              background: 'transparent',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#6366f140')}
-            onMouseLeave={(e) => { if (!resizingRef.current) e.currentTarget.style.background = 'transparent'; }}
-          />
-        )}
+        {showSidebar && <div onMouseDown={handleResizeStart} style={{ position: 'absolute', top: 0, right: 0, width: 4, height: '100%', cursor: 'col-resize', zIndex: 2 }} onMouseEnter={(e) => (e.currentTarget.style.background = '#6366f140')} onMouseLeave={(e) => { if (!isResizing) e.currentTarget.style.background = 'transparent'; }} />}
       </div>
-      <MainPanel
-        showRightPanel={showRightPanel}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
-      />
-      <StatusBar
-        showSidebar={showSidebar}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        showRightPanel={showRightPanel}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
-      />
+      <MainPanel showRightPanel={showRightPanel} onToggleRightPanel={() => setShowRightPanel((v) => !v)} />
+      <StatusBar showSidebar={showSidebar} onToggleSidebar={() => setShowSidebar((v) => !v)} showRightPanel={showRightPanel} onToggleRightPanel={() => setShowRightPanel((v) => !v)} />
       {showNewTask && <NewTaskModal onClose={() => { setShowNewTask(false); setNewTaskProjectId(undefined); }} defaultProjectId={newTaskProjectId} />}
       {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}

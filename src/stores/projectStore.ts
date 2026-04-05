@@ -40,5 +40,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     projects: s.projects.map((p) => p.id === id ? { ...p, ...updates } : p),
   })),
 
-  loadProjects: (projects) => set({ projects }),
+  loadProjects: (projects) => {
+    // Migrate: ensure ALL fields exist with defaults
+    const migrated = projects.map((p) => ({
+      id: p.id || genId(),
+      name: p.name || '',
+      localPath: p.localPath || '',
+      githubOwner: p.githubOwner || '',
+      githubRepo: p.githubRepo || '',
+      baseBranch: p.baseBranch || 'main',
+      slackChannels: Array.isArray(p.slackChannels) ? p.slackChannels : [],
+      color: p.color || '#818cf8',
+      createdAt: p.createdAt || new Date().toISOString(),
+    }));
+    set({ projects: migrated });
+  },
 }));

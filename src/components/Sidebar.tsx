@@ -4,8 +4,13 @@ import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
 
 export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { onShowReport?: () => void; onAddTask?: () => void; onEditProject?: (id: string) => void; onAddTaskForProject?: (projectId: string) => void }) {
-  const { tasks, activeTaskId, setActiveTask, removeTask, setTaskStatus } = useTaskStore();
-  const { projects, removeProject } = useProjectStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const activeTaskId = useTaskStore((s) => s.activeTaskId);
+  const setActiveTask = useTaskStore((s) => s.setActiveTask);
+  const removeTask = useTaskStore((s) => s.removeTask);
+  const setTaskStatus = useTaskStore((s) => s.setTaskStatus);
+  const projects = useProjectStore((s) => s.projects);
+  const removeProject = useProjectStore((s) => s.removeProject);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');

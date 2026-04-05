@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
@@ -19,13 +19,28 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
   const addTask = useTaskStore((s) => s.addTask);
   const projects = useProjectStore((s) => s.projects);
   const [title, setTitle] = useState('');
+  const [customBranch, setCustomBranch] = useState('');
   const [projectId, setProjectId] = useState(defaultProjectId || projects[0]?.id || '');
   const [layer, setLayer] = useState<TaskLayer>('focus');
   const [creating, setCreating] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const [branches, setBranches] = useState<string[]>([]);
+  const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [branchSearch, setBranchSearch] = useState('');
 
   const selectedProject = projects.find((p) => p.id === projectId);
+
+  // Fetch branches when project changes
+  useEffect(() => {
+    if (!selectedProject?.localPath) { setBranches([]); return; }
+    invoke<{ success: boolean; output: string }>('run_shell_command', {
+      cwd: selectedProject.localPath,
+      command: 'git branch -a --format="%(refname:short)"',
+    }).then((r) => {
+      if (r.success) setBranches(r.output.trim().split('\n').filter(Boolean));
+    }).catch(() => {});
+  }, [selectedProject?.localPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,19 +55,27 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
 
     // Auto-create worktree if project has a local path
     if (repoPath) {
-      const slug = slugify(title);
-      branchName = `cortx/${slug}`;
-      worktreePath = `${repoPath}/.worktrees/${slug}`;
+      branchName = customBranch.trim() || `cortx/${slugify(title)}`;
+      worktreePath = `${repoPath}/.worktrees/${slugify(branchName)}`;
+      const baseBranch = project?.baseBranch || 'main';
+
+      // Pull latest base branch first
+      setStatus(`Pulling latest ${baseBranch}...`);
+      try {
+        await invoke<{ success: boolean }>('run_shell_command', {
+          cwd: repoPath,
+          command: `git fetch origin && git checkout ${baseBranch} && git pull origin ${baseBranch}`,
+        });
+      } catch { /* fetch failed — continue anyway */ }
 
       setStatus('Creating worktree...');
 
       try {
-        // Create worktree with new branch
         const result = await invoke<{ success: boolean; output: string; error: string }>('create_worktree', {
           repoPath,
           worktreePath,
           branchName,
-          baseBranch: project?.baseBranch || null,
+          baseBranch,
         });
 
         if (!result.success) {
@@ -88,24 +111,20 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
 
     setStatus('Creating task...');
 
-    addTask(title.trim(), repoPath, branchName);
-
-    setTimeout(() => {
-      const state = useTaskStore.getState();
-      const last = state.tasks[state.tasks.length - 1];
-      if (last) {
-        state.updateTask(last.id, {
-          layer,
-          projectId: projectId || undefined,
-          worktreePath: worktreePath || repoPath,
-        });
-        state.selectTask(last.id);
-      }
-    }, 0);
+    const taskId = addTask(title.trim(), repoPath, branchName, {
+      layer,
+      projectId: projectId || undefined,
+      worktreePath: worktreePath || repoPath,
+    });
 
     setCreating(false);
     setStatus('');
     onClose();
+
+    // Select task AFTER modal is closed and React settles
+    requestAnimationFrame(() => {
+      useTaskStore.getState().selectTask(taskId);
+    });
   };
 
   return (
@@ -120,9 +139,77 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           <div className="field">
             <span className="field-label">Task title <span style={{ color: '#6366f1' }}>*</span></span>
             <input className="field-input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. API 인증 리팩토링" />
+          {/* Branch name */}
+          {selectedProject?.localPath && (
+            <div className="field">
+              <span className="field-label">Branch name</span>
+              <input className="field-input mono" style={{ fontSize: 12 }} value={customBranch} onChange={(e) => setCustomBranch(e.target.value)} placeholder={title.trim() ? `cortx/${slugify(title)}` : 'e.g. feat/auth-refactor'} />
+            </div>
+          )}
+
             {title.trim() && selectedProject?.localPath && (
-              <div style={{ fontSize: 10, color: '#3f3f46', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-                Branch: cortx/{slugify(title)} · .worktrees/{slugify(title)}
+              <div style={{ fontSize: 11, color: '#52525e', marginTop: 2, marginBottom: 4, fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span>{customBranch.trim() || `cortx/${slugify(title)}`}</span>
+                <span style={{ color: '#32323c' }}>·</span>
+                <span>.worktrees/{slugify(title)}</span>
+                <span style={{ color: '#32323c' }}>·</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  from
+                  <span style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowBranchPicker(!showBranchPicker)}
+                      style={{
+                        padding: '2px 8px', borderRadius: 4, fontSize: 11,
+                        background: '#232330', border: '1px solid #32323c',
+                        color: '#818cf8', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      {selectedProject.baseBranch || 'main'} ⌃
+                    </button>
+                    {showBranchPicker && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
+                        width: 240, background: '#16161e', border: '1px solid #32323c',
+                        borderRadius: 8, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', overflow: 'hidden',
+                      }}>
+                        <div style={{ padding: '8px', borderBottom: '1px solid #1e1e26' }}>
+                          <input
+                            autoFocus
+                            value={branchSearch}
+                            onChange={(e) => setBranchSearch(e.target.value)}
+                            placeholder="Search branch..."
+                            style={{ width: '100%', background: 'none', border: 'none', outline: 'none', color: '#e4e4e7', fontSize: 12, fontFamily: 'inherit' }}
+                          />
+                        </div>
+                        <div style={{ maxHeight: 180, overflowY: 'auto', padding: 4 }}>
+                          {branches.filter(b => b.toLowerCase().includes(branchSearch.toLowerCase())).map((b) => (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={() => {
+                                useProjectStore.getState().updateProject(selectedProject.id, { baseBranch: b });
+                                setShowBranchPicker(false);
+                                setBranchSearch('');
+                              }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                                padding: '6px 10px', background: b === (selectedProject.baseBranch || 'main') ? 'rgba(99,102,241,0.08)' : 'none',
+                                border: 'none', borderRadius: 4, cursor: 'pointer',
+                                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                                color: b === (selectedProject.baseBranch || 'main') ? '#e4e4e7' : '#888895',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <span style={{ width: 14 }}>{b === (selectedProject.baseBranch || 'main') ? '✓' : ''}</span>
+                              {b}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </span>
+                </span>
               </div>
             )}
           </div>

@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
 import { collectGitHub } from '../services/contextCollectors/github';
 import { collectSlack } from '../services/contextCollectors/slack';
-import { storeContextBatch, searchContext, type VectorItem } from '../services/vectorSearch';
 import { collectNotion } from '../services/contextCollectors/notion';
 
 const STORAGE_KEY = 'cortx-context-pack';
@@ -127,34 +126,25 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       }
     }
 
-    // Store all collected items in vector DB for semantic search
-    try {
-      const vectorItems: VectorItem[] = collected.map((item) => ({
-        id: item.id,
-        taskId,
-        sourceType: item.sourceType,
-        title: item.title,
-        content: item.metadata?.fullText || item.summary || item.title,
-        url: item.url,
-        timestamp: item.timestamp,
-      }));
-      await storeContextBatch(vectorItems);
-    } catch {
-      // Vector DB not available — continue without it
-    }
-
-    // If we have a task title, use semantic search to filter for relevance
+    // Store in vector DB + semantic filter (optional, fails gracefully)
     let relevant = collected;
-    if (taskTitle && collected.length > 10) {
-      try {
-        const searchResults = await searchContext(taskTitle, 15, taskId);
+    try {
+      const vs = await import('../services/vectorSearch');
+      const vectorItems = collected.map((item) => ({
+        id: item.id, taskId, sourceType: item.sourceType,
+        title: item.title, content: item.metadata?.fullText || item.summary || item.title,
+        url: item.url, timestamp: item.timestamp,
+      }));
+      await vs.storeContextBatch(vectorItems);
+
+      if (taskTitle && collected.length > 10) {
+        const searchResults = await vs.searchContext(taskTitle, 15, taskId);
         const relevantIds = new Set(searchResults.map((r) => r.id));
-        relevant = collected.filter((item) => relevantIds.has(item.id));
-        // Always keep at least some items if search returned nothing
-        if (relevant.length === 0) relevant = collected.slice(0, 10);
-      } catch {
-        // Vector search failed — keep all
+        const filtered = collected.filter((item) => relevantIds.has(item.id));
+        if (filtered.length > 0) relevant = filtered;
       }
+    } catch {
+      // Vector DB not available — use all collected items
     }
 
     // Merge: keep pinned items, replace auto/linked

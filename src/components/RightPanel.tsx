@@ -16,16 +16,20 @@ const reasonLabel: Record<string, string> = {
 
 export function RightPanel() {
   const [tab, setTab] = useState<RTab>('worktree');
-  const { tasks, activeTaskId, updateTask } = useTaskStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const activeTaskId = useTaskStore((s) => s.activeTaskId);
+  const updateTask = useTaskStore((s) => s.updateTask);
   const projects = useProjectStore((s) => s.projects);
-  const { items, deltaItems } = useContextPackStore();
+  // Subscribe only to the specific task's data to avoid infinite re-renders
   const task = tasks.find((t) => t.id === activeTaskId);
+  const taskItemsRaw = useContextPackStore((s) => task ? s.items[task.id] : undefined);
+  const taskDeltaRaw = useContextPackStore((s) => task ? s.deltaItems[task.id] : undefined);
 
   if (!task) return <div className="right-panel" />;
 
   const taskProject = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
-  const taskItems = items[task.id] || [];
-  const taskDelta = deltaItems[task.id] || [];
+  const taskItems = taskItemsRaw || [];
+  const taskDelta = taskDeltaRaw || [];
   const newCount = taskItems.filter((i) => i.isNew).length;
   const interrupts = task.interrupts || [];
   const totalInterruptTime = interrupts.reduce((s, e) => s + e.durationSeconds, 0);

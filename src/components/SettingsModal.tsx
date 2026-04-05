@@ -56,7 +56,7 @@ const providerConfigs: ProviderConfig[] = [
 ];
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { sources, addSource, updateSource, removeSource } = useContextPackStore();
+  const sources = useContextPackStore((s) => s.sources);
   const [tab, setTab] = useState<STab>('ai');
 
   return (
@@ -73,7 +73,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="modal-body">
           {tab === 'ai' && <AIProviderSettings />}
           {tab === 'sources' && (
-            <SourcesSettings sources={sources} onAdd={addSource} onUpdate={updateSource} onRemove={removeSource} />
+            <SourcesSettings sources={sources} onAdd={(s) => useContextPackStore.getState().addSource(s)} onUpdate={(i, u) => useContextPackStore.getState().updateSource(i, u)} onRemove={(i) => useContextPackStore.getState().removeSource(i)} />
           )}
         </div>
       </div>

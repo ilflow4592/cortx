@@ -14,12 +14,15 @@ interface Message {
   content: string;
 }
 
+const EMPTY_ARR: never[] = [];
+
 export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const contextItems = useContextPackStore((s) => s.items[taskId] || []);
+  const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
+  const contextItems = contextItemsRaw || EMPTY_ARR;
   const endRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 

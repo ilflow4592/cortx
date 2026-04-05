@@ -13,9 +13,16 @@ const presetModels: { provider: AIProvider; models: string[] }[] = [
 ];
 
 export function Chat({ taskId }: { taskId: string }) {
-  const { tasks, addChatMessage, updateTask } = useTaskStore();
-  const settings = useSettingsStore();
-  const { items } = useContextPackStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const addChatMessage = useTaskStore((s) => s.addChatMessage);
+  const updateTask = useTaskStore((s) => s.updateTask);
+  const aiProvider = useSettingsStore((s) => s.aiProvider);
+  const authMethod = useSettingsStore((s) => s.authMethod);
+  const apiKey = useSettingsStore((s) => s.apiKey);
+  const oauthAccessToken = useSettingsStore((s) => s.oauthAccessToken);
+  const modelId = useSettingsStore((s) => s.modelId);
+  const ollamaUrl = useSettingsStore((s) => s.ollamaUrl);
+  // Don't subscribe to entire store — get items only when needed
   const task = tasks.find((t) => t.id === taskId);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,15 +35,15 @@ export function Chat({ taskId }: { taskId: string }) {
   if (!task) return null;
 
   // Resolve model: task override > global settings
-  const provider = task.modelOverride?.provider || settings.aiProvider;
-  const modelId = task.modelOverride?.modelId || settings.modelId;
-  const ollamaUrl = settings.ollamaUrl;
-  // Use oauth token if available, otherwise api key
-  const authMethod = (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? 'oauth' : 'api-key';
-  const apiKey = authMethod === 'oauth' ? settings.oauthAccessToken : settings.apiKey;
+  const provider = task.modelOverride?.provider || aiProvider;
+  const resolvedModelId = task.modelOverride?.modelId || modelId;
+  const resolvedOllamaUrl = ollamaUrl;
+  const resolvedAuthMethod = (authMethod === 'oauth' && oauthAccessToken) ? 'oauth' as const : 'api-key' as const;
+  const resolvedApiKey = resolvedAuthMethod === 'oauth' ? oauthAccessToken : apiKey;
 
   // Build context-aware system prompt
-  const contextItems = items[taskId] || [];
+  const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
+  const contextItems = contextItemsRaw || [];
   const buildSystemContext = (): string => {
     const parts: string[] = [];
     parts.push(`You are an AI coding assistant helping with the task: "${task.title}".`);
@@ -64,13 +71,13 @@ export function Chat({ taskId }: { taskId: string }) {
 
     try {
       const resp = await callAI({
-        provider, apiKey, modelId, ollamaUrl,
-        oauthToken: settings.oauthAccessToken,
-        authMethod,
+        provider, apiKey: resolvedApiKey, modelId: resolvedModelId, ollamaUrl: resolvedOllamaUrl,
+        oauthToken: oauthAccessToken,
+        authMethod: resolvedAuthMethod,
         messages: [...task.chatHistory, userMsg],
         taskTitle: buildSystemContext(),
       });
-      addChatMessage(taskId, { id: (Date.now()+1).toString(36), role: 'assistant', content: resp, model: modelId, timestamp: new Date().toISOString() });
+      addChatMessage(taskId, { id: (Date.now()+1).toString(36), role: 'assistant', content: resp, model: resolvedModelId, timestamp: new Date().toISOString() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {

@@ -3,13 +3,17 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { ContextItem } from '../types/contextPack';
 import { GitHubIcon, SlackIcon, NotionIcon, McpIcon, PinIcon } from './SourceIcons';
-import { searchGlobalContext, checkVectorServices, type VectorItem } from '../services/vectorSearch';
 
 export function ContextPack({ taskId }: { taskId: string }) {
-  const { items, deltaItems, isCollecting, lastCollectedAt, addPin, removeItem, collectAll, setKeywords, sources } = useContextPackStore();
+  const isCollecting = useContextPackStore((s) => s.isCollecting);
+  const sources = useContextPackStore((s) => s.sources);
+  const taskItemsRaw = useContextPackStore((s) => s.items[taskId]);
+  const taskDeltaRaw = useContextPackStore((s) => s.deltaItems[taskId]);
+  const lastCollectedAt = useContextPackStore((s) => s.lastCollectedAt[taskId]);
+  const taskItems = taskItemsRaw || [];
+  const taskDelta = taskDeltaRaw || [];
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId));
   const projects = useProjectStore((s) => s.projects);
   const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
@@ -25,6 +29,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
     let unlisten: (() => void) | null = null;
     let lastDropTime = 0;
 
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
     getCurrentWindow().onDragDropEvent((event) => {
       const payload = event.payload as { type: string; paths?: string[] };
       if (payload.type === 'enter' || payload.type === 'over') {
@@ -58,24 +63,23 @@ export function ContextPack({ taskId }: { taskId: string }) {
         setIsDragging(false);
       }
     }).then((fn) => { unlisten = fn; });
+    }).catch(() => {}); // Not in Tauri context
 
     return () => { unlisten?.(); };
   }, [taskId]);
 
-  const taskItems = items[taskId] || [];
-  const taskDelta = deltaItems[taskId] || [];
   const filtered = taskItems;
   const newCount = taskItems.filter((i) => i.isNew).length;
   const [mcpServers, setMcpServers] = useState<{ name: string; command: string }[]>([]);
   const [vectorStatus, setVectorStatus] = useState<{ ollama: boolean; qdrant: boolean }>({ ollama: false, qdrant: false });
-  const [relatedItems, setRelatedItems] = useState<VectorItem[]>([]);
+  const [relatedItems, setRelatedItems] = useState<{ id: string; taskId: string; sourceType: string; title: string; content: string; url: string; timestamp: string }[]>([]);
   const [searchingRelated, setSearchingRelated] = useState(false);
 
   useEffect(() => {
     invoke<{ name: string; command: string; args: string[] }[]>('list_mcp_servers')
       .then((servers) => setMcpServers(servers))
       .catch(() => {});
-    checkVectorServices().then(setVectorStatus).catch(() => {});
+    import('../services/vectorSearch').then((vs) => vs.checkVectorServices().then(setVectorStatus)).catch(() => {});
   }, []);
 
   // Search for related context from other tasks
@@ -83,8 +87,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
     if (!task?.title) return;
     setSearchingRelated(true);
     try {
-      const results = await searchGlobalContext(task.title, 5);
-      // Exclude items from current task
+      const vs = await import('../services/vectorSearch');
+      const results = await vs.searchGlobalContext(task.title, 5);
       setRelatedItems(results.filter((r) => r.taskId !== taskId));
     } catch { /* vector search unavailable */ }
     setSearchingRelated(false);
@@ -94,13 +98,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
   const handleCollect = () => {
     const autoKeywords = [task?.title, task?.branchName].filter(Boolean) as string[];
-    setKeywords(taskId, autoKeywords);
-    collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title);
+    useContextPackStore.getState().setKeywords(taskId, autoKeywords);
+    useContextPackStore.getState().collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title);
   };
 
   const handlePin = () => {
     if (!pinTitle.trim()) return;
-    addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem);
+    useContextPackStore.getState().addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem);
     setPinUrl(''); setPinTitle(''); setShowPin(false);
   };
 
@@ -114,7 +118,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
     setLoadingPreview(false);
   };
 
-  const lastCol = lastCollectedAt[taskId];
+  const lastCol = lastCollectedAt;
 
   return (
     <div className="ctx-pack" style={{ position: 'relative' }}>
@@ -317,7 +321,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 </div>
                 <div className="cp-sub">{item.summary}</div>
               </div>
-              <button onClick={() => removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#32323c', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
+              <button onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#32323c', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
             </div>
           ))
         )}

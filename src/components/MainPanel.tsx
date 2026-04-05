@@ -22,12 +22,17 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
-  const { tasks, activeTaskId, startTask, pauseWithReason, resumeTask, setTaskStatus, removeTask } = useTaskStore();
-  const { takeSnapshot, detectDelta, deltaItems } = useContextPackStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const activeTaskId = useTaskStore((s) => s.activeTaskId);
+  const startTask = useTaskStore((s) => s.startTask);
+  const pauseWithReason = useTaskStore((s) => s.pauseWithReason);
+  const resumeTask = useTaskStore((s) => s.resumeTask);
+  const setTaskStatus = useTaskStore((s) => s.setTaskStatus);
+  const removeTask = useTaskStore((s) => s.removeTask);
   const projects = useProjectStore((s) => s.projects);
   const task = tasks.find((t) => t.id === activeTaskId);
+  const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
-  // Resolve working directory: task worktreePath > task repoPath > project localPath
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
 
   if (!task) {
@@ -44,18 +49,17 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
     );
   }
 
-  const taskDelta = deltaItems[task.id] || [];
   const badgeCls = task.status === 'active' ? 'active' : task.status === 'paused' ? 'paused' : 'waiting';
   const statusLabel = task.status === 'active' ? 'In Progress' : task.status === 'paused' ? 'Paused' : task.status === 'waiting' ? 'Waiting' : task.status;
 
   const handleStart = () => startTask(task.id);
   const handlePauseConfirm = (reason: InterruptReason, memo: string) => {
-    takeSnapshot(task.id);
+    useContextPackStore.getState().takeSnapshot(task.id);
     pauseWithReason(task.id, reason, memo);
     setShowPause(false);
   };
   const handleResume = async () => {
-    await detectDelta(task.id, task.branchName);
+    await useContextPackStore.getState().detectDelta(task.id, task.branchName);
     resumeTask(task.id);
 
     // Generate AI briefing
@@ -107,7 +111,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
     { key: 'chat', label: '💬 Chat' },
     { key: 'terminal', label: '⌨ Terminal' },
     { key: 'diff', label: '📋 Diff' },
-    { key: 'context', label: '📦 Context Pack', badge: taskDelta.length || undefined },
+    { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
   ];
 
   return (
@@ -146,9 +150,9 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
         </div>
       </div>
 
-      {task.status === 'active' && taskDelta.length > 0 && (
+      {task.status === 'active' && taskDeltaCount > 0 && (
         <div className="delta-banner">
-          <span className="delta-banner-text">⚡ {taskDelta.length} updates while you were away</span>
+          <span className="delta-banner-text">⚡ {taskDeltaCount} updates while you were away</span>
           <span className="delta-banner-link" onClick={() => setActiveTab('context')}>View changes →</span>
         </div>
       )}

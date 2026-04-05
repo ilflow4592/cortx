@@ -10,7 +10,8 @@ interface DockProps {
 }
 
 export function Dock({ onAddTask, onAddProject, onOpenSettings, onToggleSidebar, onEnsureSidebarOpen }: DockProps) {
-  const { tasks, setActiveTask } = useTaskStore();
+  const tasks = useTaskStore((s) => s.tasks);
+  const setActiveTask = useTaskStore((s) => s.setActiveTask);
   const projects = useProjectStore((s) => s.projects);
 
   const taskClass = (status: string) => {
