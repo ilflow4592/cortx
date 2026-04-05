@@ -2,6 +2,8 @@ mod pty;
 
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::io::{Read, Write as IoWrite};
+use std::net::TcpListener;
 use serde::{Deserialize, Serialize};
 use pty::{PtyManager, SharedPtyManager};
 
@@ -15,8 +17,14 @@ pub struct CommandResult {
 // ── Git worktree commands ──
 
 #[tauri::command]
-fn create_worktree(repo_path: String, worktree_path: String, branch_name: String) -> CommandResult {
-    run_git(&repo_path, &["worktree", "add", &worktree_path, "-b", &branch_name])
+fn create_worktree(repo_path: String, worktree_path: String, branch_name: String, base_branch: Option<String>) -> CommandResult {
+    let base = base_branch.unwrap_or_default();
+    if base.is_empty() {
+        run_git(&repo_path, &["worktree", "add", &worktree_path, "-b", &branch_name])
+    } else {
+        // git worktree add <path> -b <new-branch> <base-branch>
+        run_git(&repo_path, &["worktree", "add", &worktree_path, "-b", &branch_name, &base])
+    }
 }
 
 #[tauri::command]
@@ -188,6 +196,202 @@ fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
     }).collect()
 }
 
+// ── OAuth callback server ──
+
+#[derive(Serialize, Deserialize)]
+pub struct OAuthCallbackResult {
+    pub code: String,
+    pub state: String,
+    pub success: bool,
+    pub error: String,
+}
+
+#[tauri::command]
+async fn start_oauth_callback_server(port: u16) -> OAuthCallbackResult {
+    // Run blocking TCP server on a separate thread
+    tauri::async_runtime::spawn_blocking(move || {
+        oauth_callback_listen(port)
+    }).await.unwrap_or_else(|e| OAuthCallbackResult {
+        code: String::new(), state: String::new(), success: false,
+        error: format!("Thread error: {}", e),
+    })
+}
+
+fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
+    let addr = format!("127.0.0.1:{}", port);
+    let listener = match TcpListener::bind(&addr) {
+        Ok(l) => l,
+        Err(e) => return OAuthCallbackResult {
+            code: String::new(), state: String::new(), success: false,
+            error: format!("Failed to bind to {}: {}", addr, e),
+        },
+    };
+
+    // 5 minute timeout
+    listener.set_nonblocking(false).ok();
+    let _ = listener.set_ttl(300);
+    use std::time::Duration;
+    let timeout = Duration::from_secs(300);
+    let start = std::time::Instant::now();
+
+    // Poll with short accepts so we can check timeout
+    loop {
+        if start.elapsed() > timeout {
+            return OAuthCallbackResult {
+                code: String::new(), state: String::new(), success: false,
+                error: "Login timed out (5 minutes)".to_string(),
+            };
+        }
+        // Set a short accept timeout
+        let _ = listener.set_nonblocking(false);
+
+        match listener.accept() {
+        Ok((mut stream, _)) => {
+            let mut buf = [0u8; 4096];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            let request = String::from_utf8_lossy(&buf[..n]).to_string();
+
+            // Parse GET /callback?code=xxx&state=yyy
+            let mut code = String::new();
+            let mut state = String::new();
+            let mut error = String::new();
+
+            if let Some(query_start) = request.find("/callback?") {
+                let query_part = &request[query_start + 10..];
+                let query_end = query_part.find(' ').unwrap_or(query_part.len());
+                let query = &query_part[..query_end];
+
+                for param in query.split('&') {
+                    let mut kv = param.splitn(2, '=');
+                    let key = kv.next().unwrap_or("");
+                    let value = kv.next().unwrap_or("");
+                    let decoded = urlencoding_decode(value);
+                    match key {
+                        "code" => code = decoded,
+                        "state" => state = decoded,
+                        "error" => error = decoded,
+                        _ => {}
+                    }
+                }
+            }
+
+            // Send response HTML
+            let html = if !code.is_empty() {
+                "<html><body style='background:#06060a;color:#e4e4e7;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'><div style='text-align:center'><h1 style='font-size:48px;margin-bottom:16px'>✅</h1><h2>Connected to Anthropic</h2><p style='color:#71717a;margin-top:8px'>You can close this tab and return to Cortx.</p></div></body></html>"
+            } else {
+                "<html><body style='background:#06060a;color:#e4e4e7;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0'><div style='text-align:center'><h1 style='font-size:48px;margin-bottom:16px'>❌</h1><h2>Authentication Failed</h2><p style='color:#71717a;margin-top:8px'>Please try again in Cortx.</p></div></body></html>"
+            };
+
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                html.len(), html
+            );
+            let _ = stream.write_all(response.as_bytes());
+            let _ = stream.flush();
+
+            return OAuthCallbackResult {
+                code, state, success: error.is_empty(),
+                error,
+            };
+        }
+        Err(e) => {
+            // Non-blocking would give WouldBlock — just retry
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            return OAuthCallbackResult {
+                code: String::new(), state: String::new(), success: false,
+                error: format!("Failed to accept connection: {}", e),
+            };
+        }
+    }
+    } // end loop
+}
+
+fn urlencoding_decode(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.bytes();
+    while let Some(b) = chars.next() {
+        if b == b'%' {
+            let h1 = chars.next().unwrap_or(0);
+            let h2 = chars.next().unwrap_or(0);
+            let hex = format!("{}{}", h1 as char, h2 as char);
+            if let Ok(val) = u8::from_str_radix(&hex, 16) {
+                result.push(val as char);
+            }
+        } else if b == b'+' {
+            result.push(' ');
+        } else {
+            result.push(b as char);
+        }
+    }
+    result
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct McpServerInfo {
+    pub name: String,
+    pub command: String,
+    pub args: Vec<String>,
+}
+
+#[tauri::command]
+fn list_mcp_servers() -> Vec<McpServerInfo> {
+    let mut servers = vec![];
+
+    // Check ~/.claude.json
+    if let Some(home) = std::env::var_os("HOME") {
+        let config_path = std::path::Path::new(&home).join(".claude.json");
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(mcp) = json.get("mcpServers").and_then(|v| v.as_object()) {
+                    for (name, config) in mcp {
+                        let command = config.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let args: Vec<String> = config.get("args")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
+                            .unwrap_or_default();
+                        servers.push(McpServerInfo { name: name.clone(), command, args });
+                    }
+                }
+            }
+        }
+
+        // Also check ~/.claude/settings.json
+        let settings_path = std::path::Path::new(&home).join(".claude").join("settings.json");
+        if let Ok(content) = std::fs::read_to_string(&settings_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(mcp) = json.get("mcpServers").and_then(|v| v.as_object()) {
+                    for (name, config) in mcp {
+                        if servers.iter().any(|s| s.name == *name) { continue; }
+                        let command = config.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let args: Vec<String> = config.get("args")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
+                            .unwrap_or_default();
+                        servers.push(McpServerInfo { name: name.clone(), command, args });
+                    }
+                }
+            }
+        }
+    }
+
+    servers
+}
+
+#[tauri::command]
+fn run_shell_command(cwd: String, command: String) -> CommandResult {
+    match Command::new("sh").args(["-c", &command]).current_dir(&cwd).output() {
+        Ok(out) => CommandResult {
+            success: out.status.success(),
+            output: String::from_utf8_lossy(&out.stdout).to_string(),
+            error: String::from_utf8_lossy(&out.stderr).to_string(),
+        },
+        Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
+    }
+}
+
 fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
     match Command::new("git").args(args).current_dir(cwd).output() {
         Ok(out) => CommandResult {
@@ -197,6 +401,23 @@ fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
         },
         Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
     }
+}
+
+// ── Claude Code CLI ──
+
+#[tauri::command]
+fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
+    let mut mgr = state.lock().map_err(|e| e.to_string())?;
+    mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), &app)
+}
+
+#[tauri::command]
+fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
+    let mut mgr = state.lock().map_err(|e| e.to_string())?;
+    if !mgr.has_session(&id) {
+        return Err("Claude session not running. Try reconnecting.".to_string());
+    }
+    mgr.write(&id, &format!("{}\n", message))
 }
 
 // ── PTY commands ──
@@ -237,6 +458,8 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -257,7 +480,12 @@ pub fn run() {
             git_diff_unstaged,
             fetch_link_preview,
             read_cortx_yaml,
+            start_oauth_callback_server,
             run_setup_scripts,
+            run_shell_command,
+            list_mcp_servers,
+            claude_spawn,
+            claude_send,
             pty_spawn,
             pty_write,
             pty_resize,

@@ -1,7 +1,12 @@
 import { useTaskStore } from '../stores/taskStore';
 import { formatTime } from '../utils/time';
 
-export function StatusBar() {
+export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onToggleRightPanel }: {
+  showSidebar?: boolean;
+  onToggleSidebar?: () => void;
+  showRightPanel?: boolean;
+  onToggleRightPanel?: () => void;
+}) {
   const { tasks, activeTaskId } = useTaskStore();
   const activeTask = tasks.find((t) => t.id === activeTaskId);
   const totalFocus = tasks.reduce((s, t) => s + t.elapsedSeconds, 0);
@@ -14,18 +19,19 @@ export function StatusBar() {
           <>
             <span className="sb-active-tag"><span className="dot" />{activeTask.title}</span>
             <span>{formatTime(activeTask.elapsedSeconds)}</span>
-            <span style={{ color:'#18181b' }}>|</span>
+            <span style={{ color: '#18181b' }}>|</span>
             <span>Focus {formatTime(totalFocus)}</span>
             <span>Done {doneCount}/{tasks.length}</span>
           </>
         ) : (
-          <span style={{ color:'#3f3f46' }}>No active task</span>
+          <span style={{ color: '#3f3f46' }}>No active task</span>
         )}
       </div>
       <div className="sb-r">
+        <span style={{ cursor: 'pointer', color: showSidebar ? '#52525b' : '#818cf8' }} onClick={onToggleSidebar} title="Toggle sidebar ⌘B">⌘B sidebar</span>
+        <span style={{ cursor: 'pointer', color: showRightPanel ? '#52525b' : '#818cf8' }} onClick={onToggleRightPanel} title="Toggle right panel ⌘⇧B">⌘⇧B panel</span>
         <span>⌘⇧P pause</span>
         <span>⌘⇧R resume</span>
-        <span>⌘1-3 switch</span>
       </div>
     </div>
   );

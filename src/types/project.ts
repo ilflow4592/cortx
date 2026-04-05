@@ -4,6 +4,8 @@ export interface Project {
   localPath: string;
   githubOwner: string;
   githubRepo: string;
+  baseBranch: string;
+  slackChannels: string[]; // channel IDs to monitor
   color: string;
   createdAt: string;
 }

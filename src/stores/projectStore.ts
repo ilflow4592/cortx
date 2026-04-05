@@ -23,6 +23,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const colorIndex = get().projects.length % COLORS.length;
     const project: Project = {
       id, name, localPath, githubOwner, githubRepo,
+      baseBranch: 'main',
+      slackChannels: [],
       color: COLORS[colorIndex],
       createdAt: new Date().toISOString(),
     };

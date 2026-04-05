@@ -1,72 +1,247 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
+import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { ContextItem } from '../types/contextPack';
+import { GitHubIcon, SlackIcon, NotionIcon, McpIcon, PinIcon } from './SourceIcons';
+import { searchGlobalContext, checkVectorServices, type VectorItem } from '../services/vectorSearch';
 
 export function ContextPack({ taskId }: { taskId: string }) {
-  const { items, keywords, deltaItems, isCollecting, lastCollectedAt, setKeywords, addPin, removeItem, collectAll } = useContextPackStore();
+  const { items, deltaItems, isCollecting, lastCollectedAt, addPin, removeItem, collectAll, setKeywords, sources } = useContextPackStore();
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId));
+  const projects = useProjectStore((s) => s.projects);
+  const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const [showPin, setShowPin] = useState(false);
   const [pinUrl, setPinUrl] = useState('');
   const [pinTitle, setPinTitle] = useState('');
-  const [kwInput, setKwInput] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pinned' | 'linked' | 'auto'>('all');
   const [preview, setPreview] = useState<{ url: string; title: string; description: string } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Tauri native file drop handler
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let lastDropTime = 0;
+
+    getCurrentWindow().onDragDropEvent((event) => {
+      const payload = event.payload as { type: string; paths?: string[] };
+      if (payload.type === 'enter' || payload.type === 'over') {
+        setIsDragging(true);
+      } else if (payload.type === 'drop') {
+        setIsDragging(false);
+
+        // Debounce: ignore duplicate drop events within 500ms
+        const now = Date.now();
+        if (now - lastDropTime < 500) return;
+        lastDropTime = now;
+
+        const paths = payload.paths || [];
+        const store = useContextPackStore.getState();
+        const existing = store.items[taskId] || [];
+        for (const filePath of paths) {
+          if (existing.some((item) => item.url === filePath)) continue;
+          const fileName = filePath.split('/').pop() || filePath;
+          store.addPin(taskId, {
+            id: `pin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+            sourceType: 'pin',
+            title: fileName,
+            url: filePath,
+            summary: `File · ${filePath}`,
+            timestamp: new Date().toISOString(),
+            isNew: false,
+            category: 'pinned',
+          } as ContextItem);
+        }
+      } else {
+        setIsDragging(false);
+      }
+    }).then((fn) => { unlisten = fn; });
+
+    return () => { unlisten?.(); };
+  }, [taskId]);
 
   const taskItems = items[taskId] || [];
   const taskDelta = deltaItems[taskId] || [];
-  const taskKw = keywords[taskId] || [];
-  const lastCol = lastCollectedAt[taskId];
-  const filtered = filter === 'all' ? taskItems : taskItems.filter((i) => i.category === filter);
+  const filtered = taskItems;
   const newCount = taskItems.filter((i) => i.isNew).length;
+  const [mcpServers, setMcpServers] = useState<{ name: string; command: string }[]>([]);
+  const [vectorStatus, setVectorStatus] = useState<{ ollama: boolean; qdrant: boolean }>({ ollama: false, qdrant: false });
+  const [relatedItems, setRelatedItems] = useState<VectorItem[]>([]);
+  const [searchingRelated, setSearchingRelated] = useState(false);
 
-  const handleAddKw = () => { const k = kwInput.trim(); if (k && !taskKw.includes(k)) { setKeywords(taskId, [...taskKw, k]); setKwInput(''); } };
-  const handlePin = () => { if (!pinTitle.trim()) return; addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem); setPinUrl(''); setPinTitle(''); setShowPin(false); };
-  const icon = (t: string) => t === 'github' ? '🐙' : t === 'slack' ? '💬' : t === 'notion' ? '📄' : '📌';
+  useEffect(() => {
+    invoke<{ name: string; command: string; args: string[] }[]>('list_mcp_servers')
+      .then((servers) => setMcpServers(servers))
+      .catch(() => {});
+    checkVectorServices().then(setVectorStatus).catch(() => {});
+  }, []);
+
+  // Search for related context from other tasks
+  const handleSearchRelated = async () => {
+    if (!task?.title) return;
+    setSearchingRelated(true);
+    try {
+      const results = await searchGlobalContext(task.title, 5);
+      // Exclude items from current task
+      setRelatedItems(results.filter((r) => r.taskId !== taskId));
+    } catch { /* vector search unavailable */ }
+    setSearchingRelated(false);
+  };
+
+  const icon = (t: string) => t === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : t === 'slack' ? <SlackIcon size={14} /> : t === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
+
+  const handleCollect = () => {
+    const autoKeywords = [task?.title, task?.branchName].filter(Boolean) as string[];
+    setKeywords(taskId, autoKeywords);
+    collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title);
+  };
+
+  const handlePin = () => {
+    if (!pinTitle.trim()) return;
+    addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem);
+    setPinUrl(''); setPinTitle(''); setShowPin(false);
+  };
 
   const handlePreview = async (url: string) => {
     if (!url || loadingPreview) return;
-    setLoadingPreview(true);
-    setPreview(null);
+    setLoadingPreview(true); setPreview(null);
     try {
       const result = await invoke<{ url: string; title: string; description: string; success: boolean }>('fetch_link_preview', { url });
-      if (result.success) {
-        setPreview({ url: result.url, title: result.title, description: result.description });
-      }
+      if (result.success) setPreview({ url: result.url, title: result.title, description: result.description });
     } catch { /* ignore */ }
     setLoadingPreview(false);
   };
 
+  const lastCol = lastCollectedAt[taskId];
+
   return (
-    <div className="ctx-pack">
+    <div className="ctx-pack" style={{ position: 'relative' }}>
+      {/* Drop overlay */}
+      {isDragging && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 10,
+          background: 'rgba(99,102,241,0.08)', border: '2px dashed #6366f1',
+          borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ textAlign: 'center', color: '#818cf8' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📎</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
+            <div style={{ fontSize: 11, color: '#6b6b78', marginTop: 4 }}>They'll be pinned to this task's context</div>
+          </div>
+        </div>
+      )}
       <div className="ctx-header">
+        {/* Delta banner */}
         {taskDelta.length > 0 && (
           <div className="ctx-delta-banner">
-            <span style={{ fontWeight:600 }}>⚡ {taskDelta.length} updates</span>
-            <span style={{ opacity:0.6 }}>since you paused</span>
+            <span style={{ fontWeight: 600 }}>⚡ {taskDelta.length} updates</span>
+            <span style={{ opacity: 0.6 }}>since you paused</span>
           </div>
         )}
 
-        <div className="ctx-section-title">Search Keywords</div>
-        {taskKw.length > 0 && (
-          <div className="ctx-keywords">
-            {taskKw.map((kw) => (
-              <span key={kw} className="ctx-kw">
-                {kw}
-                <button onClick={() => setKeywords(taskId, taskKw.filter((k) => k !== kw))}>×</button>
-              </span>
+        {/* Source info */}
+        {project && (
+          <div style={{ fontSize: 11, color: '#6b6b78', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 3, background: project.color }} />
+            {project.githubOwner && project.githubRepo
+              ? <span>{project.githubOwner}/{project.githubRepo}</span>
+              : <span>{project.name}</span>
+            }
+          </div>
+        )}
+
+        {/* MCP Servers */}
+        {mcpServers.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>MCP Servers</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {mcpServers.map((server) => (
+                <span key={server.name} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 6,
+                  background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)',
+                  fontSize: 11, color: '#34d399',
+                }}>
+                  <McpIcon size={12} />
+                  {server.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Vector DB status */}
+        {(vectorStatus.ollama || vectorStatus.qdrant) && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '3px 8px', borderRadius: 4, fontSize: 10,
+              background: vectorStatus.ollama && vectorStatus.qdrant ? 'rgba(52,211,153,0.06)' : 'rgba(234,179,8,0.06)',
+              color: vectorStatus.ollama && vectorStatus.qdrant ? '#34d399' : '#eab308',
+            }}>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
+              Semantic search {vectorStatus.ollama && vectorStatus.qdrant ? 'active' : 'partial'}
+            </span>
+            <button
+              onClick={handleSearchRelated}
+              disabled={searchingRelated || !(vectorStatus.ollama && vectorStatus.qdrant)}
+              style={{
+                padding: '3px 8px', borderRadius: 4, fontSize: 10,
+                background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)',
+                color: '#818cf8', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {searchingRelated ? '...' : '🔍 Find related'}
+            </button>
+          </div>
+        )}
+
+        {/* Related items from other tasks */}
+        {relatedItems.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>Related from other tasks</div>
+            {relatedItems.map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: 12 }}>
+                <span style={{ fontSize: 11, marginTop: 2 }}>
+                  {item.sourceType === 'github' ? <GitHubIcon size={12} color="#888895" /> : item.sourceType === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#888895" />}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#a1a1aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                  <div style={{ fontSize: 10, color: '#52525e', marginTop: 1 }}>{item.content?.slice(0, 80)}</div>
+                </div>
+              </div>
             ))}
           </div>
         )}
-        <div className="ctx-kw-input">
-          <input value={kwInput} onChange={(e) => setKwInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddKw()} placeholder="Add keyword..." />
-          <button onClick={handleAddKw}>+</button>
-        </div>
 
+        {/* Connected Sources */}
+        {sources.filter(s => s.enabled && s.token).length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>Connected Sources</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {sources.filter(s => s.enabled && s.token).map((source, i) => {
+                const sourceIcon = source.type === 'github' ? <GitHubIcon size={12} color="#818cf8" /> : source.type === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#818cf8" />;
+                const name = source.type === 'github' ? `${source.owner}/${source.repo}` : source.type === 'slack' ? 'Slack' : 'Notion';
+                return (
+                  <span key={i} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '4px 10px', borderRadius: 6,
+                    background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)',
+                    fontSize: 11, color: '#818cf8',
+                  }}>
+                    {sourceIcon} {name}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
         <div className="ctx-actions">
-          <button className="ctx-btn ctx-btn-collect" disabled={isCollecting} onClick={() => collectAll(taskId, task?.branchName || '')}>
+          <button className="ctx-btn ctx-btn-collect" disabled={isCollecting} onClick={handleCollect}>
             {isCollecting ? '⏳ Collecting...' : '🔄 Collect Now'}
           </button>
           <button className="ctx-btn ctx-btn-pin" onClick={() => setShowPin(!showPin)}>📌 Pin</button>
@@ -75,10 +250,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {showPin && (
           <div className="ctx-pin-form">
             <input value={pinTitle} onChange={(e) => setPinTitle(e.target.value)} placeholder="Title" />
-            <input value={pinUrl} onChange={(e) => setPinUrl(e.target.value)} placeholder="URL (optional)" style={{ fontFamily:'JetBrains Mono, monospace', fontSize:11 }} />
+            <input value={pinUrl} onChange={(e) => setPinUrl(e.target.value)} placeholder="URL (optional)" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }} />
             <div className="ctx-pin-actions">
-              <button style={{ background:'none', color:'#71717a' }} onClick={() => setShowPin(false)}>Cancel</button>
-              <button style={{ background:'#6366f1', color:'#fff' }} onClick={handlePin}>Pin</button>
+              <button style={{ background: 'none', color: '#888895' }} onClick={() => setShowPin(false)}>Cancel</button>
+              <button style={{ background: '#6366f1', color: '#fff' }} onClick={handlePin}>Pin</button>
             </div>
           </div>
         )}
@@ -86,67 +261,63 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {lastCol && <div className="ctx-collected-at">Last collected: {new Date(lastCol).toLocaleTimeString()}</div>}
       </div>
 
-      <div className="ctx-filters">
-        {(['all', 'pinned', 'linked', 'auto'] as const).map((f) => {
-          const c = f === 'all' ? taskItems.length : taskItems.filter((i) => i.category === f).length;
-          return (
-            <button key={f} className={`ctx-filter ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
-              {f === 'all' ? 'All' : f === 'pinned' ? '📌 Pinned' : f === 'linked' ? '🔗 Linked' : '🤖 Auto'}
-              {c > 0 && <span className="count">{c}</span>}
-            </button>
-          );
-        })}
-        {newCount > 0 && <span className="ctx-new-count">{newCount} NEW</span>}
-      </div>
+      {/* Item count + NEW badge */}
+      {taskItems.length > 0 && (
+        <div className="ctx-filters">
+          <span style={{ fontSize: 11, color: '#6b6b78' }}>{taskItems.length} items</span>
+          {newCount > 0 && <span className="ctx-new-count">{newCount} NEW</span>}
+        </div>
+      )}
 
-      {/* Link preview panel */}
+      {/* Link preview */}
       {(preview || loadingPreview) && (
-        <div style={{ padding:'12px 20px', borderBottom:'1px solid #141418', background:'#08080c', flexShrink:0 }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e1e26', background: '#111118', flexShrink: 0 }}>
           {loadingPreview ? (
-            <div style={{ fontSize:11, color:'#52525b', display:'flex', alignItems:'center', gap:6 }}>
+            <div style={{ fontSize: 11, color: '#6b6b78', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div className="loading-dot" /> Loading preview...
             </div>
           ) : preview && (
             <div>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:4 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#d4d4d8' }}>{preview.title || 'No title'}</div>
-                <button onClick={() => setPreview(null)} style={{ background:'none', border:'none', color:'#3f3f46', cursor:'pointer', fontSize:14 }}>×</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#d4d4d8' }}>{preview.title || 'No title'}</div>
+                <button onClick={() => setPreview(null)} style={{ background: 'none', border: 'none', color: '#52525e', cursor: 'pointer', fontSize: 14 }}>×</button>
               </div>
-              {preview.description && (
-                <div style={{ fontSize:11, color:'#71717a', lineHeight:1.5, marginBottom:6 }}>{preview.description.slice(0, 200)}</div>
-              )}
-              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'#818cf8', fontFamily:"'JetBrains Mono', monospace", wordBreak:'break-all' }}>
-                {preview.url}
-              </a>
+              {preview.description && <div style={{ fontSize: 11, color: '#888895', lineHeight: 1.5, marginBottom: 6 }}>{preview.description.slice(0, 200)}</div>}
+              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>{preview.url}</a>
             </div>
           )}
         </div>
       )}
 
+      {/* Items */}
       <div className="ctx-items">
         {filtered.length === 0 ? (
           <div className="ctx-empty">
-            {taskKw.length === 0 ? 'Add keywords to start collecting context' : isCollecting ? 'Collecting...' : 'No items found. Try collecting or adding pins.'}
+            {isCollecting ? 'Collecting...' : filtered.length === 0 ? (
+              <div>
+                <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.3 }}>📎</div>
+                <div style={{ marginBottom: 6 }}>Drop files or URLs here to pin them</div>
+                <div style={{ color: '#52525e', fontSize: 11 }}>or click "Collect Now" to gather from connected sources</div>
+              </div>
+            ) : null}
           </div>
         ) : (
           filtered.map((item) => (
-            <div key={item.id} className="cp-item" style={{ position:'relative' }}>
+            <div key={item.id} className="cp-item" style={{ position: 'relative' }}>
               <div className="cp-icon">{icon(item.sourceType)}</div>
               <div className="cp-body">
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {item.url ? (
-                    <span className="cp-name" style={{ cursor:'pointer', textDecoration:'underline', textDecorationColor:'#27272a' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
+                    <span className="cp-name" style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#32323c' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
                   ) : (
                     <span className="cp-name">{item.title}</span>
                   )}
                   {item.isNew && <span className="cp-new">NEW</span>}
-                  {item.url && (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'#3f3f46', flexShrink:0 }} title="Open in browser">↗</a>
-                  )}
+                  {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#52525e', flexShrink: 0 }} title="Open in browser">↗</a>}
                 </div>
                 <div className="cp-sub">{item.summary}</div>
               </div>
-              <button onClick={() => removeItem(taskId, item.id)} style={{ background:'none', border:'none', color:'#27272a', cursor:'pointer', fontSize:12, position:'absolute', right:0, top:8 }}>×</button>
+              <button onClick={() => removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#32323c', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
             </div>
           ))
         )}

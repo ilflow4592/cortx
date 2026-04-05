@@ -3,9 +3,9 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
 
-export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
-  const { tasks, activeTaskId, setActiveTask, removeTask } = useTaskStore();
-  const projects = useProjectStore((s) => s.projects);
+export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { onShowReport?: () => void; onAddTask?: () => void; onEditProject?: (id: string) => void; onAddTaskForProject?: (projectId: string) => void }) {
+  const { tasks, activeTaskId, setActiveTask, removeTask, setTaskStatus } = useTaskStore();
+  const { projects, removeProject } = useProjectStore();
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');
@@ -13,8 +13,19 @@ export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
   const totalInterrupts = tasks.reduce((s, t) => s + (t.interrupts?.length || 0), 0);
   const totalInterruptTime = tasks.reduce((s, t) => s + (t.interrupts || []).reduce((a, e) => a + e.durationSeconds, 0), 0);
 
-  const handleDelete = (id: string, title: string) => {
+  const handleDeleteTask = (id: string, title: string) => {
     if (window.confirm(`Delete task "${title}"?`)) removeTask(id);
+  };
+
+  const handleDeleteProject = (id: string, name: string) => {
+    const projTasks = tasks.filter((t) => t.projectId === id);
+    const msg = projTasks.length > 0
+      ? `Delete project "${name}" and its ${projTasks.length} tasks?`
+      : `Delete project "${name}"?`;
+    if (window.confirm(msg)) {
+      projTasks.forEach((t) => removeTask(t.id));
+      removeProject(id);
+    }
   };
 
   const toggleCollapse = (id: string) => {
@@ -25,21 +36,29 @@ export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
     });
   };
 
-  // Group tasks by project
+  // All projects (even empty ones)
   const projectGroups = projects.map((proj) => ({
     project: proj,
     tasks: nonDone.filter((t) => t.projectId === proj.id),
-  })).filter((g) => g.tasks.length > 0);
+  }));
 
   const unassigned = nonDone.filter((t) => !t.projectId || !projects.some((p) => p.id === t.projectId));
 
   return (
     <div className="sidebar">
-      <div className="sb-header"><span className="sb-title">Tasks</span></div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {nonDone.length === 0 && doneList.length === 0 && (
-          <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: 12, color: '#3f3f46' }}>
-            No tasks yet. Click + to create one.
+      <div className="sb-header">
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#e4e4e7' }}>
+          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+        </span>
+        <span className="sb-title" style={{ fontSize: 10 }}>Tasks</span>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {projects.length === 0 && nonDone.length === 0 && doneList.length === 0 && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 12, color: '#52525e', lineHeight: 1.8, padding: 16 }}>
+            <div>
+              No projects yet.<br />
+              Click 📁 in the dock to add a project.
+            </div>
           </div>
         )}
 
@@ -48,22 +67,38 @@ export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
           const isCollapsed = collapsedProjects.has(project.id);
           return (
             <div key={project.id}>
-              <button
-                onClick={() => toggleCollapse(project.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px',
-                  background: 'none', border: 'none', borderBottom: '1px solid #ffffff04', cursor: 'pointer',
-                  fontFamily: 'inherit', textAlign: 'left',
-                }}
-              >
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: project.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#a1a1aa', flex: 1 }}>{project.name}</span>
-                <span style={{ fontSize: 10, color: '#3f3f46' }}>{projTasks.length}</span>
-                <span style={{ fontSize: 10, color: '#27272a', marginLeft: 4 }}>{isCollapsed ? '▶' : '▼'}</span>
-              </button>
-              {!isCollapsed && projTasks.map((task) => (
-                <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDelete(task.id, task.title)} indent />
-              ))}
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff04' }}>
+                <button
+                  onClick={() => toggleCollapse(project.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, flex: 1, padding: '12px 16px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ width: 12, height: 12, borderRadius: 4, background: project.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                  <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
+                  <ProjBtn icon="▼" title={isCollapsed ? 'Expand' : 'Collapse'} onClick={() => toggleCollapse(project.id)} />
+                  {onAddTaskForProject && <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />}
+                  {onEditProject && <ProjBtn icon="⚙" title="Settings" onClick={() => onEditProject(project.id)} />}
+                  <ProjBtn icon="×" title="Delete" onClick={() => handleDeleteProject(project.id, project.name)} hoverColor="#ef4444" />
+                </div>
+              </div>
+              {!isCollapsed && (
+                <>
+                  {projTasks.map((task) => (
+                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task.id, task.title)} indent />
+                  ))}
+                  {projTasks.length === 0 && (
+                    <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#27272a', fontStyle: 'italic' }}>
+                      No tasks — click + to add one
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           );
         })}
@@ -71,11 +106,11 @@ export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
         {/* Unassigned tasks */}
         {unassigned.length > 0 && (
           <>
-            {projectGroups.length > 0 && (
+            {projects.length > 0 && (
               <div className="sb-section" style={{ color: '#27272a' }}>No project</div>
             )}
             {unassigned.map((task) => (
-              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDelete(task.id, task.title)} indent={false} />
+              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task.id, task.title)} indent={false} />
             ))}
           </>
         )}
@@ -85,12 +120,27 @@ export function Sidebar({ onShowReport }: { onShowReport?: () => void }) {
           <>
             <div className="sb-section">✅ Done</div>
             {doneList.map((task) => (
-              <div key={task.id} style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={task.id} className="task-row-wrap" style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div className="sb-dot done" />
                   <span style={{ fontSize: 13, color: '#3f3f46', textDecoration: 'line-through' }}>{task.title}</span>
                 </div>
                 <span className="sb-timer">{formatTime(task.elapsedSeconds)}</span>
+                <button
+                  onClick={() => setTaskStatus(task.id, 'waiting')}
+                  className="task-delete-btn"
+                  style={{
+                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                    width: 22, height: 22, borderRadius: 6,
+                    background: '#18181b', border: '1px solid #27272a',
+                    color: '#52525b', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#34d39920'; e.currentTarget.style.color = '#34d399'; e.currentTarget.style.borderColor = '#34d39940'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#52525b'; e.currentTarget.style.borderColor = '#27272a'; }}
+                  title="Undo — move back to waiting"
+                >↩</button>
               </div>
             ))}
           </>
@@ -128,7 +178,7 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
   const dotCls = task.status === 'active' ? 'running' : task.status === 'paused' ? 'paused' : 'waiting';
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="task-row-wrap" style={{ position: 'relative' }}>
       <button className={cls} onClick={onSelect} style={indent ? { paddingLeft: 24 } : undefined}>
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -141,11 +191,39 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        style={{ position: 'absolute', right: 8, top: 10, background: 'none', border: 'none', color: '#27272a', cursor: 'pointer', fontSize: 12, opacity: 0, transition: 'opacity 0.1s' }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+        style={{
+          position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+          width: 22, height: 22, borderRadius: 6,
+          background: '#18181b', border: '1px solid #27272a',
+          color: '#52525b', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444420'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef444440'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#52525b'; e.currentTarget.style.borderColor = '#27272a'; }}
+        className="task-delete-btn"
         title="Delete task"
       >×</button>
     </div>
+  );
+}
+
+function ProjBtn({ icon, title, onClick, hoverColor }: { icon: string; title: string; onClick: () => void; hoverColor?: string }) {
+  const color = hoverColor || '#a1a1aa';
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={title}
+      style={{
+        width: 28, height: 28, borderRadius: 6,
+        background: 'none', border: 'none',
+        color: '#52525e', cursor: 'pointer',
+        fontSize: 16, fontWeight: 500,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'color 0.1s, background 0.1s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = color; e.currentTarget.style.background = `${color}15`; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = '#52525e'; e.currentTarget.style.background = 'none'; }}
+    >{icon}</button>
   );
 }

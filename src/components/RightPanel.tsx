@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { formatTime } from '../utils/time';
 
@@ -16,11 +17,13 @@ const reasonLabel: Record<string, string> = {
 export function RightPanel() {
   const [tab, setTab] = useState<RTab>('worktree');
   const { tasks, activeTaskId, updateTask } = useTaskStore();
+  const projects = useProjectStore((s) => s.projects);
   const { items, deltaItems } = useContextPackStore();
   const task = tasks.find((t) => t.id === activeTaskId);
 
   if (!task) return <div className="right-panel" />;
 
+  const taskProject = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskItems = items[task.id] || [];
   const taskDelta = deltaItems[task.id] || [];
   const newCount = taskItems.filter((i) => i.isNew).length;
@@ -49,11 +52,29 @@ export function RightPanel() {
       <div className="rp-content">
         {tab === 'worktree' && (
           <>
+            {taskProject && (
+              <>
+                <div className="rp-section">Project</div>
+                <div className="wt-info">
+                  <div className="wt-row">
+                    <span>Name</span>
+                    <span className="val" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 2, background: taskProject.color }} />
+                      {taskProject.name}
+                    </span>
+                  </div>
+                  {taskProject.githubOwner && taskProject.githubRepo && (
+                    <div className="wt-row"><span>GitHub</span><span className="val">{taskProject.githubOwner}/{taskProject.githubRepo}</span></div>
+                  )}
+                  <div className="wt-row"><span>Path</span><span className="val">{taskProject.localPath || '—'}</span></div>
+                </div>
+              </>
+            )}
             <div className="rp-section">Worktree</div>
             <div className="wt-info">
               <div className="wt-row"><span>Branch</span><span className="val">{task.branchName || '—'}</span></div>
-              <div className="wt-row"><span>Path</span><span className="val">{task.worktreePath || '—'}</span></div>
-              <div className="wt-row"><span>Repo</span><span className="val">{task.repoPath || '—'}</span></div>
+              <div className="wt-row"><span>Path</span><span className="val">{task.worktreePath || task.repoPath || taskProject?.localPath || '—'}</span></div>
+              <div className="wt-row"><span>Repo</span><span className="val">{task.repoPath || taskProject?.localPath || '—'}</span></div>
               <div className="wt-row"><span>Status</span><span className="val">{task.status}</span></div>
               <div className="wt-row"><span>Layer</span><span className="val">{task.layer || 'focus'}</span></div>
             </div>

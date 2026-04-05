@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { Chat } from './Chat';
+import { ClaudeChat } from './ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
 import { DiffViewer } from './DiffViewer';
@@ -10,16 +11,24 @@ import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
 import { callAI } from '../services/ai';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useProjectStore } from '../stores/projectStore';
 import type { InterruptReason, ChatMessage } from '../types/task';
 
-type Tab = 'chat' | 'terminal' | 'diff' | 'context';
+type Tab = 'chat' | 'claude' | 'terminal' | 'diff' | 'context';
 
-export function MainPanel() {
-  const [activeTab, setActiveTab] = useState<Tab>('chat');
+export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
+  showRightPanel?: boolean;
+  onToggleRightPanel?: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
-  const { tasks, activeTaskId, startTask, pauseWithReason, resumeTask, setTaskStatus } = useTaskStore();
+  const { tasks, activeTaskId, startTask, pauseWithReason, resumeTask, setTaskStatus, removeTask } = useTaskStore();
   const { takeSnapshot, detectDelta, deltaItems } = useContextPackStore();
+  const projects = useProjectStore((s) => s.projects);
   const task = tasks.find((t) => t.id === activeTaskId);
+  const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
+  // Resolve working directory: task worktreePath > task repoPath > project localPath
+  const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
 
   if (!task) {
     return (
@@ -55,7 +64,8 @@ export function MainPanel() {
     const delta = cpStore.deltaItems[task.id] || [];
     const lastInterrupt = (task.interrupts || []).filter(e => e.resumedAt === null)[0];
 
-    if (settings.apiKey && (delta.length > 0 || task.memo)) {
+    const resolvedKey = (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? settings.oauthAccessToken : settings.apiKey;
+    if (resolvedKey && (delta.length > 0 || task.memo)) {
       const briefingPrompt = [
         'You are a concise assistant. Generate a short resume briefing (3-5 bullet points) for the developer.',
         `Task: "${task.title}"`,
@@ -69,7 +79,9 @@ export function MainPanel() {
         const provider = task.modelOverride?.provider || settings.aiProvider;
         const modelId = task.modelOverride?.modelId || settings.modelId;
         const response = await callAI({
-          provider, apiKey: settings.apiKey, modelId, ollamaUrl: settings.ollamaUrl,
+          provider, apiKey: resolvedKey, modelId, ollamaUrl: settings.ollamaUrl,
+          authMethod: (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? 'oauth' : 'api-key',
+          oauthToken: settings.oauthAccessToken,
           messages: [{ id: '0', role: 'user', content: briefingPrompt, timestamp: '' }],
           taskTitle: task.title,
         });
@@ -91,6 +103,7 @@ export function MainPanel() {
   const handleDone = () => setTaskStatus(task.id, 'done');
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
+    { key: 'claude', label: '🤖 Claude' },
     { key: 'chat', label: '💬 Chat' },
     { key: 'terminal', label: '⌨ Terminal' },
     { key: 'diff', label: '📋 Diff' },
@@ -111,6 +124,25 @@ export function MainPanel() {
           {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}>⏸ Pause</button>}
           {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}>▶ Resume</button>}
           {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}>✓ Done</button>}
+          <button
+            className="mh-btn"
+            style={{ background: 'none', color: '#3f3f46', border: '1px solid #18181b' }}
+            onClick={() => { if (window.confirm(`Delete task "${task.title}"?`)) removeTask(task.id); }}
+            title="Delete task"
+          >🗑</button>
+          {onToggleRightPanel && (
+            <button
+              className="mh-btn"
+              style={{ background: 'none', color: '#52525b', border: '1px solid #18181b', padding: '4px 8px' }}
+              onClick={onToggleRightPanel}
+              title="Toggle right panel ⌘⇧B"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M15 3v18" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -130,14 +162,15 @@ export function MainPanel() {
         ))}
       </div>
 
-      <div className="content-split">
+      <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? '1fr 340px' : '1fr' }}>
         <div className="chat">
+          {activeTab === 'claude' && <ClaudeChat taskId={task.id} cwd={taskCwd} />}
           {activeTab === 'chat' && <Chat taskId={task.id} />}
-          {activeTab === 'terminal' && <TerminalView taskId={task.id} worktreePath={task.worktreePath || task.repoPath} />}
+          {activeTab === 'terminal' && <TerminalView taskId={task.id} worktreePath={taskCwd} />}
           {activeTab === 'diff' && <DiffViewer taskId={task.id} />}
           {activeTab === 'context' && <ContextPack taskId={task.id} />}
         </div>
-        <RightPanel />
+        {showRightPanel && <RightPanel />}
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}

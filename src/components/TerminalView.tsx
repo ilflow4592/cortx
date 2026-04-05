@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -11,52 +11,34 @@ interface TerminalViewProps {
   worktreePath: string;
 }
 
+// Track spawned PTY sessions globally to avoid duplicates across re-mounts
+const spawnedSessions = new Set<string>();
+
 export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const spawnedRef = useRef<string | null>(null);
-  const unlistenDataRef = useRef<UnlistenFn | null>(null);
-  const unlistenExitRef = useRef<UnlistenFn | null>(null);
-
-  const cleanup = useCallback(async () => {
-    unlistenDataRef.current?.();
-    unlistenExitRef.current?.();
-    // Don't close PTY — keep session alive for task switching
-    spawnedRef.current = null;
-    termRef.current?.dispose();
-    termRef.current = null;
-    fitRef.current = null;
-  }, []);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    const ptyId = `term-${taskId}`;
+    const cwd = worktreePath || '/';
 
     const term = new Terminal({
       fontSize: 13,
       fontFamily: "'JetBrains Mono', monospace",
       theme: {
-        background: '#06060a',
+        background: '#0c0c12',
         foreground: '#d4d4d8',
         cursor: '#6366f1',
         cursorAccent: '#06060a',
         selectionBackground: '#6366f140',
-        black: '#09090b',
-        red: '#ef4444',
-        green: '#34d399',
-        yellow: '#eab308',
-        blue: '#6366f1',
-        magenta: '#c084fc',
-        cyan: '#67e8f9',
-        white: '#e4e4e7',
-        brightBlack: '#52525b',
-        brightRed: '#f87171',
-        brightGreen: '#6ee7b7',
-        brightYellow: '#fde047',
-        brightBlue: '#818cf8',
-        brightMagenta: '#d8b4fe',
-        brightCyan: '#a5f3fc',
-        brightWhite: '#fafafa',
+        black: '#0c0c12', red: '#ef4444', green: '#34d399', yellow: '#eab308',
+        blue: '#6366f1', magenta: '#c084fc', cyan: '#67e8f9', white: '#e4e4e7',
+        brightBlack: '#52525b', brightRed: '#f87171', brightGreen: '#6ee7b7',
+        brightYellow: '#fde047', brightBlue: '#818cf8', brightMagenta: '#d8b4fe',
+        brightCyan: '#a5f3fc', brightWhite: '#fafafa',
       },
       cursorBlink: true,
       scrollback: 5000,
@@ -67,76 +49,69 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
     term.open(containerRef.current);
-
     termRef.current = term;
-    fitRef.current = fit;
 
-    // Fit after mount
     setTimeout(() => fit.fit(), 50);
 
-    const ptyId = taskId;
-    const cwd = worktreePath || '/';
+    let unlistenData: UnlistenFn | null = null;
+    let unlistenExit: UnlistenFn | null = null;
 
-    // Spawn PTY
     (async () => {
       try {
-        await invoke('pty_spawn', { id: ptyId, cwd });
-        spawnedRef.current = ptyId;
-
-        // Listen for PTY data
-        unlistenDataRef.current = await listen<string>(`pty-data-${ptyId}`, (event) => {
+        // Listen first
+        unlistenData = await listen<string>(`pty-data-${ptyId}`, (event) => {
           term.write(event.payload);
         });
-
-        // Listen for PTY exit
-        unlistenExitRef.current = await listen(`pty-exit-${ptyId}`, () => {
+        unlistenExit = await listen(`pty-exit-${ptyId}`, () => {
           term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
+          spawnedSessions.delete(ptyId);
         });
 
-        // Send resize
+        // Only spawn if not already spawned
+        if (!spawnedSessions.has(ptyId)) {
+          spawnedSessions.add(ptyId);
+          await invoke('pty_spawn', { id: ptyId, cwd });
+        }
+
         const { rows, cols } = term;
         await invoke('pty_resize', { id: ptyId, rows, cols });
       } catch (err) {
         term.write(`\x1b[31mFailed to start terminal: ${err}\x1b[0m\r\n`);
+        spawnedSessions.delete(ptyId);
       }
     })();
 
-    // Forward input to PTY
     term.onData((data) => {
-      if (spawnedRef.current) {
-        invoke('pty_write', { id: spawnedRef.current, data }).catch(() => {});
-      }
+      invoke('pty_write', { id: ptyId, data }).catch(() => {});
     });
 
-    // Handle resize
     term.onResize(({ rows, cols }) => {
-      if (spawnedRef.current) {
-        invoke('pty_resize', { id: spawnedRef.current, rows, cols }).catch(() => {});
-      }
+      invoke('pty_resize', { id: ptyId, rows, cols }).catch(() => {});
     });
 
-    // Observe container resize
     const resizeObserver = new ResizeObserver(() => {
       try { fit.fit(); } catch { /* ignore */ }
     });
     resizeObserver.observe(containerRef.current);
 
-    return () => {
+    cleanupRef.current = () => {
       resizeObserver.disconnect();
-      cleanup();
+      unlistenData?.();
+      unlistenExit?.();
+      term.dispose();
+      termRef.current = null;
     };
-  }, [taskId, worktreePath, cleanup]);
+
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+  }, [taskId, worktreePath]);
 
   return (
     <div
       ref={containerRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        padding: '8px',
-        background: '#06060a',
-        overflow: 'hidden',
-      }}
+      style={{ width: '100%', height: '100%', padding: 8, background: '#0c0c12', overflow: 'hidden' }}
     />
   );
 }

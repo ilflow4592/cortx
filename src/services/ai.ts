@@ -4,6 +4,8 @@ import type { AIProvider } from '../stores/settingsStore';
 interface AICallParams {
   provider: AIProvider;
   apiKey: string;
+  oauthToken?: string;
+  authMethod?: 'api-key' | 'oauth';
   modelId: string;
   ollamaUrl: string;
   messages: ChatMessage[];
@@ -15,9 +17,11 @@ export async function callAI(params: AICallParams): Promise<string> {
 
   const systemPrompt = `You are an AI coding assistant helping with the task: "${taskTitle}". Be concise and helpful.`;
 
+  const token = (params.authMethod === 'oauth' && params.oauthToken) ? params.oauthToken : apiKey;
+
   switch (provider) {
     case 'claude':
-      return callClaude(apiKey, modelId, systemPrompt, messages);
+      return callClaude(token, modelId, systemPrompt, messages, params.authMethod === 'oauth');
     case 'openai':
       return callOpenAI(apiKey, modelId, systemPrompt, messages);
     case 'ollama':
@@ -27,17 +31,24 @@ export async function callAI(params: AICallParams): Promise<string> {
   }
 }
 
-async function callClaude(apiKey: string, model: string, system: string, messages: ChatMessage[]): Promise<string> {
+async function callClaude(apiKey: string, model: string, system: string, messages: ChatMessage[], isOAuth = false): Promise<string> {
   if (!apiKey) throw new Error('Claude API key not set. Go to Settings to configure.');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+
+  if (isOAuth) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  } else {
+    headers['x-api-key'] = apiKey;
+  }
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers,
     body: JSON.stringify({
       model,
       max_tokens: 4096,

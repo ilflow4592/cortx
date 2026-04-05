@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
 import { collectGitHub } from '../services/contextCollectors/github';
 import { collectSlack } from '../services/contextCollectors/slack';
+import { storeContextBatch, searchContext, type VectorItem } from '../services/vectorSearch';
 import { collectNotion } from '../services/contextCollectors/notion';
 
 const STORAGE_KEY = 'cortx-context-pack';
@@ -25,7 +26,7 @@ interface ContextPackState {
   removeSource: (index: number) => void;
 
   // Collection
-  collectAll: (taskId: string, branchName: string) => Promise<void>;
+  collectAll: (taskId: string, branchName: string, slackChannels?: string[], taskTitle?: string) => Promise<void>;
   takeSnapshot: (taskId: string) => void;
   detectDelta: (taskId: string, branchName: string) => Promise<void>;
 
@@ -96,7 +97,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
-  collectAll: async (taskId, branchName) => {
+  collectAll: async (taskId, branchName, slackChannels, taskTitle) => {
     const state = get();
     if (state.isCollecting) return;
 
@@ -114,7 +115,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
             items = await collectGitHub(source, kw, branchName);
             break;
           case 'slack':
-            items = await collectSlack(source, kw);
+            items = await collectSlack(source, kw, slackChannels);
             break;
           case 'notion':
             items = await collectNotion(source, kw);
@@ -126,10 +127,40 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       }
     }
 
+    // Store all collected items in vector DB for semantic search
+    try {
+      const vectorItems: VectorItem[] = collected.map((item) => ({
+        id: item.id,
+        taskId,
+        sourceType: item.sourceType,
+        title: item.title,
+        content: item.metadata?.fullText || item.summary || item.title,
+        url: item.url,
+        timestamp: item.timestamp,
+      }));
+      await storeContextBatch(vectorItems);
+    } catch {
+      // Vector DB not available — continue without it
+    }
+
+    // If we have a task title, use semantic search to filter for relevance
+    let relevant = collected;
+    if (taskTitle && collected.length > 10) {
+      try {
+        const searchResults = await searchContext(taskTitle, 15, taskId);
+        const relevantIds = new Set(searchResults.map((r) => r.id));
+        relevant = collected.filter((item) => relevantIds.has(item.id));
+        // Always keep at least some items if search returned nothing
+        if (relevant.length === 0) relevant = collected.slice(0, 10);
+      } catch {
+        // Vector search failed — keep all
+      }
+    }
+
     // Merge: keep pinned items, replace auto/linked
     const existing = state.items[taskId] || [];
     const pinned = existing.filter((i) => i.category === 'pinned');
-    const merged = [...pinned, ...collected];
+    const merged = [...pinned, ...relevant];
 
     // Deduplicate by id
     const seen = new Set<string>();

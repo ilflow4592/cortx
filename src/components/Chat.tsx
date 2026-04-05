@@ -30,8 +30,10 @@ export function Chat({ taskId }: { taskId: string }) {
   // Resolve model: task override > global settings
   const provider = task.modelOverride?.provider || settings.aiProvider;
   const modelId = task.modelOverride?.modelId || settings.modelId;
-  const apiKey = settings.apiKey;
   const ollamaUrl = settings.ollamaUrl;
+  // Use oauth token if available, otherwise api key
+  const authMethod = (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? 'oauth' : 'api-key';
+  const apiKey = authMethod === 'oauth' ? settings.oauthAccessToken : settings.apiKey;
 
   // Build context-aware system prompt
   const contextItems = items[taskId] || [];
@@ -63,6 +65,8 @@ export function Chat({ taskId }: { taskId: string }) {
     try {
       const resp = await callAI({
         provider, apiKey, modelId, ollamaUrl,
+        oauthToken: settings.oauthAccessToken,
+        authMethod,
         messages: [...task.chatHistory, userMsg],
         taskTitle: buildSystemContext(),
       });
