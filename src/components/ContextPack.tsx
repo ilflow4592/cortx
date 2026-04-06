@@ -155,6 +155,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
   useEffect(() => {
     loadMcpServers();
     import('../services/vectorSearch').then((vs) => vs.checkVectorServices().then(setVectorStatus)).catch(() => {});
+    // Clear previous task's progress on mount
+    useContextPackStore.setState({ collectProgress: [] });
   }, []);
 
   // Search for related context from other tasks
@@ -560,8 +562,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
               }}
             >
               <option value="claude-haiku-4-5-20251001">Haiku</option>
-              <option value="claude-sonnet-4-6-20260620">Sonnet</option>
-              <option value="claude-opus-4-6-20260620">Opus</option>
+              <option value="claude-sonnet-4-6">Sonnet</option>
+              <option value="claude-opus-4-6">Opus</option>
             </select>
             <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: '#52525e', pointerEvents: 'none' }}>▼</span>
           </div>
