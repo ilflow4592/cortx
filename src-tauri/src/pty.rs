@@ -64,7 +64,7 @@ impl PtyManager {
         Ok(())
     }
 
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], app: &AppHandle) -> Result<(), String> {
+    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -72,8 +72,16 @@ impl PtyManager {
         let cwd_owned = cwd.to_string();
         let msg_owned = message.to_string();
         let files_owned: Vec<String> = context_files.to_vec();
+        let summary_owned = context_summary.to_string();
 
         thread::spawn(move || {
+            // Write context summary to temp file if present
+            let tmp_path = format!("/tmp/cortx-ctx-{}.md", event_id);
+            let has_summary = !summary_owned.is_empty();
+            if has_summary {
+                let _ = std::fs::write(&tmp_path, &summary_owned);
+            }
+
             // Build claude command with context
             let mut cmd_parts = vec![
                 "claude".to_string(),
@@ -82,16 +90,30 @@ impl PtyManager {
                 "--verbose".to_string(),
             ];
 
-            // Add context files as system prompt context
-            if !files_owned.is_empty() {
-                let context_prompt = format!(
-                    "The user has pinned the following files as relevant context for this task. Read and understand them before responding:\n{}",
-                    files_owned.iter().map(|f| format!("- {}", f)).collect::<Vec<_>>().join("\n")
-                );
-                cmd_parts.push("--append-system-prompt".to_string());
-                cmd_parts.push(shell_escape(&context_prompt));
+            // Build system prompt from context summary + file list
+            let mut system_parts: Vec<String> = vec![];
 
-                // Add directories containing the files so Claude can access them
+            if has_summary {
+                system_parts.push(format!(
+                    "The following is the user's collected context for this task (from GitHub, Slack, Notion, and pinned items). Use it to understand the task background:\n\n{}",
+                    summary_owned
+                ));
+            }
+
+            if !files_owned.is_empty() {
+                system_parts.push(format!(
+                    "The user has pinned the following local files as relevant context. Read and understand them before responding:\n{}",
+                    files_owned.iter().map(|f| format!("- {}", f)).collect::<Vec<_>>().join("\n")
+                ));
+            }
+
+            if !system_parts.is_empty() {
+                cmd_parts.push("--append-system-prompt".to_string());
+                cmd_parts.push(shell_escape(&system_parts.join("\n\n---\n\n")));
+            }
+
+            // Add directories containing the files so Claude can access them
+            if !files_owned.is_empty() {
                 let mut dirs: Vec<String> = files_owned.iter()
                     .filter_map(|f| {
                         let p = std::path::Path::new(f);
@@ -112,6 +134,11 @@ impl PtyManager {
                 .current_dir(&cwd_owned)
                 .env("TERM", "dumb")
                 .output();
+
+            // Clean up temp file
+            if has_summary {
+                let _ = std::fs::remove_file(&tmp_path);
+            }
 
             match output {
                 Ok(out) => {

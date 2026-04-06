@@ -19,6 +19,7 @@ pub struct CommandResult {
 #[tauri::command]
 fn create_worktree(repo_path: String, worktree_path: String, branch_name: String, base_branch: Option<String>) -> CommandResult {
     let base = base_branch.unwrap_or_default();
+    eprintln!("[cortx] create_worktree: repo={}, worktree={}, branch={}, base='{}'", repo_path, worktree_path, branch_name, base);
     if base.is_empty() {
         run_git(&repo_path, &["worktree", "add", &worktree_path, "-b", &branch_name])
     } else {
@@ -406,9 +407,9 @@ fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
 // ── Claude Code CLI ──
 
 #[tauri::command]
-fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
+fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, context_summary: Option<String>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), &app)
+    mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), context_summary.as_deref().unwrap_or(""), &app)
 }
 
 #[tauri::command]
@@ -418,6 +419,90 @@ fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyMan
         return Err("Claude session not running. Try reconnecting.".to_string());
     }
     mgr.write(&id, &format!("{}\n", message))
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SlashCommand {
+    pub name: String,
+    pub description: String,
+    pub source: String, // "builtin", "user", "project"
+}
+
+#[tauri::command]
+fn list_slash_commands(project_cwd: Option<String>) -> Vec<SlashCommand> {
+    let mut commands = vec![
+        SlashCommand { name: "bug".into(), description: "Report a bug".into(), source: "builtin".into() },
+        SlashCommand { name: "clear".into(), description: "Clear conversation".into(), source: "builtin".into() },
+        SlashCommand { name: "compact".into(), description: "Compact conversation history".into(), source: "builtin".into() },
+        SlashCommand { name: "config".into(), description: "View/modify configuration".into(), source: "builtin".into() },
+        SlashCommand { name: "cost".into(), description: "Show token usage".into(), source: "builtin".into() },
+        SlashCommand { name: "doctor".into(), description: "Check Claude Code setup".into(), source: "builtin".into() },
+        SlashCommand { name: "help".into(), description: "Get help".into(), source: "builtin".into() },
+        SlashCommand { name: "init".into(), description: "Initialize project with CLAUDE.md".into(), source: "builtin".into() },
+        SlashCommand { name: "login".into(), description: "Switch accounts".into(), source: "builtin".into() },
+        SlashCommand { name: "logout".into(), description: "Sign out".into(), source: "builtin".into() },
+        SlashCommand { name: "mcp".into(), description: "Manage MCP servers".into(), source: "builtin".into() },
+        SlashCommand { name: "memory".into(), description: "Edit CLAUDE.md memory".into(), source: "builtin".into() },
+        SlashCommand { name: "model".into(), description: "Switch model".into(), source: "builtin".into() },
+        SlashCommand { name: "permissions".into(), description: "Manage tool permissions".into(), source: "builtin".into() },
+        SlashCommand { name: "pr-comments".into(), description: "View PR comments".into(), source: "builtin".into() },
+        SlashCommand { name: "review".into(), description: "Code review".into(), source: "builtin".into() },
+        SlashCommand { name: "status".into(), description: "View account status".into(), source: "builtin".into() },
+        SlashCommand { name: "terminal-setup".into(), description: "Install shell integration".into(), source: "builtin".into() },
+        SlashCommand { name: "vim".into(), description: "Toggle vim mode".into(), source: "builtin".into() },
+    ];
+
+    // Scan user commands: ~/.claude/commands/**/*.md (recursive, subdirs become prefix)
+    if let Some(home) = std::env::var_os("HOME") {
+        let user_cmd_dir = std::path::Path::new(&home).join(".claude").join("commands");
+        scan_commands_recursive(&user_cmd_dir, &user_cmd_dir, "user", &mut commands);
+    }
+
+    // Scan project commands: <cwd>/.claude/commands/**/*.md
+    if let Some(cwd) = project_cwd {
+        let proj_cmd_dir = std::path::Path::new(&cwd).join(".claude").join("commands");
+        scan_commands_recursive(&proj_cmd_dir, &proj_cmd_dir, "project", &mut commands);
+    }
+
+    commands
+}
+
+fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source: &str, commands: &mut Vec<SlashCommand>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            scan_commands_recursive(base, &path, source, commands);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                // Build name from relative path: pipeline/dev-task.md -> "pipeline:dev-task"
+                let name = if let Ok(rel) = path.strip_prefix(base) {
+                    let parent = rel.parent().unwrap_or(std::path::Path::new(""));
+                    if parent.as_os_str().is_empty() {
+                        stem.to_string()
+                    } else {
+                        format!("{}:{}", parent.to_string_lossy().replace('/', ":"), stem)
+                    }
+                } else {
+                    stem.to_string()
+                };
+
+                // Skip if duplicate
+                if commands.iter().any(|c| c.name == name) {
+                    continue;
+                }
+
+                let desc = std::fs::read_to_string(&path)
+                    .ok()
+                    .and_then(|c| c.lines().next().map(|l| l.trim_start_matches('#').trim().to_string()))
+                    .unwrap_or_default();
+                commands.push(SlashCommand { name, description: desc, source: source.into() });
+            }
+        }
+    }
 }
 
 // ── PTY commands ──
@@ -484,6 +569,7 @@ pub fn run() {
             run_setup_scripts,
             run_shell_command,
             list_mcp_servers,
+            list_slash_commands,
             claude_spawn,
             claude_send,
             pty_spawn,
