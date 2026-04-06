@@ -3,8 +3,30 @@ import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types
 import { collectGitHub } from '../services/contextCollectors/github';
 import { collectSlack } from '../services/contextCollectors/slack';
 import { collectNotion } from '../services/contextCollectors/notion';
+import { collectViaMcp } from '../services/contextCollectors/mcpSearch';
 
 const STORAGE_KEY = 'cortx-context-pack';
+
+export interface SourceCollectStatus {
+  type: string;
+  status: 'pending' | 'collecting' | 'done' | 'error';
+  itemCount: number;
+  error?: string;
+  tokenUsage?: { input: number; output: number };
+}
+
+export interface CollectHistoryEntry {
+  id: string;
+  taskId: string;
+  timestamp: string;
+  durationMs: number;
+  keywords: string[];
+  model: string;
+  resources: string[];
+  results: { type: string; itemCount: number; tokenUsage?: { input: number; output: number }; error?: string }[];
+  totalItems: number;
+  totalTokens: number;
+}
 
 interface ContextPackState {
   items: Record<string, ContextItem[]>;
@@ -12,7 +34,10 @@ interface ContextPackState {
   sources: ContextSourceConfig[];
   keywords: Record<string, string[]>;
   isCollecting: boolean;
+  collectAbort: AbortController | null;
+  collectProgress: SourceCollectStatus[];
   lastCollectedAt: Record<string, string>;
+  collectHistory: Record<string, CollectHistoryEntry[]>; // taskId -> history
   deltaItems: Record<string, ContextItem[]>; // items changed since pause
 
   // Actions
@@ -24,14 +49,35 @@ interface ContextPackState {
   addSource: (source: ContextSourceConfig) => void;
   removeSource: (index: number) => void;
 
+  clearCollected: (taskId: string) => void;
+  cancelCollect: () => void;
+
   // Collection
-  collectAll: (taskId: string, branchName: string, slackChannels?: string[], taskTitle?: string) => Promise<void>;
+  collectAll: (taskId: string, branchName: string, slackChannels?: string[], taskTitle?: string, overrideSources?: ContextSourceConfig[], model?: string) => Promise<void>;
   takeSnapshot: (taskId: string) => void;
   detectDelta: (taskId: string, branchName: string) => Promise<void>;
 
   // Persistence
   loadState: () => void;
   persist: () => void;
+}
+
+/** Extract ticket IDs, branch names, and key terms from collected items */
+function extractKeywordsFromItems(items: ContextItem[]): string[] {
+  const keywords = new Set<string>();
+  for (const item of items) {
+    const text = `${item.title} ${item.summary}`;
+    // Ticket IDs: BE-1390, FE-123, PROJ-456, etc.
+    const tickets = text.match(/[A-Z]{2,}-\d+/g);
+    if (tickets) tickets.forEach((t) => keywords.add(t));
+    // Branch-like patterns: feat/xxx, fix/xxx, hotfix/xxx
+    const branches = text.match(/(?:feat|fix|hotfix|chore|refactor)\/[^\s,)]+/g);
+    if (branches) branches.forEach((b) => keywords.add(b));
+    // PR references: #1234
+    const prs = text.match(/#(\d{3,})/g);
+    if (prs) prs.forEach((p) => keywords.add(p));
+  }
+  return [...keywords].slice(0, 10); // Limit to avoid too many queries
 }
 
 function hashItem(item: ContextItem): string {
@@ -44,7 +90,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   sources: [],
   keywords: {},
   isCollecting: false,
+  collectAbort: null,
+  collectProgress: [],
   lastCollectedAt: {},
+  collectHistory: {},
   deltaItems: {},
 
   addPin: (taskId, item) => {
@@ -62,6 +111,22 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       items: {
         ...s.items,
         [taskId]: (s.items[taskId] || []).filter((i) => i.id !== itemId),
+      },
+    }));
+    get().persist();
+  },
+
+  cancelCollect: () => {
+    const { collectAbort } = get();
+    if (collectAbort) collectAbort.abort();
+    set({ isCollecting: false, collectAbort: null });
+  },
+
+  clearCollected: (taskId) => {
+    set((s) => ({
+      items: {
+        ...s.items,
+        [taskId]: (s.items[taskId] || []).filter((i) => i.category === 'pinned'),
       },
     }));
     get().persist();
@@ -96,38 +161,146 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
-  collectAll: async (taskId, branchName, slackChannels, taskTitle) => {
+  collectAll: async (taskId, branchName, slackChannels, taskTitle, overrideSources, model) => {
     const state = get();
     if (state.isCollecting) return;
 
-    set({ isCollecting: true });
+    const enabledSources = (overrideSources || state.sources).filter((s) => s.enabled);
+    const progress: SourceCollectStatus[] = enabledSources.map((s) => ({
+      type: s.type, status: 'pending', itemCount: 0,
+    }));
+
+    const abort = new AbortController();
+    const startTime = Date.now();
+    set({ isCollecting: true, collectAbort: abort, collectProgress: progress.map((p) => ({ ...p, status: 'collecting' })) });
     const kw = state.keywords[taskId] || [];
+
+    // Phase 1: Notion/Slack first (to extract keywords for GitHub)
+    const nonGithubSources = enabledSources.filter((s) => s.type !== 'github');
+    const githubSources = enabledSources.filter((s) => s.type === 'github');
+
     const collected: ContextItem[] = [];
 
-    for (const source of state.sources) {
-      if (!source.enabled) continue;
+    // Run Notion/Slack in parallel
+    if (nonGithubSources.length > 0) {
+      const phase1 = await Promise.allSettled(
+        nonGithubSources.map(async (source) => {
+          if (abort.signal.aborted) return [] as ContextItem[];
+          const idx = enabledSources.indexOf(source);
+          let items: ContextItem[] = [];
+          let tokenUsage: { input: number; output: number } | undefined;
+          if (source.type === 'slack') {
+            if (source.token) {
+              items = await collectSlack(source, kw, slackChannels);
+            } else {
+              const r = await collectViaMcp('slack', kw, '', { model });
+              items = r?.items || []; tokenUsage = r?.tokenUsage;
+            }
+          } else if (source.type === 'notion') {
+            if (source.token) {
+              items = await collectNotion(source, kw);
+            } else {
+              const r = await collectViaMcp('notion', kw, '', { model });
+              items = r?.items || []; tokenUsage = r?.tokenUsage;
+            }
+          }
+          if (abort.signal.aborted) return [] as ContextItem[];
+          set((s) => ({
+            collectProgress: s.collectProgress.map((p, i) =>
+              i === idx ? { ...p, status: 'done', itemCount: (items || []).length, tokenUsage } : p
+            ),
+          }));
+          return items || [];
+        })
+      );
 
-      try {
-        let items: ContextItem[] = [];
-        switch (source.type) {
-          case 'github':
-            items = await collectGitHub(source, kw, branchName);
-            break;
-          case 'slack':
-            items = await collectSlack(source, kw, slackChannels);
-            break;
-          case 'notion':
-            items = await collectNotion(source, kw);
-            break;
+      for (let i = 0; i < phase1.length; i++) {
+        const r = phase1[i];
+        if (r.status === 'fulfilled') {
+          collected.push(...r.value);
+        } else {
+          const idx = enabledSources.indexOf(nonGithubSources[i]);
+          set((s) => ({
+            collectProgress: s.collectProgress.map((p, j) =>
+              j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
+            ),
+          }));
         }
-        collected.push(...items);
-      } catch (err) {
-        console.warn(`Failed to collect from ${source.type}:`, err);
       }
     }
 
+    if (abort.signal.aborted) return;
+
+    // Phase 2: Extract keywords from Notion/Slack results, then search GitHub
+    if (githubSources.length > 0) {
+      // Regex-based extraction (fast, always works)
+      const regexKeywords = extractKeywordsFromItems(collected);
+
+      // Ollama embedding-based extraction (semantic, optional)
+      let semanticKeywords: string[] = [];
+      if (collected.length > 0) {
+        try {
+          const vs = await import('../services/vectorSearch');
+          const texts = collected.map((item) => `${item.title} ${item.summary}`);
+          const query = kw.join(' ') || taskTitle || '';
+          semanticKeywords = await vs.extractKeywords(query, texts, 5);
+        } catch {
+          // Ollama not available — use regex only
+        }
+      }
+
+      const githubKw = [...new Set([...kw, ...regexKeywords, ...semanticKeywords])];
+      console.log('[cortx] GitHub search with keywords:', { original: kw, regex: regexKeywords, semantic: semanticKeywords, final: githubKw });
+
+      const phase2 = await Promise.allSettled(
+        githubSources.map(async (source) => {
+          if (abort.signal.aborted) return [] as ContextItem[];
+          const idx = enabledSources.indexOf(source);
+          let items: ContextItem[] = [];
+          if (source.token && source.owner && source.repo) {
+            items = await collectGitHub(source, githubKw, branchName);
+          } else {
+            const r = await collectViaMcp('github', githubKw, '', { owner: source.owner, repo: source.repo, model });
+            items = r?.items || [];
+          }
+          if (abort.signal.aborted) return [] as ContextItem[];
+          set((s) => ({
+            collectProgress: s.collectProgress.map((p, i) =>
+              i === idx ? { ...p, status: 'done', itemCount: (items || []).length } : p
+            ),
+          }));
+          return items || [];
+        })
+      );
+
+      for (let i = 0; i < phase2.length; i++) {
+        const r = phase2[i];
+        if (r.status === 'fulfilled') {
+          collected.push(...r.value);
+        } else {
+          const idx = enabledSources.indexOf(githubSources[i]);
+          set((s) => ({
+            collectProgress: s.collectProgress.map((p, j) =>
+              j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
+            ),
+          }));
+        }
+      }
+    }
+
+    if (abort.signal.aborted) return;
+
+    // Sort by keyword relevance: title match first, then the rest
+    const sorted = kw.length > 0
+      ? [...collected].sort((a, b) => {
+          const aTitle = kw.some((k) => a.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
+          const bTitle = kw.some((k) => b.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
+          return aTitle - bTitle;
+        })
+      : collected;
+
     // Store in vector DB + semantic filter (optional, fails gracefully)
-    let relevant = collected;
+    let relevant = sorted;
     try {
       const vs = await import('../services/vectorSearch');
       const vectorItems = collected.map((item) => ({
@@ -160,10 +333,35 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       return true;
     });
 
+    // Build history entry
+    const finalProgress = get().collectProgress;
+    const historyEntry: CollectHistoryEntry = {
+      id: `ch-${Date.now().toString(36)}`,
+      taskId,
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+      keywords: kw,
+      model: model || 'default',
+      resources: enabledSources.map((s) => s.type),
+      results: finalProgress.map((p) => ({
+        type: p.type,
+        itemCount: p.itemCount,
+        tokenUsage: p.tokenUsage,
+        ...(p.error ? { error: p.error } : {}),
+      })),
+      totalItems: deduped.length - pinned.length,
+      totalTokens: finalProgress.reduce((sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0), 0),
+    };
+
     set((s) => ({
       items: { ...s.items, [taskId]: deduped },
       isCollecting: false,
+      collectAbort: null,
       lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
+      collectHistory: {
+        ...s.collectHistory,
+        [taskId]: [...(s.collectHistory[taskId] || []), historyEntry].slice(-20), // keep last 20
+      },
     }));
     get().persist();
   },
@@ -234,6 +432,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
           sources: data.sources || [],
           keywords: data.keywords || {},
           lastCollectedAt: data.lastCollectedAt || {},
+          collectHistory: data.collectHistory || {},
           deltaItems: data.deltaItems || {},
         });
       }
@@ -252,6 +451,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         sources: s.sources,
         keywords: s.keywords,
         lastCollectedAt: s.lastCollectedAt,
+        collectHistory: s.collectHistory,
         deltaItems: s.deltaItems,
       })
     );
