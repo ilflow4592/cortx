@@ -11,100 +11,114 @@ interface TerminalViewProps {
   worktreePath: string;
 }
 
-// Track spawned PTY sessions globally to avoid duplicates across re-mounts
-const spawnedSessions = new Set<string>();
+// Cache terminal instances + their DOM wrapper per task
+interface TerminalCache {
+  term: Terminal;
+  fit: FitAddon;
+  wrapper: HTMLDivElement; // the div that xterm rendered into
+  unlistenData: UnlistenFn | null;
+  unlistenExit: UnlistenFn | null;
+  spawned: boolean;
+}
+
+const terminalCache = new Map<string, TerminalCache>();
 
 export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const ptyId = `term-${taskId}`;
     const cwd = worktreePath || '/';
+    const container = containerRef.current;
+    let cache = terminalCache.get(taskId);
 
-    const term = new Terminal({
-      fontSize: 13,
-      fontFamily: "'JetBrains Mono', monospace",
-      theme: {
-        background: '#0c0c12',
-        foreground: '#d4d4d8',
-        cursor: '#6366f1',
-        cursorAccent: '#06060a',
-        selectionBackground: '#6366f140',
-        black: '#0c0c12', red: '#ef4444', green: '#34d399', yellow: '#eab308',
-        blue: '#6366f1', magenta: '#c084fc', cyan: '#67e8f9', white: '#e4e4e7',
-        brightBlack: '#52525b', brightRed: '#f87171', brightGreen: '#6ee7b7',
-        brightYellow: '#fde047', brightBlue: '#818cf8', brightMagenta: '#d8b4fe',
-        brightCyan: '#a5f3fc', brightWhite: '#fafafa',
-      },
-      cursorBlink: true,
-      scrollback: 5000,
-      allowProposedApi: true,
-    });
+    if (cache) {
+      // Move existing wrapper DOM into this container
+      container.appendChild(cache.wrapper);
+      setTimeout(() => cache!.fit.fit(), 50);
+    } else {
+      // Create a persistent wrapper div
+      const wrapper = document.createElement('div');
+      wrapper.style.width = '100%';
+      wrapper.style.height = '100%';
+      container.appendChild(wrapper);
 
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon());
-    term.open(containerRef.current);
-    termRef.current = term;
+      const term = new Terminal({
+        fontSize: 13,
+        fontFamily: "'JetBrains Mono', monospace",
+        theme: {
+          background: '#0c0c12',
+          foreground: '#d4d4d8',
+          cursor: '#6366f1',
+          cursorAccent: '#06060a',
+          selectionBackground: '#6366f140',
+          black: '#0c0c12', red: '#ef4444', green: '#34d399', yellow: '#eab308',
+          blue: '#6366f1', magenta: '#c084fc', cyan: '#67e8f9', white: '#e4e4e7',
+          brightBlack: '#52525b', brightRed: '#f87171', brightGreen: '#6ee7b7',
+          brightYellow: '#fde047', brightBlue: '#818cf8', brightMagenta: '#d8b4fe',
+          brightCyan: '#a5f3fc', brightWhite: '#fafafa',
+        },
+        cursorBlink: true,
+        scrollback: 5000,
+        allowProposedApi: true,
+      });
 
-    setTimeout(() => fit.fit(), 50);
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.loadAddon(new WebLinksAddon());
+      term.open(wrapper);
 
-    let unlistenData: UnlistenFn | null = null;
-    let unlistenExit: UnlistenFn | null = null;
+      cache = { term, fit, wrapper, unlistenData: null, unlistenExit: null, spawned: false };
+      terminalCache.set(taskId, cache);
 
-    (async () => {
-      try {
-        // Listen first
-        unlistenData = await listen<string>(`pty-data-${ptyId}`, (event) => {
-          term.write(event.payload);
-        });
-        unlistenExit = await listen(`pty-exit-${ptyId}`, () => {
-          term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
-          spawnedSessions.delete(ptyId);
-        });
+      setTimeout(() => fit.fit(), 50);
 
-        // Only spawn if not already spawned
-        if (!spawnedSessions.has(ptyId)) {
-          spawnedSessions.add(ptyId);
-          await invoke('pty_spawn', { id: ptyId, cwd });
+      term.onData((data) => {
+        invoke('pty_write', { id: ptyId, data }).catch(() => {});
+      });
+
+      term.onResize(({ rows, cols }) => {
+        invoke('pty_resize', { id: ptyId, rows, cols }).catch(() => {});
+      });
+
+      const currentCache = cache;
+      (async () => {
+        try {
+          currentCache.unlistenData = await listen<string>(`pty-data-${ptyId}`, (event) => {
+            currentCache.term.write(event.payload);
+          });
+          currentCache.unlistenExit = await listen(`pty-exit-${ptyId}`, () => {
+            currentCache.term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
+            currentCache.spawned = false;
+          });
+
+          if (!currentCache.spawned) {
+            currentCache.spawned = true;
+            await invoke('pty_spawn', { id: ptyId, cwd });
+          }
+
+          const { rows, cols } = currentCache.term;
+          await invoke('pty_resize', { id: ptyId, rows, cols });
+        } catch (err) {
+          currentCache.term.write(`\x1b[31mFailed to start terminal: ${err}\x1b[0m\r\n`);
+          currentCache.spawned = false;
         }
-
-        const { rows, cols } = term;
-        await invoke('pty_resize', { id: ptyId, rows, cols });
-      } catch (err) {
-        term.write(`\x1b[31mFailed to start terminal: ${err}\x1b[0m\r\n`);
-        spawnedSessions.delete(ptyId);
-      }
-    })();
-
-    term.onData((data) => {
-      invoke('pty_write', { id: ptyId, data }).catch(() => {});
-    });
-
-    term.onResize(({ rows, cols }) => {
-      invoke('pty_resize', { id: ptyId, rows, cols }).catch(() => {});
-    });
+      })();
+    }
 
     const resizeObserver = new ResizeObserver(() => {
-      try { fit.fit(); } catch { /* ignore */ }
+      try { cache?.fit.fit(); } catch { /* ignore */ }
     });
-    resizeObserver.observe(containerRef.current);
-
-    cleanupRef.current = () => {
-      resizeObserver.disconnect();
-      unlistenData?.();
-      unlistenExit?.();
-      term.dispose();
-      termRef.current = null;
-    };
+    resizeObserver.observe(container);
 
     return () => {
-      cleanupRef.current?.();
-      cleanupRef.current = null;
+      resizeObserver.disconnect();
+      // Detach wrapper from container but keep it alive in cache
+      if (cache?.wrapper.parentElement === container) {
+        container.removeChild(cache.wrapper);
+      }
     };
   }, [taskId, worktreePath]);
 
