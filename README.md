@@ -32,6 +32,8 @@ The setup script installs everything automatically:
 
 ## Development
 
+> If you just installed Rust for the first time, restart your terminal or run `source ~/.cargo/env` before proceeding.
+
 ```bash
 npm run tauri dev
 ```
