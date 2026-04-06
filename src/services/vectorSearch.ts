@@ -188,6 +188,74 @@ export async function checkVectorServices(): Promise<{ ollama: boolean; qdrant: 
   return { ollama, qdrant };
 }
 
+/**
+ * KeyBERT-style keyword extraction using Ollama embeddings.
+ * Embeds the query and candidate phrases, returns top N by cosine similarity.
+ */
+export async function extractKeywords(
+  query: string,
+  texts: string[],
+  topN = 10
+): Promise<string[]> {
+  if (texts.length === 0) return [];
+
+  // Extract candidate phrases from texts
+  const candidates = new Set<string>();
+  for (const text of texts) {
+    // Ticket IDs: BE-1390, FE-123
+    const tickets = text.match(/[A-Z]{2,}-\d+/g);
+    if (tickets) tickets.forEach((t) => candidates.add(t));
+    // Branch patterns: feat/xxx, fix/xxx
+    const branches = text.match(/(?:feat|fix|hotfix|chore|refactor)\/[^\s,)]+/g);
+    if (branches) branches.forEach((b) => candidates.add(b));
+    // PR references: #1234
+    const prs = text.match(/#(\d{3,})/g);
+    if (prs) prs.forEach((p) => candidates.add(p));
+    // Meaningful noun phrases (2-4 word sequences, Korean + English)
+    const phrases = text.match(/[\w가-힣]{2,}(?:\s[\w가-힣]{2,}){1,3}/g);
+    if (phrases) phrases.forEach((p) => {
+      if (p.length >= 4 && p.length <= 50) candidates.add(p.trim());
+    });
+  }
+
+  const candidateList = [...candidates];
+  if (candidateList.length === 0) return [];
+
+  try {
+    // Embed query
+    const queryVec = await embed(query);
+    if (queryVec.length === 0) return [];
+
+    // Embed candidates in batches
+    const scored: { phrase: string; score: number }[] = [];
+    for (const phrase of candidateList.slice(0, 50)) {
+      try {
+        const vec = await embed(phrase);
+        if (vec.length === 0) continue;
+        const score = cosineSim(queryVec, vec);
+        scored.push({ phrase, score });
+      } catch { /* skip */ }
+    }
+
+    // Sort by similarity, return top N
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, topN).map((s) => s.phrase);
+  } catch {
+    // Ollama not available — fallback to regex-only
+    return candidateList.slice(0, topN);
+  }
+}
+
+function cosineSim(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
+}
+
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
