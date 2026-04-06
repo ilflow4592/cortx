@@ -103,7 +103,7 @@ export default function App() {
 
   return (
     <div className="app-layout" style={{ gridTemplateColumns: `64px ${showSidebar ? `${sidebarWidth}px` : '0px'} 1fr`, transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-      <div className="titlebar-region"><div className="titlebar-region-clickable" onDoubleClick={handleHeaderDoubleClick} /></div>
+      <div className="titlebar-region" data-tauri-drag-region />
       <Dock onAddTask={() => setShowNewTask(true)} onAddProject={() => setShowNewProject(true)} onOpenSettings={() => setShowSettings(true)} onToggleSidebar={() => setShowSidebar((v) => !v)} onEnsureSidebarOpen={() => setShowSidebar(true)} />
       <div style={{ overflow: 'hidden', width: showSidebar ? sidebarWidth : 0, transition: isResizing ? 'none' : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)', flexShrink: 0, position: 'relative' }}>
         <div style={{ width: sidebarWidth, minWidth: sidebarWidth, height: '100%' }}>

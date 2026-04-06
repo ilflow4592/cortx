@@ -8,20 +8,14 @@ body {
   background: #0c0c12;
   color: #e4e4e7;
   -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #root { width: 100vw; height: 100vh; overflow: hidden; }
 
 /* ── Titlebar drag region ── */
-.titlebar-region {
-  position: fixed; top: 0; left: 0; right: 0; height: 44px;
-  -webkit-app-region: drag; z-index: 1;
-  border-bottom: 1px solid #1e1e26;
-}
-.titlebar-region-clickable {
-  position: absolute; inset: 0;
-  -webkit-app-region: no-drag;
-}
+.titlebar-region { display: none }
 
 /* ── App grid ── */
 .app-layout {
@@ -32,7 +26,7 @@ body {
 }
 
 /* ── Dock ── */
-.dock { background:#101016; border-right:1px solid #1e1e26; display:flex; flex-direction:column; align-items:center; padding:48px 0 12px; gap:2px; }
+.dock { background:#101016; border-right:1px solid #1e1e26; display:flex; flex-direction:column; align-items:center; padding:48px 0 12px; gap:2px }
 .dock-traffic { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; -webkit-app-region: drag; padding-top: 4px; }
 .dock-traffic span { width:12px; height:12px; border-radius:50%; -webkit-app-region: no-drag; }
 .dock-traffic .r { background:#ff5f57 } .dock-traffic .y { background:#febc2e } .dock-traffic .g { background:#28c840 }
@@ -54,7 +48,7 @@ body {
 
 /* ── Sidebar ── */
 .sidebar { background:#131319; border-right:1px solid #1e1e26; display:flex; flex-direction:column; overflow:hidden; height:100% }
-.sb-header { padding:10px 16px 10px; display:flex; justify-content:space-between; align-items:center; height:44px; }
+.sb-header { padding:10px 16px 10px; display:flex; justify-content:space-between; align-items:center; height:44px }
 .sb-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; color:#52525e }
 .sb-task { padding:12px 16px; cursor:pointer; border-left:3px solid transparent; transition:all .1s; display:block; width:100%; text-align:left; background:none; border-right:0; border-top:0; border-bottom:0; color:inherit; font-family:inherit; }
 .sb-task:hover { background:#1a1a24 }
@@ -124,12 +118,23 @@ body {
 .msg-avatar.user { background:#232330; color:#888895 }
 .msg-body { flex:1; min-width:0 }
 .msg-name { font-size:11px; font-weight:600; color:#6b6b78; margin-bottom:4px }
-.msg-text { font-size:14px; color:#d4d4d8; line-height:1.7 }
+.msg-text { font-size:14px; color:#d4d4d8; line-height:1.7; -webkit-user-select:text; user-select:text }
 .msg-text code { font-family:'JetBrains Mono',monospace; font-size:12px; background:#232330; padding:2px 6px; border-radius:4px; color:#818cf8 }
 .chat-input { padding:12px 16px; border-top:1px solid #1e1e26; display:flex; align-items:center; gap:8px; background:#111118 }
-.chat-input input { flex:1; background:#16161e; border:1px solid #232330; border-radius:10px; padding:10px 14px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; height:40px }
+.chat-input input { flex:1; background:#16161e; border:1px solid #232330; border-radius:10px; padding:10px 14px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; height:40px; -webkit-user-select:text; user-select:text }
 .chat-input input::placeholder { color:#6b6b78 }
 .chat-input input:focus { border-color:rgba(99,102,241,0.3) }
+
+/* Slash command menu */
+.slash-menu { position:absolute; bottom:100%; left:16px; right:16px; max-height:280px; overflow-y:auto; background:#16161e; border:1px solid #232330; border-radius:10px; box-shadow:0 -4px 24px rgba(0,0,0,0.4); margin-bottom:8px; padding:4px; z-index:50 }
+.slash-menu::-webkit-scrollbar { width:4px }
+.slash-menu::-webkit-scrollbar-thumb { background:#32323c; border-radius:2px }
+.slash-item { padding:8px 12px; border-radius:6px; cursor:pointer; transition:background 0.1s }
+.slash-item:hover, .slash-item-active { background:#1e1e2a }
+.slash-item-name { font-size:13px; color:#d4d4d8; font-family:'JetBrains Mono',monospace; display:flex; align-items:center; gap:8px }
+.slash-item-source { font-size:9px; color:#52525e; background:#232330; padding:1px 6px; border-radius:3px; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px }
+.slash-item-desc { font-size:11px; color:#6b6b78; margin-top:2px }
+
 .model-select { padding:6px 10px; background:#232330; border:1px solid #32323c; border-radius:8px; font-size:11px; color:#888895; font-family:inherit; display:flex; align-items:center; gap:4px; cursor:pointer; flex-shrink:0 }
 .model-select .m-dot { width:8px; height:8px; border-radius:3px; background:linear-gradient(135deg,#d4a574,#c4956a) }
 .send-btn { width:36px; height:36px; background:#6366f1; border:none; border-radius:8px; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0 }
@@ -153,7 +158,7 @@ body {
 .cp-name { color:#a1a1aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 .cp-sub { font-size:10px; color:#52525e; margin-top:1px }
 .cp-new { font-size:9px; background:rgba(234,179,8,0.07); color:#eab308; padding:1px 5px; border-radius:3px; font-weight:600 }
-.memo-textarea { width:100%; height:200px; background:#16161e; border:1px solid #232330; border-radius:8px; padding:10px 12px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; resize:none; line-height:1.7 }
+.memo-textarea { width:100%; height:200px; background:#16161e; border:1px solid #232330; border-radius:8px; padding:10px 12px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; resize:none; line-height:1.7; -webkit-user-select:text; user-select:text }
 .memo-textarea::placeholder { color:#52525e }
 .memo-textarea:focus { border-color:rgba(99,102,241,0.3) }
 .memo-callout { background:rgba(234,179,8,0.04); border:1px solid rgba(234,179,8,0.1); border-radius:8px; padding:10px 12px; font-size:12px; color:#a1a1aa; line-height:1.6; margin-bottom:12px }
@@ -227,6 +232,8 @@ body {
 /* ── Loading ── */
 .loading-dot { width:6px; height:6px; background:#6366f1; border-radius:50%; animation:pulse 1.2s infinite }
 @keyframes pulse { 0%,100% { opacity:0.3 } 50% { opacity:1 } }
+.spinner { width:16px; height:16px; border:2px solid rgba(99,102,241,0.2); border-top-color:#6366f1; border-radius:50%; animation:spin 0.6s linear infinite; flex-shrink:0 }
+@keyframes spin { to { transform:rotate(360deg) } }
 
 /* ── Error ── */
 .error-box { padding:10px 14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.15); border-radius:8px; font-size:12px; color:#ef4444; margin-bottom:12px }

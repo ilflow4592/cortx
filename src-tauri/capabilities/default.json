@@ -16,6 +16,7 @@
     "store:allow-load",
     "dialog:allow-open",
     "shell:allow-open",
+    "core:window:allow-start-dragging",
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-is-maximized",

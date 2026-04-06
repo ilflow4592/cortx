@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
-import { Chat } from './Chat';
 import { ClaudeChat } from './ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
@@ -9,12 +8,10 @@ import { DiffViewer } from './DiffViewer';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
-import { callAI } from '../services/ai';
-import { useSettingsStore } from '../stores/settingsStore';
 import { useProjectStore } from '../stores/projectStore';
-import type { InterruptReason, ChatMessage } from '../types/task';
+import type { InterruptReason } from '../types/task';
 
-type Tab = 'chat' | 'claude' | 'terminal' | 'diff' | 'context';
+type Tab = 'claude' | 'terminal' | 'diff' | 'context';
 
 export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   showRightPanel?: boolean;
@@ -61,54 +58,11 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const handleResume = async () => {
     await useContextPackStore.getState().detectDelta(task.id, task.branchName);
     resumeTask(task.id);
-
-    // Generate AI briefing
-    const settings = useSettingsStore.getState();
-    const cpStore = useContextPackStore.getState();
-    const delta = cpStore.deltaItems[task.id] || [];
-    const lastInterrupt = (task.interrupts || []).filter(e => e.resumedAt === null)[0];
-
-    const resolvedKey = (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? settings.oauthAccessToken : settings.apiKey;
-    if (resolvedKey && (delta.length > 0 || task.memo)) {
-      const briefingPrompt = [
-        'You are a concise assistant. Generate a short resume briefing (3-5 bullet points) for the developer.',
-        `Task: "${task.title}"`,
-        task.memo ? `Last memo: "${task.memo}"` : '',
-        lastInterrupt ? `Paused because: ${lastInterrupt.reason} - "${lastInterrupt.memo}"` : '',
-        delta.length > 0 ? `\n${delta.length} updates while away:\n${delta.slice(0, 5).map(d => `- [${d.sourceType}] ${d.title}`).join('\n')}` : '',
-        '\nKeep it brief and actionable. Use bullet points.',
-      ].filter(Boolean).join('\n');
-
-      try {
-        const provider = task.modelOverride?.provider || settings.aiProvider;
-        const modelId = task.modelOverride?.modelId || settings.modelId;
-        const response = await callAI({
-          provider, apiKey: resolvedKey, modelId, ollamaUrl: settings.ollamaUrl,
-          authMethod: (settings.authMethod === 'oauth' && settings.oauthAccessToken) ? 'oauth' : 'api-key',
-          oauthToken: settings.oauthAccessToken,
-          messages: [{ id: '0', role: 'user', content: briefingPrompt, timestamp: '' }],
-          taskTitle: task.title,
-        });
-
-        const briefingMsg: ChatMessage = {
-          id: `briefing-${Date.now().toString(36)}`,
-          role: 'assistant',
-          content: `📋 **Resume Briefing**\n\n${response}`,
-          model: modelId,
-          timestamp: new Date().toISOString(),
-        };
-        useTaskStore.getState().addChatMessage(task.id, briefingMsg);
-        setActiveTab('chat');
-      } catch {
-        // Briefing failed silently — not critical
-      }
-    }
   };
   const handleDone = () => setTaskStatus(task.id, 'done');
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'claude', label: '🤖 Claude' },
-    { key: 'chat', label: '💬 Chat' },
     { key: 'terminal', label: '⌨ Terminal' },
     { key: 'diff', label: '📋 Diff' },
     { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
@@ -116,7 +70,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 
   return (
     <div className="main">
-      <div className="main-header">
+      <div className="main-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).closest('.mh-right')) return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
         <div className="mh-left">
           <span className="mh-title">{task.title}</span>
           <span className={`mh-badge ${badgeCls}`}><span className="dot" />{statusLabel}</span>
@@ -168,11 +122,10 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 
       <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? '1fr 340px' : '1fr' }}>
         <div className="chat">
-          {activeTab === 'claude' && <ClaudeChat taskId={task.id} cwd={taskCwd} />}
-          {activeTab === 'chat' && <Chat taskId={task.id} />}
-          {activeTab === 'terminal' && <TerminalView taskId={task.id} worktreePath={taskCwd} />}
-          {activeTab === 'diff' && <DiffViewer taskId={task.id} />}
-          {activeTab === 'context' && <ContextPack taskId={task.id} />}
+          {activeTab === 'claude' && <ClaudeChat key={task.id} taskId={task.id} cwd={taskCwd} />}
+          {activeTab === 'terminal' && <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />}
+          {activeTab === 'diff' && <DiffViewer key={task.id} taskId={task.id} />}
+          {activeTab === 'context' && <ContextPack key={task.id} taskId={task.id} />}
         </div>
         {showRightPanel && <RightPanel />}
       </div>

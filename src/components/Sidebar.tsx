@@ -51,7 +51,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
   return (
     <div className="sidebar">
-      <div className="sb-header">
+      <div className="sb-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
         <span style={{ fontSize: 14, fontWeight: 600, color: '#e4e4e7' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
