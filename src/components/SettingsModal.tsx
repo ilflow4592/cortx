@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { open as openUrl } from '@tauri-apps/plugin-shell';
 import { useSettingsStore, type AIProvider } from '../stores/settingsStore';
 import { startAnthropicOAuth } from '../services/oauth';
@@ -382,7 +383,23 @@ function SourceCard({ source, onUpdate, onRemove }: { source: ContextSourceConfi
   const [verifyError, setVerifyError] = useState('');
   const [tokenDraft, setTokenDraft] = useState(source.token);
 
-  const isConnected = source.enabled && !!source.token;
+  const [ghCliAuth, setGhCliAuth] = useState(false);
+
+  // Check gh CLI auth for GitHub sources without token
+  useEffect(() => {
+    if (source.type === 'github' && !source.token) {
+      invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/', command: 'gh auth status 2>&1',
+      }).then((r) => {
+        if (r.success || r.output.includes('Logged in')) {
+          setGhCliAuth(true);
+          if (!source.enabled) onUpdate({ enabled: true });
+        }
+      }).catch(() => {});
+    }
+  }, [source.type, source.token]);
+
+  const isConnected = source.enabled && (!!source.token || (source.type === 'github' && ghCliAuth));
 
   const handleConnect = async () => {
     if (!tokenDraft) return;
@@ -444,12 +461,18 @@ function SourceCard({ source, onUpdate, onRemove }: { source: ContextSourceConfi
         /* Connected state */
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 11, color: '#888895', fontFamily: "'JetBrains Mono', monospace" }}>
-            {source.token.slice(0, 8)}...{source.token.slice(-4)}
+            {source.token
+              ? `${source.token.slice(0, 8)}...${source.token.slice(-4)}`
+              : source.type === 'github' && ghCliAuth
+              ? 'via gh CLI'
+              : '—'}
           </span>
-          <button
-            onClick={handleDisconnect}
-            style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-          >Disconnect</button>
+          {source.token && (
+            <button
+              onClick={handleDisconnect}
+              style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+            >Disconnect</button>
+          )}
         </div>
       ) : (
         /* Not connected state */
