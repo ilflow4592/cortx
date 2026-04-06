@@ -31,6 +31,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
+  if (task) console.log('[cortx:cwd]', { worktreePath: task.worktreePath, repoPath: task.repoPath, projectPath: taskProject?.localPath, taskCwd });
 
   if (!task) {
     return (
@@ -72,7 +73,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
     <div className="main">
       <div className="main-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).closest('.mh-right')) return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
         <div className="mh-left">
-          <span className="mh-title">{task.title}</span>
+          <span className="mh-title" title={task.title}>{task.title}</span>
           <span className={`mh-badge ${badgeCls}`}><span className="dot" />{statusLabel}</span>
           {task.branchName && <span className="mh-branch">{task.branchName}</span>}
         </div>
@@ -122,10 +123,16 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 
       <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? '1fr 340px' : '1fr' }}>
         <div className="chat">
-          {activeTab === 'claude' && <ClaudeChat key={task.id} taskId={task.id} cwd={taskCwd} />}
-          {activeTab === 'terminal' && <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />}
+          <div style={{ display: activeTab === 'claude' ? 'contents' : 'none' }}>
+            <ClaudeChat key={task.id} taskId={task.id} cwd={taskCwd} />
+          </div>
+          <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
+            <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />
+          </div>
           {activeTab === 'diff' && <DiffViewer key={task.id} taskId={task.id} />}
-          {activeTab === 'context' && <ContextPack key={task.id} taskId={task.id} />}
+          <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
+            <ContextPack key={task.id} taskId={task.id} />
+          </div>
         </div>
         {showRightPanel && <RightPanel />}
       </div>

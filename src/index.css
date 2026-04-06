@@ -55,8 +55,8 @@ body {
 .task-row-wrap:hover .task-delete-btn { opacity:1 !important }
 .task-row-wrap:hover .sb-timer { opacity:0 !important }
 .sb-task.active { background:#1a1a24; border-left-color:#6366f1 }
-.sb-task-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px }
-.sb-task-name { font-size:14px; font-weight:600; color:#d4d4d8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.sb-task-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; min-width:0 }
+.sb-task-name { font-size:14px; font-weight:600; color:#d4d4d8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0 }
 .sb-task.is-paused .sb-task-name { color:#a1a1aa }
 .sb-task.is-waiting .sb-task-name { color:#888895 }
 .sb-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
@@ -76,7 +76,7 @@ body {
 .main { display:flex; flex-direction:column; overflow:hidden }
 .main-header { height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid #1e1e26; flex-shrink:0; background:#111118 }
 .mh-left { display:flex; align-items:center; gap:12px; min-width:0; overflow:hidden }
-.mh-title { font-size:15px; font-weight:700; color:#fafafa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px }
+.mh-title { font-size:15px; font-weight:700; color:#fafafa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:400px }
 .mh-badge { padding:2px 8px; border-radius:12px; font-size:10px; font-weight:600; display:flex; align-items:center; gap:4px }
 .mh-badge.active { background:rgba(99,102,241,0.08); color:#818cf8 }
 .mh-badge.paused { background:rgba(234,179,8,0.08); color:#eab308 }

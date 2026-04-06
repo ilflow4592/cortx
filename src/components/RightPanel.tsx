@@ -41,7 +41,7 @@ export function RightPanel() {
 
   const tabs: { key: RTab; label: string; badge?: number }[] = [
     { key: 'worktree', label: 'Worktree' },
-    { key: 'context', label: 'Context', badge: newCount || undefined },
+    { key: 'context', label: 'Context', badge: taskItems.length || undefined },
     { key: 'history', label: 'History', badge: taskHistory.length || undefined },
     { key: 'log', label: 'Log', badge: interrupts.length || undefined },
     { key: 'memo', label: 'Memo' },
@@ -92,22 +92,6 @@ export function RightPanel() {
                 <div className="memo-callout">{task.memo}</div>
               </>
             )}
-            <div className="rp-section">Context Pack ({taskItems.length})</div>
-            {taskItems.length === 0 ? (
-              <div style={{ fontSize:11, color:'#3f3f46', padding:'8px 0' }}>Use the Context Pack tab to collect items</div>
-            ) : (
-              <>
-                {taskItems.map((item) => (
-                  <div key={item.id} className="cp-item">
-                    <div className="cp-icon">{icon(item.sourceType)}</div>
-                    <div className="cp-body">
-                      <div className="cp-name">{item.title}</div>
-                      <div className="cp-sub">{item.summary} {item.isNew && <span className="cp-new">NEW</span>}</div>
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
           </>
         )}
 
@@ -148,9 +132,13 @@ export function RightPanel() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[...taskHistory].reverse().map((entry) => {
-                  const duration = entry.durationMs < 1000
-                    ? `${entry.durationMs}ms`
-                    : `${(entry.durationMs / 1000).toFixed(1)}s`;
+                  const totalSec = Math.floor(entry.durationMs / 1000);
+                  const h = Math.floor(totalSec / 3600);
+                  const m = Math.floor((totalSec % 3600) / 60);
+                  const s = totalSec % 60;
+                  const duration = h > 0
+                    ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+                    : `${m}:${String(s).padStart(2,'0')}`;
                   return (
                     <div key={entry.id} style={{
                       padding: '10px 12px', borderRadius: 8,
