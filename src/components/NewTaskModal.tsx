@@ -62,13 +62,25 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
       // Pull latest base branch first
       setStatus(`Pulling latest ${baseBranch}...`);
       try {
-        await invoke<{ success: boolean }>('run_shell_command', {
+        const fetchResult = await invoke<{ success: boolean; error: string }>('run_shell_command', {
           cwd: repoPath,
           command: `git fetch origin && git checkout ${baseBranch} && git pull origin ${baseBranch}`,
         });
-      } catch { /* fetch failed — continue anyway */ }
+        if (!fetchResult.success) {
+          setError(`Base branch "${baseBranch}" not found. Check project settings.\n${fetchResult.error}`);
+          setCreating(false);
+          setStatus('');
+          return;
+        }
+      } catch (err) {
+        setError(`Failed to checkout base branch "${baseBranch}": ${err}`);
+        setCreating(false);
+        setStatus('');
+        return;
+      }
 
       setStatus('Creating worktree...');
+      console.log('[cortx] create_worktree params:', { repoPath, worktreePath, branchName, baseBranch });
 
       try {
         const result = await invoke<{ success: boolean; output: string; error: string }>('create_worktree', {
@@ -77,6 +89,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           branchName,
           baseBranch,
         });
+        console.log('[cortx] create_worktree result:', result);
 
         if (!result.success) {
           if (result.error.includes('already exists')) {
@@ -277,15 +290,23 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           </div>
 
           {/* Status / Error */}
-          {status && (
-            <div style={{ fontSize: 11, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div className="loading-dot" /> {status}
+          {creating && (
+            <div style={{
+              padding: '12px 16px', borderRadius: 8,
+              background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.1)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <div className="spinner" />
+              <div>
+                <div style={{ fontSize: 12, color: '#d4d4d8', fontWeight: 500 }}>{status || 'Creating task...'}</div>
+                <div style={{ fontSize: 10, color: '#52525e', marginTop: 2 }}>Setting up worktree and environment</div>
+              </div>
             </div>
           )}
           {error && <div className="error-box">{error}</div>}
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={creating}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={!title.trim() || creating}>
               {creating ? 'Creating...' : 'Create Task'}
             </button>
