@@ -337,6 +337,20 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         .filter((item) => item.url && !item.url.startsWith('http'))
         .map((item) => item.url);
 
+      // Show loaded context items before Claude starts
+      if (isPipeline && contextItems.length > 0) {
+        const sourceIcons: Record<string, string> = {
+          github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin',
+        };
+        const lines = contextItems.map((item) => {
+          const src = sourceIcons[item.sourceType] || item.sourceType;
+          return `  [${src}] ${item.title}`;
+        });
+        const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
+        const ctxMsgId = `${reqId}-context-load`;
+        setMessages((prev) => [...prev, { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' }]);
+      }
+
       await invoke('claude_spawn', {
         id: reqId,
         cwd: cwd || '/',
@@ -394,12 +408,14 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         {messages.map((msg) => (
           msg.role === 'activity' ? (
             <div key={msg.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px',
+              display: 'flex', alignItems: msg.content.includes('\n') ? 'flex-start' : 'center',
+              gap: 8, padding: '4px 16px',
               fontSize: 11, color: '#6b6b78',
             }}>
-              <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{msg.toolName}</span>
-              <span>{msg.content}</span>
+              <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5, flexShrink: 0, marginTop: msg.content.includes('\n') ? 2 : 0 }} />
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+                {msg.content}
+              </div>
             </div>
           ) : (
             <div key={msg.id} className="msg">
