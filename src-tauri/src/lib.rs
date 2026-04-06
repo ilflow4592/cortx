@@ -186,7 +186,7 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
 #[tauri::command]
 fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
     scripts.iter().map(|script| {
-        match Command::new("sh").args(["-c", script]).current_dir(&cwd).output() {
+        match Command::new("zsh").args(["-l", "-c", script]).current_dir(&cwd).output() {
             Ok(out) => CommandResult {
                 success: out.status.success(),
                 output: String::from_utf8_lossy(&out.stdout).to_string(),
@@ -335,6 +335,21 @@ pub struct McpServerInfo {
     pub name: String,
     pub command: String,
     pub args: Vec<String>,
+    pub env: std::collections::HashMap<String, String>,
+    pub server_type: String, // "stdio" or "http"
+    pub url: String,         // for http type
+}
+
+fn parse_mcp_env(config: &serde_json::Value) -> std::collections::HashMap<String, String> {
+    let mut env = std::collections::HashMap::new();
+    if let Some(env_obj) = config.get("env").and_then(|v| v.as_object()) {
+        for (k, v) in env_obj {
+            if let Some(val) = v.as_str() {
+                env.insert(k.clone(), val.to_string());
+            }
+        }
+    }
+    env
 }
 
 #[tauri::command]
@@ -353,7 +368,10 @@ fn list_mcp_servers() -> Vec<McpServerInfo> {
                             .and_then(|v| v.as_array())
                             .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
                             .unwrap_or_default();
-                        servers.push(McpServerInfo { name: name.clone(), command, args });
+                        let env = parse_mcp_env(config);
+                        let server_type = config.get("type").and_then(|v| v.as_str()).unwrap_or("stdio").to_string();
+                        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        servers.push(McpServerInfo { name: name.clone(), command, args, env, server_type, url });
                     }
                 }
             }
@@ -371,7 +389,10 @@ fn list_mcp_servers() -> Vec<McpServerInfo> {
                             .and_then(|v| v.as_array())
                             .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
                             .unwrap_or_default();
-                        servers.push(McpServerInfo { name: name.clone(), command, args });
+                        let env = parse_mcp_env(config);
+                        let server_type = config.get("type").and_then(|v| v.as_str()).unwrap_or("stdio").to_string();
+                        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        servers.push(McpServerInfo { name: name.clone(), command, args, env, server_type, url });
                     }
                 }
             }
@@ -382,15 +403,20 @@ fn list_mcp_servers() -> Vec<McpServerInfo> {
 }
 
 #[tauri::command]
-fn run_shell_command(cwd: String, command: String) -> CommandResult {
-    match Command::new("sh").args(["-c", &command]).current_dir(&cwd).output() {
-        Ok(out) => CommandResult {
-            success: out.status.success(),
-            output: String::from_utf8_lossy(&out.stdout).to_string(),
-            error: String::from_utf8_lossy(&out.stderr).to_string(),
-        },
-        Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
-    }
+async fn run_shell_command(cwd: String, command: String) -> CommandResult {
+    // Run in background thread to avoid blocking the UI
+    tauri::async_runtime::spawn_blocking(move || {
+        match Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
+            .env("TERM", "dumb")
+            .output() {
+            Ok(out) => CommandResult {
+                success: out.status.success(),
+                output: String::from_utf8_lossy(&out.stdout).to_string(),
+                error: String::from_utf8_lossy(&out.stderr).to_string(),
+            },
+            Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
+        }
+    }).await.unwrap_or_else(|e| CommandResult { success: false, output: String::new(), error: e.to_string() })
 }
 
 fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
