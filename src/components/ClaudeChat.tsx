@@ -11,8 +11,9 @@ interface ClaudeChatProps {
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'activity';
   content: string;
+  toolName?: string;
 }
 
 interface SlashCommand {
@@ -168,32 +169,138 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     }
   };
 
+  const resolveSlashCommand = async (text: string): Promise<string> => {
+    if (!text.startsWith('/')) return text;
+
+    const parts = text.slice(1).split(/\s+/);
+    const cmdName = parts[0];
+    const args = parts.slice(1).join(' ');
+    const filePath = cmdName.replace(/:/g, '/') + '.md';
+
+    for (const base of ['~/.claude/commands', `${cwd}/.claude/commands`]) {
+      try {
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `cat "${base}/${filePath}" 2>/dev/null`,
+        });
+        if (result.success && result.output.trim()) {
+          let prompt = result.output;
+          prompt = prompt.replace(/\$ARGUMENTS/g, args);
+          return prompt;
+        }
+      } catch { /* continue */ }
+    }
+
+    return text;
+  };
+
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text) return;
 
     setInput('');
     setShowSlashMenu(false);
     setError('');
+
     setLoading(true);
 
     const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
+    // Resolve slash command to full prompt
+    const resolvedText = await resolveSlashCommand(text);
+
     const reqId = `claude-${taskId}-${Date.now()}`;
     let response = '';
 
     try {
+      // Track current message ID — each new assistant turn gets a new ID
+      let currentMsgId = '';
+      let turnCounter = 0;
+      const activityId = `${reqId}-activity`;
+
       const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
-        response += event.payload;
-        const assistantId = `${reqId}-reply`;
-        setMessages((prev) => {
-          const existing = prev.find((m) => m.id === assistantId);
-          if (existing) {
-            return prev.map((m) => m.id === assistantId ? { ...m, content: response } : m);
+        const line = event.payload;
+
+        // Try to parse stream-json
+        try {
+          const evt = JSON.parse(line);
+
+          if (evt.type === 'assistant' && evt.message?.content) {
+            // Check for text content
+            const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
+              .filter((b: { type: string }) => b.type === 'text')
+              .map((b: { text?: string }) => b.text || '');
+
+            // Check for tool_use content
+            const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>)
+              .filter((b: { type: string }) => b.type === 'tool_use');
+
+            if (textBlocks.length > 0) {
+              // New assistant turn — create a new message
+              turnCounter++;
+              currentMsgId = `${reqId}-turn-${turnCounter}`;
+              response = textBlocks.join('');
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: currentMsgId, role: 'assistant', content: response }];
+              });
+            }
+
+            if (toolBlocks.length > 0) {
+              const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel }];
+              });
+            }
+          } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
+            // Append to current turn's message
+            response += evt.delta.text;
+            if (!currentMsgId) {
+              turnCounter++;
+              currentMsgId = `${reqId}-turn-${turnCounter}`;
+            }
+            const msgId = currentMsgId;
+            setMessages((prev) => {
+              const existing = prev.find((m) => m.id === msgId);
+              if (existing) {
+                return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+              }
+              return [...prev.filter((m) => m.id !== activityId), { id: msgId, role: 'assistant', content: response }];
+            });
+          } else if (evt.type === 'error') {
+            // Error from claude CLI (stderr or spawn failure)
+            const errMsg = evt.content || 'Unknown error from Claude CLI';
+            setError(errMsg);
+          } else if (evt.type === 'result') {
+            // Final result — add as the last message
+            if (evt.result) {
+              turnCounter++;
+              const resultId = `${reqId}-result`;
+              response = evt.result;
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: resultId, role: 'assistant', content: response }];
+              });
+            }
           }
-          return [...prev, { id: assistantId, role: 'assistant', content: response }];
-        });
+        } catch {
+          // Not JSON — treat as plain text (fallback), append to current message
+          response += line + '\n';
+          if (!currentMsgId) {
+            turnCounter++;
+            currentMsgId = `${reqId}-turn-${turnCounter}`;
+          }
+          const msgId = currentMsgId;
+          setMessages((prev) => {
+            const existing = prev.find((m) => m.id === msgId);
+            if (existing) {
+              return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+            }
+            return [...prev, { id: msgId, role: 'assistant', content: response }];
+          });
+        }
       });
       unlistenRefs.current.push(unData);
 
@@ -207,7 +314,23 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       const nonFileItems = contextItems.filter(
         (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
       );
-      const contextSummary = serializeContextItems(nonFileItems);
+      let contextSummary = serializeContextItems(nonFileItems);
+
+      // For pipeline commands invoked from Cortx with Context Pack data,
+      // instruct the pipeline to use Context Pack instead of Obsidian dev-plan
+      const isPipeline = text.startsWith('/pipeline:');
+      if (isPipeline && contextItems.length > 0) {
+        const cortxDirective = [
+          '## CORTX_CONTEXT_PACK_MODE',
+          'This pipeline was invoked from the Cortx app with Context Pack data.',
+          'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+          'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+          'If a dev-plan is needed, generate it from the Context Pack data.',
+        ].join('\n');
+        contextSummary = contextSummary
+          ? `${cortxDirective}\n\n---\n\n${contextSummary}`
+          : cortxDirective;
+      }
 
       // Local file paths for --add-dir
       const contextFiles = contextItems
@@ -217,9 +340,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       await invoke('claude_spawn', {
         id: reqId,
         cwd: cwd || '/',
-        message: text,
+        message: resolvedText,
         contextFiles: contextFiles.length > 0 ? contextFiles : null,
         contextSummary: contextSummary || null,
+        allowAllTools: text.startsWith('/') || null,
       });
 
       await donePromise;
@@ -268,19 +392,30 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id} className="msg">
-            <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>
-              {msg.role === 'user' ? 'U' : 'C'}
+          msg.role === 'activity' ? (
+            <div key={msg.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px',
+              fontSize: 11, color: '#6b6b78',
+            }}>
+              <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{msg.toolName}</span>
+              <span>{msg.content}</span>
             </div>
-            <div className="msg-body">
-              <div className="msg-name">
-                {msg.role === 'user' ? 'You' : 'Claude Code'}
+          ) : (
+            <div key={msg.id} className="msg">
+              <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>
+                {msg.role === 'user' ? 'U' : 'C'}
               </div>
-              <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {msg.content}
+              <div className="msg-body">
+                <div className="msg-name">
+                  {msg.role === 'user' ? 'You' : 'Claude Code'}
+                </div>
+                <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {msg.content}
+                </div>
               </div>
             </div>
-          </div>
+          )
         ))}
 
         {loading && (
@@ -331,18 +466,26 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           onKeyDown={handleKeyDown}
           onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
           placeholder="Send a message or type / for commands..."
-          disabled={loading}
         />
         <div className="model-select" style={{ cursor: 'default' }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
-          Claude Code (CLI)
+          Opus 4.6
           {contextTotalCount > 0 && (
             <span style={{ color: '#818cf8', marginLeft: 4, fontSize: 10 }}>
               📎{contextTotalCount}
             </span>
           )}
         </div>
-        <button className="send-btn" onClick={handleSend} disabled={!input.trim() || loading}>↑</button>
+        {loading ? (
+          <button className="send-btn" onClick={() => {
+            // Stop current response
+            unlistenRefs.current.forEach((fn) => fn());
+            unlistenRefs.current = [];
+            setLoading(false);
+          }} style={{ background: '#ef4444' }} title="Stop response">■</button>
+        ) : (
+          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>↑</button>
+        )}
       </div>
     </>
   );
