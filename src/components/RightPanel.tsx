@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from './SourceIcons';
 import { formatTime } from '../utils/time';
 
-type RTab = 'worktree' | 'context' | 'log' | 'memo';
+type RTab = 'worktree' | 'context' | 'history' | 'log' | 'memo';
 
 const reasonLabel: Record<string, string> = {
   interrupt: '🔔 Interrupted',
@@ -24,21 +25,24 @@ export function RightPanel() {
   const task = tasks.find((t) => t.id === activeTaskId);
   const taskItemsRaw = useContextPackStore((s) => task ? s.items[task.id] : undefined);
   const taskDeltaRaw = useContextPackStore((s) => task ? s.deltaItems[task.id] : undefined);
+  const taskHistory = useContextPackStore((s) => task ? s.collectHistory[task.id] : undefined) || [];
 
   if (!task) return <div className="right-panel" />;
 
   const taskProject = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
-  const taskItems = taskItemsRaw || [];
+  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
+  const taskItems = [...(taskItemsRaw || [])].sort((a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9));
   const taskDelta = taskDeltaRaw || [];
   const newCount = taskItems.filter((i) => i.isNew).length;
   const interrupts = task.interrupts || [];
   const totalInterruptTime = interrupts.reduce((s, e) => s + e.durationSeconds, 0);
 
-  const icon = (type: string) => type === 'github' ? '🐙' : type === 'slack' ? '💬' : type === 'notion' ? '📄' : '📌';
+  const icon = (type: string) => type === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : type === 'slack' ? <SlackIcon size={14} /> : type === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
 
   const tabs: { key: RTab; label: string; badge?: number }[] = [
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: newCount || undefined },
+    { key: 'history', label: 'History', badge: taskHistory.length || undefined },
     { key: 'log', label: 'Log', badge: interrupts.length || undefined },
     { key: 'memo', label: 'Memo' },
   ];
@@ -88,19 +92,21 @@ export function RightPanel() {
                 <div className="memo-callout">{task.memo}</div>
               </>
             )}
-            <div className="rp-section">Context Pack</div>
+            <div className="rp-section">Context Pack ({taskItems.length})</div>
             {taskItems.length === 0 ? (
               <div style={{ fontSize:11, color:'#3f3f46', padding:'8px 0' }}>Use the Context Pack tab to collect items</div>
             ) : (
-              taskItems.slice(0, 5).map((item) => (
-                <div key={item.id} className="cp-item">
-                  <div className="cp-icon">{icon(item.sourceType)}</div>
-                  <div className="cp-body">
-                    <div className="cp-name">{item.title}</div>
-                    <div className="cp-sub">{item.summary} {item.isNew && <span className="cp-new">NEW</span>}</div>
+              <>
+                {taskItems.map((item) => (
+                  <div key={item.id} className="cp-item">
+                    <div className="cp-icon">{icon(item.sourceType)}</div>
+                    <div className="cp-body">
+                      <div className="cp-name">{item.title}</div>
+                      <div className="cp-sub">{item.summary} {item.isNew && <span className="cp-new">NEW</span>}</div>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </>
             )}
           </>
         )}
@@ -131,6 +137,105 @@ export function RightPanel() {
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {tab === 'history' && (
+          <>
+            <div className="rp-section">Search History</div>
+            {taskHistory.length === 0 ? (
+              <div style={{ fontSize: 11, color: '#3f3f46', padding: '16px 0', textAlign: 'center' }}>No searches yet</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[...taskHistory].reverse().map((entry) => {
+                  const duration = entry.durationMs < 1000
+                    ? `${entry.durationMs}ms`
+                    : `${(entry.durationMs / 1000).toFixed(1)}s`;
+                  return (
+                    <div key={entry.id} style={{
+                      padding: '10px 12px', borderRadius: 8,
+                      background: '#16161e', border: '1px solid #1e1e26',
+                    }}>
+                      {/* Time + duration */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span style={{ fontSize: 10, color: '#52525e' }}>
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </span>
+                        <span style={{ fontSize: 10, color: '#52525e' }}>{duration}</span>
+                      </div>
+
+                      {/* Keywords */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                        {entry.keywords.map((kw) => (
+                          <span key={kw} style={{
+                            padding: '1px 6px', borderRadius: 3, fontSize: 10,
+                            background: '#232330', color: '#a1a1aa',
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}>{kw}</span>
+                        ))}
+                      </div>
+
+                      {/* Resources + Model */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                        {entry.resources.map((r) => (
+                          <span key={r} style={{
+                            fontSize: 9, color: '#6b6b78', textTransform: 'capitalize',
+                            padding: '1px 5px', borderRadius: 3, background: '#1e1e26',
+                          }}>{r}</span>
+                        ))}
+                        <span style={{ fontSize: 9, color: '#3f3f46' }}>|</span>
+                        <span style={{ fontSize: 9, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {entry.model.replace('claude-', '').replace(/-\d+$/, '')}
+                        </span>
+                      </div>
+
+                      {/* Results per source */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {entry.results.map((r) => (
+                          <div key={r.type}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
+                              <span style={{ color: r.error ? '#ef4444' : r.itemCount > 0 ? '#34d399' : '#52525e', width: 10 }}>
+                                {r.error ? '✗' : r.itemCount > 0 ? '✓' : '○'}
+                              </span>
+                              <span style={{ color: '#888895', textTransform: 'capitalize', width: 50 }}>{r.type}</span>
+                              <span style={{ color: r.error ? '#ef4444' : '#52525e' }}>
+                                {r.error ? 'failed' : `${r.itemCount} items`}
+                              </span>
+                              {r.tokenUsage && !r.error && (
+                                <span style={{ color: '#3f3f46', marginLeft: 'auto' }}>
+                                  ~{r.tokenUsage.input + r.tokenUsage.output} tok
+                                </span>
+                              )}
+                            </div>
+                            {r.error && (
+                              <div
+                                onClick={() => navigator.clipboard.writeText(r.error || '')}
+                                title="Click to copy"
+                                style={{ fontSize: 9, color: '#52525e', marginLeft: 16, marginTop: 2, wordBreak: 'break-all', cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
+                              >
+                                {r.error.slice(0, 150)} <span style={{ color: '#3f3f46' }}>📋</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Total */}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between',
+                        marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e1e26',
+                        fontSize: 10,
+                      }}>
+                        <span style={{ color: '#6b6b78' }}>{entry.totalItems} items total</span>
+                        {entry.totalTokens > 0 && (
+                          <span style={{ color: '#3f3f46' }}>~{entry.totalTokens} tokens</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
