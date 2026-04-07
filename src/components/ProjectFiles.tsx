@@ -13,6 +13,7 @@ interface TreeNode {
 export function ProjectFiles({ cwd }: { cwd: string }) {
   const [root, setRoot] = useState<TreeNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string>('');
   const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
 
   useEffect(() => { if (cwd) loadChildren(cwd).then(setRoot); }, [cwd]);
@@ -41,6 +42,7 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
   };
 
   const toggleDir = useCallback(async (node: TreeNode) => {
+    setSelected(node.path);
     const newExpanded = new Set(expanded);
     if (newExpanded.has(node.path)) {
       newExpanded.delete(node.path);
@@ -57,6 +59,7 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
   }, [expanded, root]);
 
   const openFile = async (path: string) => {
+    setSelected(path);
     try {
       const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
         cwd: '/',
@@ -84,18 +87,19 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {root.map((node) => (
-          <TreeItem key={node.path} node={node} depth={0} expanded={expanded} onToggle={toggleDir} onOpen={openFile} />
+          <TreeItem key={node.path} node={node} depth={0} expanded={expanded} selected={selected} onToggle={toggleDir} onOpen={openFile} />
         ))}
       </div>
     </div>
   );
 }
 
-function TreeItem({ node, depth, expanded, onToggle, onOpen }: {
-  node: TreeNode; depth: number; expanded: Set<string>;
+function TreeItem({ node, depth, expanded, selected, onToggle, onOpen }: {
+  node: TreeNode; depth: number; expanded: Set<string>; selected: string;
   onToggle: (node: TreeNode) => void; onOpen: (path: string) => void;
 }) {
   const isOpen = expanded.has(node.path);
+  const isSelected = selected === node.path;
 
   return (
     <>
@@ -104,7 +108,8 @@ function TreeItem({ node, depth, expanded, onToggle, onOpen }: {
         style={{
           display: 'flex', alignItems: 'center', gap: 6, width: '100%',
           padding: `3px 12px 3px ${12 + depth * 16}px`,
-          background: 'none', border: 'none', color: '#b4b4bc', cursor: 'pointer',
+          background: isSelected ? 'rgba(99,102,241,0.08)' : 'none',
+          border: 'none', color: isSelected ? '#e4e4e7' : '#b4b4bc', cursor: 'pointer',
           fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: 'left',
         }}
       >
@@ -117,7 +122,7 @@ function TreeItem({ node, depth, expanded, onToggle, onOpen }: {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
       </button>
       {node.isDir && isOpen && node.children?.map((child) => (
-        <TreeItem key={child.path} node={child} depth={depth + 1} expanded={expanded} onToggle={onToggle} onOpen={onOpen} />
+        <TreeItem key={child.path} node={child} depth={depth + 1} expanded={expanded} selected={selected} onToggle={onToggle} onOpen={onOpen} />
       ))}
     </>
   );
