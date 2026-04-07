@@ -104,7 +104,7 @@ body {
 /* ── Tabs ── */
 .tabs { height:36px; display:flex; align-items:flex-end; padding:0 16px; border-bottom:1px solid #2a3642; flex-shrink:0; background:#0f1419; gap:2px; overflow-x:auto; overflow-y:hidden }
 .tabs::-webkit-scrollbar { display:none }
-.tab { padding:7px 16px; font-size:12px; color:#8b95a5; cursor:pointer; border:none; border-bottom:2px solid transparent; font-weight:500; border-radius:6px 6px 0 0; background:none; font-family:inherit; white-space:nowrap; flex-shrink:0; }
+.tab { padding:7px 16px; font-size:12px; color:#8b95a5; cursor:pointer; border:none; border-bottom:2px solid transparent; font-weight:500; border-radius:6px 6px 0 0; background:none; font-family:inherit; white-space:nowrap; flex-shrink:0; display:inline-flex; align-items:center; gap:4px }
 .tab:hover { color:#c0c8d4; background:rgba(255,255,255,0.015) }
 .tab.active { color:#e8eef5; border-bottom-color:#5aa5a5; background:#131a21 }
 .tab .badge { margin-left:6px; font-size:9px; background:rgba(234,179,8,0.08); color:#eab308; padding:1px 5px; border-radius:3px; font-weight:600 }
