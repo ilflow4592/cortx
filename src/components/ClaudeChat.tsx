@@ -248,7 +248,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   };
 
   // Parse pipeline markers from Claude's text output and update task state
-  const PIPELINE_MARKER_RE = /\[PIPELINE:([a-z_]+):([a-z_]+)(?::([^\]]*))?\]/g;
+  const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z_]+)(?::([^\]]*))?\]/g;
   const parsePipelineMarkers = (text: string): string => {
     let cleaned = text;
     let match: RegExpExecArray | null;
