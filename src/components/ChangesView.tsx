@@ -205,7 +205,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
           return (
             <button
               key={file.path}
-              onClick={() => subTab === 'files' && onOpenFile ? onOpenFile(`${cwd}/${file.path}`) : selectFile(file.path, 'diff')}
+              onClick={() => onOpenFile ? onOpenFile(`${cwd}/${file.path}`) : selectFile(file.path, 'diff')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '5px 16px', background: 'none', border: 'none', borderBottom: '1px solid #ffffff06',
