@@ -35,6 +35,43 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
+
+  const handleOpenFile = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      if (result.success) {
+        setEditorFile({ path: filePath, content: result.output });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, []);
+
+  const handleOpenDiff = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      const modResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      const origResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: taskCwd,
+        command: `git show origin/develop:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || git show HEAD~1:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || echo ''`,
+      });
+      if (modResult.success) {
+        setEditorFile({
+          path: filePath,
+          content: modResult.output,
+          original: origResult.success ? origResult.output : '',
+        });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, [taskCwd]);
+
   if (task) console.log('[cortx:cwd]', { worktreePath: task.worktreePath, repoPath: task.repoPath, projectPath: taskProject?.localPath, taskCwd });
 
   if (!task) {
@@ -65,44 +102,6 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
     resumeTask(task.id);
   };
   const handleDone = () => setTaskStatus(task.id, 'done');
-
-  const handleOpenFile = useCallback(async (filePath: string) => {
-    try {
-      const escaped = filePath.replace(/'/g, "'\\''");
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat '${escaped}' 2>/dev/null | head -5000`,
-      });
-      if (result.success) {
-        setEditorFile({ path: filePath, content: result.output });
-        setActiveTab('editor');
-      }
-    } catch { /* skip */ }
-  }, []);
-
-  const handleOpenDiff = useCallback(async (filePath: string) => {
-    try {
-      const escaped = filePath.replace(/'/g, "'\\''");
-      // Get current (modified) content
-      const modResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat '${escaped}' 2>/dev/null | head -5000`,
-      });
-      // Get original content from develop or HEAD~1
-      const origResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: taskCwd,
-        command: `git show origin/develop:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || git show HEAD~1:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || echo ''`,
-      });
-      if (modResult.success) {
-        setEditorFile({
-          path: filePath,
-          content: modResult.output,
-          original: origResult.success ? origResult.output : '',
-        });
-        setActiveTab('editor');
-      }
-    } catch { /* skip */ }
-  }, [taskCwd]);
 
   const fileName = editorFile?.path.split('/').pop() || '';
 
