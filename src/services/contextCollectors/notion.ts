@@ -108,10 +108,15 @@ export async function collectNotion(
   if (taskTitle && items.length > 2) {
     const callAI = async (prompt: string): Promise<string> => {
       try {
-        const escaped = "'" + prompt.replace(/'/g, "'\\''") + "'";
+        const tmpFile = `/tmp/cortx-notion-filter-${Date.now()}.txt`;
+        const b64 = btoa(unescape(encodeURIComponent(prompt)));
+        await invoke<{ success: boolean }>('run_shell_command', {
+          cwd: '/',
+          command: `echo '${b64}' | base64 -d > '${tmpFile}'`,
+        });
         const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
           cwd: '/',
-          command: `echo ${escaped} | claude -p - --model claude-haiku-4-5-20251001 2>/dev/null`,
+          command: `cat '${tmpFile}' | claude -p - --model claude-haiku-4-5-20251001 2>/dev/null; rm -f '${tmpFile}'`,
         });
         return result.success ? result.output.trim() : '';
       } catch { return ''; }
