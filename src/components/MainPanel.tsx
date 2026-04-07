@@ -78,6 +78,14 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
         </div>
         <div className="mh-right">
           <span className="mh-timer">{formatTime(task.elapsedSeconds)}</span>
+          {task.elapsedSeconds > 0 && (
+            <button
+              className="mh-btn"
+              style={{ background: 'none', color: '#3f3f46', border: '1px solid #18181b', padding: '4px 6px', fontSize: 10 }}
+              onClick={() => { if (window.confirm('Reset timer to 00:00?')) updateTask(task.id, { elapsedSeconds: 0 }); }}
+              title="Reset timer"
+            >↺</button>
+          )}
           {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}>▶ Start</button>}
           {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}>⏸ Pause</button>}
           {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}>▶ Resume</button>}
