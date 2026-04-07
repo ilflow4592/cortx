@@ -188,12 +188,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const cmdName = parts[0];
     let args = parts.slice(1).join(' ');
 
-    // Auto-fill pipeline args from current task if not provided
-    if (cmdName.startsWith('pipeline:') && !args.trim()) {
-      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-      if (task) {
-        const branch = task.branchName || '';
-        const title = task.title || '';
+    // Auto-fill pipeline args from current task
+    const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+    if (cmdName.startsWith('pipeline:') && currentTask) {
+      const branch = currentTask.branchName || '';
+      const title = currentTask.title || '';
+      if (!args.trim()) {
         args = `${branch} ${title}`.trim();
       }
     }
@@ -203,6 +203,11 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     if (CORTX_SKILLS[skillKey]) {
       let prompt = CORTX_SKILLS[skillKey];
       prompt = prompt.replace(/\$ARGUMENTS/g, args);
+      // Replace task placeholders
+      if (currentTask) {
+        prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
+        prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
+      }
       return prompt;
     }
 
