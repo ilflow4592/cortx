@@ -712,11 +712,6 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             unlistenRefs.current.forEach((fn) => fn());
             unlistenRefs.current = [];
             setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
-            // Reset pipeline state
-            const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-            if (currentTask?.pipeline?.enabled) {
-              useTaskStore.getState().updateTask(taskId, { pipeline: undefined });
-            }
             setLoading(false);
           }} style={{ background: '#ef4444' }} title="Stop response"><Square size={14} fill="white" strokeWidth={0} /></button>
         ) : (
