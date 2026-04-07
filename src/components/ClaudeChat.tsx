@@ -290,8 +290,8 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Resolve slash command to full prompt
-    const resolvedText = await resolveSlashCommand(text);
+    // Resolve slash command to full prompt — skip on resume (Claude already has context)
+    const resolvedText = claudeSessionIdRef.current ? text : await resolveSlashCommand(text);
 
     const reqId = `claude-${taskId}-${Date.now()}`;
     currentReqIdRef.current = reqId;
