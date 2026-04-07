@@ -1,8 +1,10 @@
+import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 
 export async function collectNotion(
   config: ContextSourceConfig,
-  keywords: string[]
+  keywords: string[],
+  taskTitle?: string
 ): Promise<ContextItem[]> {
   if (!config.token) return [];
 
@@ -37,12 +39,6 @@ export async function collectNotion(
         const url = result.url || '';
         const lastEdited = result.last_edited_time || '';
 
-        // Fetch page body content
-        let fullText = '';
-        if (result.object === 'page') {
-          fullText = await fetchNotionPageContent(result.id, headers);
-        }
-
         items.push({
           id,
           sourceType: 'notion',
@@ -55,7 +51,6 @@ export async function collectNotion(
           metadata: {
             objectType: result.object,
             notionId: result.id,
-            fullText,
           },
         });
       }
@@ -91,8 +86,6 @@ export async function collectNotion(
           const id = `notion-db-${page.id}`;
           if (items.some((i) => i.id === id)) continue;
 
-          const fullText = await fetchNotionPageContent(page.id, headers);
-
           items.push({
             id,
             sourceType: 'notion',
@@ -102,13 +95,36 @@ export async function collectNotion(
             timestamp: page.last_edited_time || '',
             isNew: false,
             category: 'linked',
-            metadata: { notionId: page.id, fullText },
+            metadata: { notionId: page.id },
           });
         }
       }
     } catch {
       // skip
     }
+  }
+
+  // AI relevance filter — remove unrelated results before fetching full content
+  if (taskTitle && items.length > 2) {
+    const callAI = async (prompt: string): Promise<string> => {
+      try {
+        const escaped = "'" + prompt.replace(/'/g, "'\\''") + "'";
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `echo ${escaped} | claude -p - --model claude-haiku-4-5-20251001 2>/dev/null`,
+        });
+        return result.success ? result.output.trim() : '';
+      } catch { return ''; }
+    };
+
+    const filtered = await filterNotionByRelevance(items, taskTitle, callAI);
+    // Fetch fullText only for filtered items
+    for (const item of filtered) {
+      if (!item.metadata?.fullText && item.metadata?.notionId) {
+        item.metadata.fullText = await fetchNotionPageContent(item.metadata.notionId, headers);
+      }
+    }
+    return filtered;
   }
 
   return items;
@@ -140,6 +156,45 @@ async function fetchNotionPageContent(pageId: string, headers: Record<string, st
     return texts.join('\n');
   } catch {
     return '';
+  }
+}
+
+// AI relevance filter — remove unrelated results
+export async function filterNotionByRelevance(
+  items: ContextItem[],
+  taskTitle: string,
+  callAI: (prompt: string) => Promise<string>
+): Promise<ContextItem[]> {
+  if (items.length <= 2) return items;
+
+  const itemList = items.map((item, i) =>
+    `[${i}] ${item.title}`
+  ).join('\n');
+
+  const prompt = `You are filtering Notion search results for relevance to a developer's task.
+
+Task: "${taskTitle}"
+
+Search results:
+${itemList}
+
+Return ONLY the indices of items directly relevant to this task, as comma-separated numbers (e.g. "0,3").
+If none are relevant, return "none".
+Be very selective — only include items that are clearly about this specific task or directly needed to implement it.`;
+
+  try {
+    const response = await callAI(prompt);
+    const cleaned = response.trim().toLowerCase();
+
+    if (cleaned === 'none' || cleaned === '') return [];
+
+    const indices = cleaned.split(',')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n >= 0 && n < items.length);
+
+    return indices.length > 0 ? indices.map(i => items[i]) : items;
+  } catch {
+    return items;
   }
 }
 

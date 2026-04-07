@@ -198,7 +198,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
             }
           } else if (source.type === 'notion') {
             if (source.token) {
-              items = await collectNotion(source, kw);
+              items = await collectNotion(source, kw, taskTitle);
             } else {
               const r = await collectViaMcp('notion', kw, '', { model });
               items = r?.items || []; tokenUsage = r?.tokenUsage;
