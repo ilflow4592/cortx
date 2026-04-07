@@ -483,6 +483,17 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
           placeholder="Send a message or type / for commands..."
         />
+        {messages.length > 0 && !loading && (
+          <button
+            onClick={() => { setMessages([]); setError(''); }}
+            style={{
+              background: 'none', border: '1px solid #27272a', borderRadius: 6,
+              color: '#52525e', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
+              fontFamily: 'inherit', whiteSpace: 'nowrap',
+            }}
+            title="Clear chat"
+          >Clear</button>
+        )}
         <div className="model-select" style={{ cursor: 'default' }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
           Opus 4.6
