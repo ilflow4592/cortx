@@ -186,7 +186,17 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
 
     const parts = text.slice(1).split(/\s+/);
     const cmdName = parts[0];
-    const args = parts.slice(1).join(' ');
+    let args = parts.slice(1).join(' ');
+
+    // Auto-fill pipeline args from current task if not provided
+    if (cmdName.startsWith('pipeline:') && !args.trim()) {
+      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      if (task) {
+        const branch = task.branchName || '';
+        const title = task.title || '';
+        args = `${branch} ${title}`.trim();
+      }
+    }
 
     // Check for Cortx-specific pipeline skills first
     const skillKey = cmdName.replace(/:/g, '/');
