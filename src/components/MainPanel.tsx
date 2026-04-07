@@ -24,6 +24,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const [showPause, setShowPause] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
+  const [claudeResetKey, setClaudeResetKey] = useState(0);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const startTask = useTaskStore((s) => s.startTask);
@@ -184,7 +185,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? `1fr ${rightPanelWidth}px` : '1fr' }}>
         <div className="chat">
           <div style={{ display: activeTab === 'claude' ? 'contents' : 'none' }}>
-            <ClaudeChat key={task.id} taskId={task.id} cwd={taskCwd} />
+            <ClaudeChat key={`${task.id}-${claudeResetKey}`} taskId={task.id} cwd={taskCwd} />
           </div>
           <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
             <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />
@@ -232,7 +233,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
               onMouseLeave={(e) => { e.currentTarget.style.opacity = '0'; }}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} />
+              <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} onResetSession={() => setClaudeResetKey((k) => k + 1)} />
             </div>
           </div>
         )}

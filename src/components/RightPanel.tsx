@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckCircle2, Loader2, SkipForward, Circle, Download } from 'lucide-react';
+import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -41,10 +41,11 @@ function phaseColor(status: PhaseStatus): string {
   }
 }
 
-export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void; onOpenDiff?: (path: string) => void }) {
+export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, onResetSession }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void; onOpenDiff?: (path: string) => void; onResetSession?: () => void }) {
   const [upperTab, setUpperTab] = useState<UpperTab>('projects');
   const [lowerTab, setLowerTab] = useState<LowerTab>('dashboard');
   const [splitRatio, setSplitRatio] = useState(0.5);
+  const [showResetModal, setShowResetModal] = useState(false);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
@@ -138,7 +139,16 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
             ) : (
               <>
                 {/* Progress stepper */}
-                <div className="rp-section">Progress</div>
+                <div className="rp-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Progress</span>
+                  <button
+                    onClick={() => setShowResetModal(true)}
+                    title="Reset session"
+                    style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}
+                  >
+                    <RotateCcw size={10} strokeWidth={1.5} /> Reset
+                  </button>
+                </div>
                 <div style={{
                   display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16,
                   padding: '10px 12px', background: '#1a1f26', borderRadius: 8, border: '1px solid #1e2530',
@@ -410,6 +420,66 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
 
       </div>
       </div>
+
+      {/* Reset session modal */}
+      {showResetModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+        }} onClick={() => setShowResetModal(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#131a21', border: '1px solid #2a3642', borderRadius: 12,
+              padding: '24px 28px', width: 380, boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#f0f4f8', marginBottom: 12 }}>
+              Reset Session
+            </div>
+            <div style={{ fontSize: 12, color: '#8b95a5', lineHeight: 1.7, marginBottom: 8 }}>
+              The following will be reset:
+            </div>
+            <ul style={{ fontSize: 12, color: '#c0c8d4', lineHeight: 1.8, paddingLeft: 20, marginBottom: 16 }}>
+              <li>Pipeline progress (all phases)</li>
+              <li>Task timer (back to 00:00)</li>
+              <li>Claude conversation context (new session)</li>
+              <li>Task status (back to Waiting)</li>
+            </ul>
+            <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 20 }}>
+              This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setShowResetModal(false)}
+                style={{
+                  padding: '7px 16px', borderRadius: 6, fontSize: 12,
+                  background: 'none', border: '1px solid #3d4856',
+                  color: '#8b95a5', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => {
+                  // Reset pipeline, timer, status
+                  updateTask(task.id, {
+                    pipeline: undefined,
+                    elapsedSeconds: 0,
+                    interrupts: [],
+                  });
+                  useTaskStore.getState().setTaskStatus(task.id, 'waiting');
+                  onResetSession?.();
+                  setShowResetModal(false);
+                }}
+                style={{
+                  padding: '7px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                  background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)',
+                  color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Reset Session</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
