@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Square, Paperclip } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -528,8 +528,8 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 {contextTotalCount > 0 && (
                   <>
                     <br />
-                    <span style={{ color: '#7dbdbd' }}>
-                      📎 {contextTotalCount} context items
+                    <span style={{ color: '#7dbdbd', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Paperclip size={12} strokeWidth={1.5} /> {contextTotalCount} context items
                       {contextFileCount > 0 && ` (${contextFileCount} files)`}
                     </span>{' '}
                     will be included
@@ -643,8 +643,9 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
           Opus 4.6
           {contextTotalCount > 0 && (
-            <span style={{ color: '#7dbdbd', marginLeft: 4, fontSize: 10 }}>
-              📎{contextTotalCount}
+            <span style={{ color: '#7dbdbd', marginLeft: 6, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Paperclip size={11} strokeWidth={1.5} />
+              {contextTotalCount}
             </span>
           )}
         </div>

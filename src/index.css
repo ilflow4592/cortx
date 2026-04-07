@@ -136,7 +136,7 @@ body {
 .msg-text strong { color:#e8eef5 }
 .msg-text blockquote { border-left:3px solid #5aa5a5; padding-left:12px; margin:8px 0; color:#8b95a5 }
 .msg-text hr { border:none; border-top:1px solid #2a3642; margin:12px 0 }
-.chat-input { padding:12px 16px; border-top:1px solid #2a3642; display:flex; align-items:flex-end; gap:8px; background:#0f1419 }
+.chat-input { padding:12px 16px; border-top:1px solid #2a3642; display:flex; align-items:center; gap:8px; background:#0f1419 }
 .chat-input textarea { flex:1; background:#1a1f26; border:1px solid #2a3642; border-radius:10px; padding:10px 14px; font-size:13px; color:#e8eef5; font-family:inherit; outline:none; min-height:40px; -webkit-user-select:text; user-select:text; line-height:1.5 }
 .chat-input textarea::placeholder { color:#8b95a5 }
 .chat-input textarea:focus { border-color:rgba(90,165,165,0.3) }
