@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
@@ -565,7 +566,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 </div>
                 <div className="msg-text" style={{ wordBreak: 'break-word' }}>
                   {msg.role === 'assistant' ? (
-                    <Markdown>{msg.content}</Markdown>
+                    <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
                   ) : (
                     <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                   )}
