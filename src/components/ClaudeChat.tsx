@@ -81,10 +81,17 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const [slashIndex, setSlashIndex] = useState(0);
   const slashMenuRef = useRef<HTMLDivElement>(null);
 
-  // Load slash commands on mount
+  // Load slash commands on mount — override descriptions for Cortx pipeline commands
+  const CORTX_DESCRIPTIONS: Record<string, string> = {
+    'pipeline:dev-task': 'Grill-me + 개발 계획서 작성',
+    'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
+    'pipeline:dev-resume': '중단된 파이프라인 재개',
+  };
   useEffect(() => {
     invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd || null })
-      .then(setSlashCommands)
+      .then((cmds) => setSlashCommands(cmds.map((cmd) =>
+        CORTX_DESCRIPTIONS[cmd.name] ? { ...cmd, description: CORTX_DESCRIPTIONS[cmd.name] } : cmd
+      )))
       .catch(() => {});
   }, [cwd]);
 
