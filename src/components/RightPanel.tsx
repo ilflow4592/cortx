@@ -88,7 +88,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
   return (
     <div className="right-panel">
       {/* Upper section: Projects / Changes */}
-      <div style={{ flex: splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 120 }}>
+      <div style={{ height: `calc(${splitRatio * 100}% - 2px)`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
         <div className="rp-tabs">
           {upperTabs.map((t) => (
             <button key={t.key} className={`rp-tab ${upperTab === t.key ? 'active' : ''}`} onClick={() => setUpperTab(t.key)}>
@@ -123,7 +123,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
       />
 
       {/* Lower section: Dashboard / Worktree / Context / History */}
-      <div style={{ flex: 1 - splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 120 }}>
+      <div style={{ height: `calc(${(1 - splitRatio) * 100}% - 2px)`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
         <div className="rp-tabs">
           {lowerTabs.map((t) => (
             <button key={t.key} className={`rp-tab ${lowerTab === t.key ? 'active' : ''}`} onClick={() => setLowerTab(t.key)}>
