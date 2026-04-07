@@ -6,6 +6,7 @@ import { ClaudeChat } from './ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
 import { CodeEditor } from './CodeEditor';
+import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
@@ -20,7 +21,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
-  const [editorFile, setEditorFile] = useState<{ path: string; content: string } | null>(null);
+  const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const startTask = useTaskStore((s) => s.startTask);
@@ -78,6 +79,30 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       }
     } catch { /* skip */ }
   }, []);
+
+  const handleOpenDiff = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      // Get current (modified) content
+      const modResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      // Get original content from develop or HEAD~1
+      const origResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: taskCwd,
+        command: `git show origin/develop:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || git show HEAD~1:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || echo ''`,
+      });
+      if (modResult.success) {
+        setEditorFile({
+          path: filePath,
+          content: modResult.output,
+          original: origResult.success ? origResult.output : '',
+        });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, [taskCwd]);
 
   const fileName = editorFile?.path.split('/').pop() || '';
 
@@ -166,16 +191,27 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
             <ContextPack key={task.id} taskId={task.id} />
           </div>
           {activeTab === 'editor' && editorFile && (
-            <CodeEditor
-              key={editorFile.path}
-              filePath={editorFile.path}
-              content={editorFile.content}
-              cwd={taskCwd}
-              onBack={() => { setEditorFile(null); setActiveTab('claude'); }}
-            />
+            editorFile.original !== undefined ? (
+              <DiffEditorView
+                key={`diff-${editorFile.path}`}
+                filePath={editorFile.path}
+                original={editorFile.original}
+                modified={editorFile.content}
+                cwd={taskCwd}
+                onBack={() => { setEditorFile(null); setActiveTab('claude'); }}
+              />
+            ) : (
+              <CodeEditor
+                key={editorFile.path}
+                filePath={editorFile.path}
+                content={editorFile.content}
+                cwd={taskCwd}
+                onBack={() => { setEditorFile(null); setActiveTab('claude'); }}
+              />
+            )
           )}
         </div>
-        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} />}
+        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} />}
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}
