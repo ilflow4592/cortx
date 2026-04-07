@@ -24,13 +24,19 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
         command: 'ls -1pa',
       });
       if (!result.success) return [];
-      return result.output.trim().split('\n').filter(Boolean)
+      const items = result.output.trim().split('\n').filter(Boolean)
         .map((name) => {
           const isDir = name.endsWith('/');
           const cleanName = name.replace(/\/$/, '');
           return { name: cleanName, path: `${dir}/${cleanName}`, isDir };
         })
         .filter((e) => e.name !== '.' && e.name !== '..');
+      // Sort: directories first, then files, each alphabetically (case-insensitive)
+      items.sort((a, b) => {
+        if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
+      return items;
     } catch { return []; }
   };
 
