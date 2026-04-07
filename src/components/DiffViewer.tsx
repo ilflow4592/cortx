@@ -118,11 +118,11 @@ export function DiffViewer({ taskId }: { taskId: string }) {
             No changes
           </div>
         )}
-        {stat.map((file) => {
+        {stat.map((file, idx) => {
           const diff = diffs.find((d) => d.file === file.path || d.file.endsWith(file.path));
           const isExpanded = expandedFile === file.path;
           return (
-            <div key={file.path}>
+            <div key={`${file.path}-${idx}`}>
               <button
                 onClick={() => setExpandedFile(isExpanded ? null : file.path)}
                 style={{
