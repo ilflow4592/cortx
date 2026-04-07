@@ -143,8 +143,8 @@ body {
 
 /* ── Right panel ── */
 .right-panel { display:flex; flex-direction:column; overflow:hidden; background:#111118 }
-.rp-tabs { height:36px; display:flex; align-items:flex-end; padding:0 12px; border-bottom:1px solid #1e1e26; gap:2px; flex-shrink:0 }
-.rp-tab { padding:6px 12px; font-size:11px; color:#52525e; cursor:pointer; border:none; border-bottom:2px solid transparent; font-weight:500; background:none; font-family:inherit }
+.rp-tabs { height:36px; display:flex; align-items:flex-end; padding:0 8px; border-bottom:1px solid #1e1e26; gap:0; flex-shrink:0 }
+.rp-tab { padding:6px 8px; font-size:11px; color:#52525e; cursor:pointer; border:none; border-bottom:2px solid transparent; font-weight:500; background:none; font-family:inherit; white-space:nowrap; flex-shrink:0 }
 .rp-tab:hover { color:#888895 }
 .rp-tab.active { color:#a1a1aa; border-bottom-color:#6366f1 }
 .rp-content { flex:1; overflow-y:auto; padding:14px }
