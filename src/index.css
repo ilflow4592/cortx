@@ -91,7 +91,7 @@ body {
 .mh-branch { font-family:'Fira Code','JetBrains Mono',monospace; font-size:11px; color:#6b7585; background:#242d38; padding:2px 8px; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px }
 .mh-right { display:flex; align-items:center; gap:8px; flex-shrink:0 }
 .mh-timer { font-family:'Fira Code','JetBrains Mono',monospace; font-size:16px; font-weight:600; color:#7dbdbd }
-.mh-btn { padding:5px 12px; border-radius:8px; font-size:11px; font-weight:500; border:none; cursor:pointer; font-family:inherit }
+.mh-btn { padding:5px 12px; border-radius:8px; font-size:11px; font-weight:500; border:none; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:4px }
 .mh-btn.start { background:#5aa5a5; color:#fff }
 .mh-btn.start:hover { filter:brightness(1.1) }
 .mh-btn.pause { background:#242d38; color:#c0c8d4; border:1px solid #3d4856 }

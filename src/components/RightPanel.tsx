@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { CheckCircle2, Loader2, SkipForward, Circle } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -22,12 +23,12 @@ const PHASE_LABELS: Record<PipelinePhase, string> = {
 
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 
-function phaseIcon(status: PhaseStatus): string {
+function phaseIcon(status: PhaseStatus): ReactNode {
   switch (status) {
-    case 'done': return '✅';
-    case 'in_progress': return '🔄';
-    case 'skipped': return '⏭';
-    default: return '⬚';
+    case 'done': return <CheckCircle2 size={14} color="#34d399" strokeWidth={2} />;
+    case 'in_progress': return <Loader2 size={14} color="#5aa5a5" strokeWidth={2} className="spin" />;
+    case 'skipped': return <SkipForward size={14} color="#4d5868" strokeWidth={1.5} />;
+    default: return <Circle size={14} color="#3d4856" strokeWidth={1.5} />;
   }
 }
 
@@ -70,7 +71,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
     { key: 'changes', label: 'Changes' },
   ];
   const lowerTabs: { key: LowerTab; label: string; badge?: number }[] = [
-    { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled ? phaseDoneCount : undefined },
+    { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled && phaseDoneCount > 0 ? phaseDoneCount : undefined },
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: taskItems.length || undefined },
     { key: 'history', label: 'History', badge: taskHistory.length || undefined },
@@ -146,7 +147,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                     const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
                     return (
                       <span key={phase} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <span style={{ fontSize: 11 }}>{phaseIcon(entry.status)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center' }}>{phaseIcon(entry.status)}</span>
                         <span style={{
                           fontSize: 9, color: phaseColor(entry.status),
                           fontWeight: entry.status === 'in_progress' ? 600 : 400,
@@ -172,7 +173,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                         background: isActive ? 'rgba(90,165,165,0.06)' : 'transparent',
                         border: isActive ? '1px solid rgba(90,165,165,0.15)' : '1px solid transparent',
                       }}>
-                        <span style={{ fontSize: 12, width: 18, textAlign: 'center' }}>{phaseIcon(entry.status)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', width: 18, justifyContent: 'center' }}>{phaseIcon(entry.status)}</span>
                         <span style={{
                           fontSize: 11, color: phaseColor(entry.status), flex: 1,
                           fontWeight: isActive ? 600 : 400,
