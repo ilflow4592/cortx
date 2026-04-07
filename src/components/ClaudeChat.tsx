@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
+import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
 
 interface ClaudeChatProps {
   taskId: string;
@@ -23,6 +25,7 @@ interface SlashCommand {
 }
 
 const EMPTY_ARR: never[] = [];
+const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -194,6 +197,49 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     return text;
   };
 
+  // Parse pipeline markers from Claude's text output and update task state
+  const PIPELINE_MARKER_RE = /\[PIPELINE:([a-z_]+):([a-z_]+)(?::([^\]]*))?\]/g;
+  const parsePipelineMarkers = (text: string): string => {
+    let cleaned = text;
+    let match: RegExpExecArray | null;
+    const re = new RegExp(PIPELINE_MARKER_RE.source, 'g');
+    while ((match = re.exec(text)) !== null) {
+      const [fullMatch, key, value, memo] = match;
+      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      if (!task?.pipeline?.enabled) continue;
+
+      const phases = { ...task.pipeline.phases };
+
+      if (key === 'complexity') {
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, complexity: value },
+        });
+      } else if (key === 'pr') {
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, prNumber: parseInt(value) || 0, prUrl: memo || '' },
+        });
+      } else if (PHASE_KEYS.has(key as PipelinePhase)) {
+        const phase = key as PipelinePhase;
+        const status = value as PhaseStatus;
+        const now = new Date().toISOString();
+        phases[phase] = {
+          ...phases[phase],
+          status,
+          ...(status === 'in_progress' ? { startedAt: now } : {}),
+          ...(status === 'done' || status === 'skipped' ? { completedAt: now } : {}),
+          ...(memo ? { memo } : {}),
+        };
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, phases },
+        });
+      }
+
+      // Remove marker from display text
+      cleaned = cleaned.replace(fullMatch, '');
+    }
+    return cleaned;
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text) return;
@@ -240,7 +286,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
               // New assistant turn — create a new message
               turnCounter++;
               currentMsgId = `${reqId}-turn-${turnCounter}`;
-              response = textBlocks.join('');
+              response = parsePipelineMarkers(textBlocks.join(''));
               setMessages((prev) => {
                 const filtered = prev.filter((m) => m.id !== activityId);
                 return [...filtered, { id: currentMsgId, role: 'assistant', content: response }];
@@ -256,7 +302,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             }
           } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
             // Append to current turn's message
-            response += evt.delta.text;
+            response = parsePipelineMarkers(response + evt.delta.text);
             if (!currentMsgId) {
               turnCounter++;
               currentMsgId = `${reqId}-turn-${turnCounter}`;
@@ -278,7 +324,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             if (evt.result) {
               turnCounter++;
               const resultId = `${reqId}-result`;
-              response = evt.result;
+              response = parsePipelineMarkers(evt.result);
               setMessages((prev) => {
                 const filtered = prev.filter((m) => m.id !== activityId);
                 return [...filtered, { id: resultId, role: 'assistant', content: response }];
@@ -287,7 +333,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           }
         } catch {
           // Not JSON — treat as plain text (fallback), append to current message
-          response += line + '\n';
+          response = parsePipelineMarkers(response + line + '\n');
           if (!currentMsgId) {
             turnCounter++;
             currentMsgId = `${reqId}-turn-${turnCounter}`;
@@ -316,20 +362,67 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       );
       let contextSummary = serializeContextItems(nonFileItems);
 
-      // For pipeline commands invoked from Cortx with Context Pack data,
-      // instruct the pipeline to use Context Pack instead of Obsidian dev-plan
+      // For pipeline commands: add directives
       const isPipeline = text.startsWith('/pipeline:');
-      if (isPipeline && contextItems.length > 0) {
-        const cortxDirective = [
-          '## CORTX_CONTEXT_PACK_MODE',
-          'This pipeline was invoked from the Cortx app with Context Pack data.',
-          'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
-          'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
-          'If a dev-plan is needed, generate it from the Context Pack data.',
-        ].join('\n');
+      if (isPipeline) {
+        const directives: string[] = [];
+
+        // Phase tracking directive — always add for pipelines
+        directives.push(
+          '## CORTX_PIPELINE_TRACKING',
+          'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
+          'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
+          'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+          'Valid statuses: in_progress, done, skipped',
+          'Examples:',
+          '  [PIPELINE:dev_plan:in_progress]',
+          '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
+          '  [PIPELINE:commit_pr:done:PR #4920]',
+          'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
+          'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
+          'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
+        );
+
+        // Context Pack mode — when context items exist
+        if (contextItems.length > 0) {
+          directives.push(
+            '',
+            '## CORTX_CONTEXT_PACK_MODE',
+            'This pipeline was invoked from the Cortx app with Context Pack data.',
+            'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+            'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+            'If a dev-plan is needed, generate it from the Context Pack data.',
+          );
+        }
+
+        // Also skip Obsidian dashboard updates
+        directives.push(
+          '',
+          '## CORTX_DASHBOARD',
+          'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
+        );
+
+        const fullDirective = directives.join('\n');
         contextSummary = contextSummary
-          ? `${cortxDirective}\n\n---\n\n${contextSummary}`
-          : cortxDirective;
+          ? `${fullDirective}\n\n---\n\n${contextSummary}`
+          : fullDirective;
+
+        // Initialize pipeline state on task if not already set
+        const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+        if (currentTask && !currentTask.pipeline?.enabled) {
+          const defaultPhases: Record<PipelinePhase, PipelinePhaseEntry> = {
+            grill_me: { status: 'pending' },
+            obsidian_save: { status: 'pending' },
+            dev_plan: { status: 'pending' },
+            implement: { status: 'pending' },
+            commit_pr: { status: 'pending' },
+            review_loop: { status: 'pending' },
+            done: { status: 'pending' },
+          };
+          useTaskStore.getState().updateTask(taskId, {
+            pipeline: { enabled: true, phases: defaultPhases },
+          });
+        }
       }
 
       // Local file paths for --add-dir
