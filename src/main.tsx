@@ -20,6 +20,25 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+// Disable macOS autocomplete/autocorrect on all inputs
+const disableAutocomplete = (el: Element) => {
+  el.setAttribute('autocomplete', 'off');
+  el.setAttribute('autocorrect', 'off');
+  el.setAttribute('autocapitalize', 'off');
+  el.setAttribute('spellcheck', 'false');
+};
+new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    for (const node of m.addedNodes) {
+      if (node instanceof HTMLElement) {
+        if (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA') disableAutocomplete(node);
+        node.querySelectorAll('input, textarea').forEach(disableAutocomplete);
+      }
+    }
+  }
+}).observe(document.body, { childList: true, subtree: true });
+document.querySelectorAll('input, textarea').forEach(disableAutocomplete);
+
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <App />

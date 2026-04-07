@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 * { margin:0; padding:0; box-sizing:border-box; }
+input, textarea { autocomplete:off; -webkit-text-size-adjust:none; }
+input, textarea, [contenteditable] { autocorrect:off; autocapitalize:off; spellcheck:false; }
 
 body {
   font-family: 'Inter', sans-serif;
