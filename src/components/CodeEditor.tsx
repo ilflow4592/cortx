@@ -113,39 +113,40 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
               base: 'vs-dark',
               inherit: true,
               rules: [
-                // Keywords: package, import, public, class, record, static, return, new, if, else, for
-                { token: 'keyword', foreground: 'ab98c7' },
-                { token: 'keyword.control', foreground: 'ab98c7' },
-                // Types / Classes
-                { token: 'type', foreground: 'a3d4d4' },
-                { token: 'type.identifier', foreground: 'a3d4d4' },
-                { token: 'class', foreground: 'a3d4d4' },
+                // Keywords (public, void, new, for, if, return, this, import, package)
+                { token: 'keyword', foreground: 'cc7832' },
+                { token: 'keyword.control', foreground: 'cc7832' },
+                // Types / Classes (Member, Random, StringBuilder, LocalDateTime)
+                { token: 'type', foreground: 'a9b7c6' },
+                { token: 'type.identifier', foreground: 'ffc66d' },
+                { token: 'class', foreground: 'ffc66d' },
                 // Strings
-                { token: 'string', foreground: '22c55e' },
-                { token: 'string.key.json', foreground: '5aa5a5' },
-                { token: 'string.value.json', foreground: '22c55e' },
+                { token: 'string', foreground: '6a8759' },
+                { token: 'string.key.json', foreground: 'cc7832' },
+                { token: 'string.value.json', foreground: '6a8759' },
                 // Numbers
-                { token: 'number', foreground: 'f59e0b' },
-                { token: 'number.hex', foreground: 'f59e0b' },
+                { token: 'number', foreground: '6897bb' },
+                { token: 'number.hex', foreground: '6897bb' },
                 // Comments
-                { token: 'comment', foreground: '6b7585', fontStyle: 'italic' },
-                { token: 'comment.doc', foreground: '6b7585', fontStyle: 'italic' },
-                // Annotations (@Override, @Bean, etc.)
-                { token: 'annotation', foreground: 'f59e0b' },
-                { token: 'tag', foreground: 'ef4444' },
+                { token: 'comment', foreground: '808080', fontStyle: 'italic' },
+                { token: 'comment.doc', foreground: '629755', fontStyle: 'italic' },
+                // Annotations (@Override, @Bean)
+                { token: 'annotation', foreground: 'bbb529' },
+                { token: 'tag', foreground: 'e8bf6a' },
                 // Variables / identifiers
-                { token: 'variable', foreground: 'c0c8d4' },
-                { token: 'identifier', foreground: 'c0c8d4' },
-                // Functions / methods
-                { token: 'function', foreground: '7dbdbd' },
-                { token: 'method', foreground: '7dbdbd' },
-                // Operators
-                { token: 'operator', foreground: '8b95a5' },
-                { token: 'delimiter', foreground: '8b95a5' },
+                { token: 'variable', foreground: 'a9b7c6' },
+                { token: 'identifier', foreground: 'a9b7c6' },
+                // Functions / methods (.getForwarder, .format, .append)
+                { token: 'function', foreground: 'ffc66d' },
+                { token: 'method', foreground: 'ffc66d' },
+                // Operators & delimiters
+                { token: 'operator', foreground: 'a9b7c6' },
+                { token: 'delimiter', foreground: 'a9b7c6' },
+                { token: 'delimiter.bracket', foreground: 'a9b7c6' },
                 // Constants
-                { token: 'constant', foreground: 'f59e0b' },
+                { token: 'constant', foreground: '9876aa' },
                 // Regex
-                { token: 'regexp', foreground: 'ef4444' },
+                { token: 'regexp', foreground: '6a8759' },
               ],
               colors: {
                 'editor.background': '#0f1419',
