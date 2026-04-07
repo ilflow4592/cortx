@@ -73,6 +73,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const currentReqIdRef = useRef<string>('');
 
   // Slash command state
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
@@ -290,6 +291,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const resolvedText = await resolveSlashCommand(text);
 
     const reqId = `claude-${taskId}-${Date.now()}`;
+    currentReqIdRef.current = reqId;
     let response = '';
 
     try {
@@ -646,7 +648,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         </div>
         {loading ? (
           <button className="send-btn" onClick={() => {
-            // Stop current response
+            // Stop current response — kill process + unlisten
+            if (currentReqIdRef.current) {
+              invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
+            }
             unlistenRefs.current.forEach((fn) => fn());
             unlistenRefs.current = [];
             setLoading(false);

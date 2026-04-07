@@ -12,11 +12,12 @@ pub struct PtySession {
 
 pub struct PtyManager {
     sessions: HashMap<String, PtySession>,
+    claude_pids: HashMap<String, Arc<Mutex<Option<u32>>>>,
 }
 
 impl PtyManager {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self { sessions: HashMap::new(), claude_pids: HashMap::new() }
     }
 
     pub fn has_session(&self, id: &str) -> bool {
@@ -74,6 +75,9 @@ impl PtyManager {
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
         let allow_tools = allow_all_tools;
+
+        let pid_holder: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
+        self.claude_pids.insert(id.to_string(), pid_holder.clone());
 
         thread::spawn(move || {
             // Write message to temp file (avoids shell escape issues with long prompts)
@@ -155,6 +159,11 @@ impl PtyManager {
 
             match child {
                 Ok(mut proc) => {
+                    // Store PID for stop support
+                    if let Ok(mut pid_lock) = pid_holder.lock() {
+                        *pid_lock = Some(proc.id());
+                    }
+
                     // Read stderr in a separate thread so it doesn't block stdout streaming
                     let stderr_handle = proc.stderr.take().map(|stderr| {
                         std::thread::spawn(move || {
@@ -230,6 +239,25 @@ impl PtyManager {
 
     pub fn close(&mut self, id: &str) {
         self.sessions.remove(id);
+    }
+
+    pub fn stop_claude(&mut self, id: &str) -> Result<(), String> {
+        if let Some(pid_holder) = self.claude_pids.remove(id) {
+            if let Ok(lock) = pid_holder.lock() {
+                if let Some(pid) = *lock {
+                    // Kill the process group (zsh + claude + children)
+                    unsafe {
+                        libc::kill(-(pid as i32), libc::SIGTERM);
+                    }
+                    // Also kill the specific PID
+                    unsafe {
+                        libc::kill(pid as i32, libc::SIGTERM);
+                    }
+                    return Ok(());
+                }
+            }
+        }
+        Err("No claude process found".to_string())
     }
 }
 

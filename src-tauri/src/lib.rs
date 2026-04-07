@@ -439,6 +439,12 @@ fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<
 }
 
 #[tauri::command]
+fn claude_stop(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
+    let mut mgr = state.lock().map_err(|e| e.to_string())?;
+    mgr.stop_claude(&id)
+}
+
+#[tauri::command]
 fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     if !mgr.has_session(&id) {
@@ -597,6 +603,7 @@ pub fn run() {
             list_mcp_servers,
             list_slash_commands,
             claude_spawn,
+            claude_stop,
             claude_send,
             pty_spawn,
             pty_write,
