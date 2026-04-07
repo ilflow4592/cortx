@@ -28,10 +28,10 @@ export function ChangesView({ cwd, branchName }: { cwd: string; branchName: stri
   const loadChanges = async () => {
     setLoading(true);
     try {
-      // Get changed files (branch diff + unstaged)
-      const branchDiff = await run(`git diff --name-status origin/develop...HEAD 2>/dev/null`);
-      const unstaged = await run(`git diff --name-status 2>/dev/null`);
+      // Get changed files (branch diff + staged + unstaged)
+      const branchDiff = await run(`git diff --name-status origin/develop...HEAD 2>/dev/null || git diff --name-status HEAD~5 2>/dev/null`);
       const staged = await run(`git diff --cached --name-status 2>/dev/null`);
+      const unstaged = await run(`git diff --name-status 2>/dev/null`);
 
       const fileMap = new Map<string, string>();
       for (const line of [...branchDiff.split('\n'), ...unstaged.split('\n'), ...staged.split('\n')]) {
@@ -57,7 +57,12 @@ export function ChangesView({ cwd, branchName }: { cwd: string; branchName: stri
     setViewMode(mode);
 
     if (mode === 'diff') {
-      const diff = await run(`git diff origin/develop...HEAD -- '${file}' 2>/dev/null || git diff -- '${file}' 2>/dev/null`);
+      const escaped = file.replace(/'/g, "'\\''");
+      // Try multiple diff strategies: branch diff → staged → unstaged → HEAD~1
+      let diff = await run(`git diff origin/develop...HEAD -- '${escaped}' 2>/dev/null`);
+      if (!diff.trim()) diff = await run(`git diff --cached -- '${escaped}' 2>/dev/null`);
+      if (!diff.trim()) diff = await run(`git diff -- '${escaped}' 2>/dev/null`);
+      if (!diff.trim()) diff = await run(`git diff HEAD~1 -- '${escaped}' 2>/dev/null`);
       setDiffHunks(parseDiff(diff));
       setFileContent(null);
     } else {
