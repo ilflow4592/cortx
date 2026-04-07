@@ -290,8 +290,22 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Resolve slash command to full prompt — skip on resume (Claude already has context)
-    const resolvedText = claudeSessionIdRef.current ? text : await resolveSlashCommand(text);
+    // On resume: auto-fill pipeline args but skip skill resolution
+    // On first message: full skill resolution
+    let resolvedText: string;
+    if (claudeSessionIdRef.current) {
+      // Resume — just auto-fill args if pipeline command
+      const parts = text.startsWith('/') ? text.slice(1).split(/\s+/) : [];
+      const cmdName = parts[0] || '';
+      let args = parts.slice(1).join(' ');
+      if (cmdName.startsWith('pipeline:') && !args.trim()) {
+        const t = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+        if (t) args = `${t.branchName || ''} ${t.title || ''}`.trim();
+      }
+      resolvedText = args ? `/${cmdName} ${args}` : text;
+    } else {
+      resolvedText = await resolveSlashCommand(text);
+    }
 
     const reqId = `claude-${taskId}-${Date.now()}`;
     currentReqIdRef.current = reqId;
