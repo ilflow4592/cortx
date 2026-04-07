@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { CheckCircle2, Loader2, SkipForward, Circle } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -22,21 +23,21 @@ const PHASE_LABELS: Record<PipelinePhase, string> = {
 
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 
-function phaseIcon(status: PhaseStatus): string {
+function phaseIcon(status: PhaseStatus): ReactNode {
   switch (status) {
-    case 'done': return '✅';
-    case 'in_progress': return '🔄';
-    case 'skipped': return '⏭';
-    default: return '⬚';
+    case 'done': return <CheckCircle2 size={14} color="#34d399" strokeWidth={2} />;
+    case 'in_progress': return <Loader2 size={14} color="#5aa5a5" strokeWidth={2} className="spin" />;
+    case 'skipped': return <SkipForward size={14} color="#4d5868" strokeWidth={1.5} />;
+    default: return <Circle size={14} color="#3d4856" strokeWidth={1.5} />;
   }
 }
 
 function phaseColor(status: PhaseStatus): string {
   switch (status) {
     case 'done': return '#34d399';
-    case 'in_progress': return '#818cf8';
-    case 'skipped': return '#52525e';
-    default: return '#27272a';
+    case 'in_progress': return '#7dbdbd';
+    case 'skipped': return '#4d5868';
+    default: return '#2a3642';
   }
 }
 
@@ -70,7 +71,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
     { key: 'changes', label: 'Changes' },
   ];
   const lowerTabs: { key: LowerTab; label: string; badge?: number }[] = [
-    { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled ? phaseDoneCount : undefined },
+    { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled && phaseDoneCount > 0 ? phaseDoneCount : undefined },
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: taskItems.length || undefined },
     { key: 'history', label: 'History', badge: taskHistory.length || undefined },
@@ -95,7 +96,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
 
       {/* Drag handle */}
       <div
-        style={{ height: 4, cursor: 'row-resize', background: '#27272f', flexShrink: 0 }}
+        style={{ height: 4, cursor: 'row-resize', background: '#2a3642', flexShrink: 0 }}
         onMouseDown={(e) => {
           const startY = e.clientY;
           const panel = e.currentTarget.parentElement;
@@ -129,9 +130,9 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
             {!pipeline?.enabled ? (
               <div style={{ padding: '32px 0', textAlign: 'center' }}>
                 <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>⚡</div>
-                <div style={{ fontSize: 12, color: '#52525e', marginBottom: 16 }}>No pipeline active</div>
-                <div style={{ fontSize: 10, color: '#3f3f46', lineHeight: 1.6 }}>
-                  Run <code style={{ background: '#232330', padding: '1px 5px', borderRadius: 3 }}>/pipeline:dev-task</code> to start
+                <div style={{ fontSize: 12, color: '#4d5868', marginBottom: 16 }}>No pipeline active</div>
+                <div style={{ fontSize: 10, color: '#3d4856', lineHeight: 1.6 }}>
+                  Run <code style={{ background: '#242d38', padding: '1px 5px', borderRadius: 3 }}>/pipeline:dev-task</code> to start
                 </div>
               </div>
             ) : (
@@ -140,19 +141,19 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                 <div className="rp-section">Progress</div>
                 <div style={{
                   display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16,
-                  padding: '10px 12px', background: '#16161e', borderRadius: 8, border: '1px solid #1e1e26',
+                  padding: '10px 12px', background: '#1a1f26', borderRadius: 8, border: '1px solid #1e2530',
                 }}>
                   {PHASE_ORDER.map((phase, i) => {
                     const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
                     return (
                       <span key={phase} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <span style={{ fontSize: 11 }}>{phaseIcon(entry.status)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center' }}>{phaseIcon(entry.status)}</span>
                         <span style={{
                           fontSize: 9, color: phaseColor(entry.status),
                           fontWeight: entry.status === 'in_progress' ? 600 : 400,
                         }}>{PHASE_LABELS[phase]}</span>
                         {i < PHASE_ORDER.length - 1 && (
-                          <span style={{ color: '#27272a', fontSize: 9, margin: '0 1px' }}>→</span>
+                          <span style={{ color: '#2a3642', fontSize: 9, margin: '0 1px' }}>→</span>
                         )}
                       </span>
                     );
@@ -169,16 +170,16 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                       <div key={phase} style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '6px 10px', borderRadius: 6,
-                        background: isActive ? 'rgba(99,102,241,0.06)' : 'transparent',
-                        border: isActive ? '1px solid rgba(99,102,241,0.15)' : '1px solid transparent',
+                        background: isActive ? 'rgba(90,165,165,0.06)' : 'transparent',
+                        border: isActive ? '1px solid rgba(90,165,165,0.15)' : '1px solid transparent',
                       }}>
-                        <span style={{ fontSize: 12, width: 18, textAlign: 'center' }}>{phaseIcon(entry.status)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', width: 18, justifyContent: 'center' }}>{phaseIcon(entry.status)}</span>
                         <span style={{
                           fontSize: 11, color: phaseColor(entry.status), flex: 1,
                           fontWeight: isActive ? 600 : 400,
                         }}>{PHASE_LABELS[phase]}</span>
                         {entry.memo && (
-                          <span style={{ fontSize: 9, color: '#52525e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 9, color: '#4d5868', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {entry.memo}
                           </span>
                         )}
@@ -279,7 +280,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
           <>
             <div className="rp-section">Search History</div>
             {taskHistory.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#3f3f46', padding: '16px 0', textAlign: 'center' }}>No searches yet</div>
+              <div style={{ fontSize: 11, color: '#3d4856', padding: '16px 0', textAlign: 'center' }}>No searches yet</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[...taskHistory].reverse().map((entry) => {
@@ -293,14 +294,14 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                   return (
                     <div key={entry.id} style={{
                       padding: '10px 12px', borderRadius: 8,
-                      background: '#16161e', border: '1px solid #1e1e26',
+                      background: '#1a1f26', border: '1px solid #1e2530',
                     }}>
                       {/* Time + duration */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 10, color: '#52525e' }}>
+                        <span style={{ fontSize: 10, color: '#4d5868' }}>
                           {new Date(entry.timestamp).toLocaleString()}
                         </span>
-                        <span style={{ fontSize: 10, color: '#52525e' }}>{duration}</span>
+                        <span style={{ fontSize: 10, color: '#4d5868' }}>{duration}</span>
                       </div>
 
                       {/* Keywords */}
@@ -308,8 +309,8 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                         {entry.keywords.map((kw) => (
                           <span key={kw} style={{
                             padding: '1px 6px', borderRadius: 3, fontSize: 10,
-                            background: '#232330', color: '#a1a1aa',
-                            fontFamily: "'JetBrains Mono', monospace",
+                            background: '#242d38', color: '#a1a1aa',
+                            fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                           }}>{kw}</span>
                         ))}
                       </div>
@@ -319,11 +320,11 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                         {entry.resources.map((r) => (
                           <span key={r} style={{
                             fontSize: 9, color: '#6b6b78', textTransform: 'capitalize',
-                            padding: '1px 5px', borderRadius: 3, background: '#1e1e26',
+                            padding: '1px 5px', borderRadius: 3, background: '#1e2530',
                           }}>{r}</span>
                         ))}
-                        <span style={{ fontSize: 9, color: '#3f3f46' }}>|</span>
-                        <span style={{ fontSize: 9, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>
+                        <span style={{ fontSize: 9, color: '#3d4856' }}>|</span>
+                        <span style={{ fontSize: 9, color: '#7dbdbd', fontFamily: "'Fira Code', 'JetBrains Mono', monospace" }}>
                           {entry.model.replace('claude-', '').replace(/-\d+$/, '')}
                         </span>
                       </div>
@@ -333,15 +334,15 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                         {entry.results.map((r) => (
                           <div key={r.type}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
-                              <span style={{ color: r.error ? '#ef4444' : r.itemCount > 0 ? '#34d399' : '#52525e', width: 10 }}>
+                              <span style={{ color: r.error ? '#ef4444' : r.itemCount > 0 ? '#34d399' : '#4d5868', width: 10 }}>
                                 {r.error ? '✗' : r.itemCount > 0 ? '✓' : '○'}
                               </span>
                               <span style={{ color: '#888895', textTransform: 'capitalize', width: 50 }}>{r.type}</span>
-                              <span style={{ color: r.error ? '#ef4444' : '#52525e' }}>
+                              <span style={{ color: r.error ? '#ef4444' : '#4d5868' }}>
                                 {r.error ? 'failed' : `${r.itemCount} items`}
                               </span>
                               {r.tokenUsage && !r.error && (
-                                <span style={{ color: '#3f3f46', marginLeft: 'auto' }}>
+                                <span style={{ color: '#3d4856', marginLeft: 'auto' }}>
                                   ~{r.tokenUsage.input + r.tokenUsage.output} tok
                                 </span>
                               )}
@@ -350,9 +351,9 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                               <div
                                 onClick={() => navigator.clipboard.writeText(r.error || '')}
                                 title="Click to copy"
-                                style={{ fontSize: 9, color: '#52525e', marginLeft: 16, marginTop: 2, wordBreak: 'break-all', cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
+                                style={{ fontSize: 9, color: '#4d5868', marginLeft: 16, marginTop: 2, wordBreak: 'break-all', cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
                               >
-                                {r.error.slice(0, 150)} <span style={{ color: '#3f3f46' }}>📋</span>
+                                {r.error.slice(0, 150)} <span style={{ color: '#3d4856' }}>📋</span>
                               </div>
                             )}
                           </div>
@@ -362,12 +363,12 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                       {/* Total */}
                       <div style={{
                         display: 'flex', justifyContent: 'space-between',
-                        marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e1e26',
+                        marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2530',
                         fontSize: 10,
                       }}>
                         <span style={{ color: '#6b6b78' }}>{entry.totalItems} items total</span>
                         {entry.totalTokens > 0 && (
-                          <span style={{ color: '#3f3f46' }}>~{entry.totalTokens} tokens</span>
+                          <span style={{ color: '#3d4856' }}>~{entry.totalTokens} tokens</span>
                         )}
                       </div>
                     </div>

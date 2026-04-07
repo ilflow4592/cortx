@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { invoke } from '@tauri-apps/api/core';
+import { ArrowLeft } from 'lucide-react';
 
 const EXT_LANG: Record<string, string> = {
   java: 'java', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
@@ -66,11 +67,11 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid #27272f', flexShrink: 0, background: '#0c0c12',
+        borderBottom: '1px solid #2a3642', flexShrink: 0, background: '#0f1419',
       }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 14 }}>←</button>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} strokeWidth={1.5} /></button>
         <span style={{
-          fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
         }}>
           {relativePath}
@@ -79,8 +80,8 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
           <button
             onClick={saveFile}
             style={{
-              background: '#232330', border: '1px solid #2d2d3a', borderRadius: 4,
-              color: '#b4b4bc', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit',
+              background: '#242d38', border: '1px solid #2a3642', borderRadius: 4,
+              color: '#c0c8d4', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit',
             }}
           >Save</button>
         )}
@@ -94,7 +95,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
           options={{
             readOnly,
             fontSize: 13,
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
             minimap: { enabled: false },
             lineNumbers: 'on',
             scrollBeyondLastLine: false,
@@ -111,16 +112,52 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
             monaco.editor.defineTheme('cortx-dark', {
               base: 'vs-dark',
               inherit: true,
-              rules: [],
+              rules: [
+                // Keywords (public, void, new, for, if, return, this, import, package)
+                { token: 'keyword', foreground: 'cc7832' },
+                { token: 'keyword.control', foreground: 'cc7832' },
+                // Types / Classes (Member, Random, StringBuilder, LocalDateTime)
+                { token: 'type', foreground: 'a9b7c6' },
+                { token: 'type.identifier', foreground: 'ffc66d' },
+                { token: 'class', foreground: 'ffc66d' },
+                // Strings
+                { token: 'string', foreground: '6a8759' },
+                { token: 'string.key.json', foreground: 'cc7832' },
+                { token: 'string.value.json', foreground: '6a8759' },
+                // Numbers
+                { token: 'number', foreground: '6897bb' },
+                { token: 'number.hex', foreground: '6897bb' },
+                // Comments
+                { token: 'comment', foreground: '808080', fontStyle: 'italic' },
+                { token: 'comment.doc', foreground: '629755', fontStyle: 'italic' },
+                // Annotations (@Override, @Bean)
+                { token: 'annotation', foreground: 'bbb529' },
+                { token: 'tag', foreground: 'e8bf6a' },
+                // Variables / identifiers
+                { token: 'variable', foreground: 'a9b7c6' },
+                { token: 'identifier', foreground: 'a9b7c6' },
+                // Functions / methods (.getForwarder, .format, .append)
+                { token: 'function', foreground: 'ffc66d' },
+                { token: 'method', foreground: 'ffc66d' },
+                // Operators & delimiters
+                { token: 'operator', foreground: 'a9b7c6' },
+                { token: 'delimiter', foreground: 'a9b7c6' },
+                { token: 'delimiter.bracket', foreground: 'a9b7c6' },
+                // Constants
+                { token: 'constant', foreground: '9876aa' },
+                // Regex
+                { token: 'regexp', foreground: '6a8759' },
+              ],
               colors: {
-                'editor.background': '#0c0c12',
-                'editor.foreground': '#b4b4bc',
-                'editorLineNumber.foreground': '#3f3f46',
-                'editorLineNumber.activeForeground': '#71717a',
-                'editor.lineHighlightBackground': '#ffffff06',
-                'editor.selectionBackground': '#6366f140',
-                'editorCursor.foreground': '#818cf8',
-                'editorIndentGuide.background': '#1e1e26',
+                'editor.background': '#0f1419',
+                'editor.foreground': '#c0c8d4',
+                'editorLineNumber.foreground': '#3d4856',
+                'editorLineNumber.activeForeground': '#6b7585',
+                'editor.lineHighlightBackground': '#1e2530',
+                'editor.lineHighlightBorder': '#00000000',
+                'editor.selectionBackground': 'rgba(90,165,165,0.15)',
+                'editorCursor.foreground': '#5aa5a5',
+                'editorIndentGuide.background': '#2a3642',
               },
             });
           }}

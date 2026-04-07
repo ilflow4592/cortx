@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { FileText, X, Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { ClaudeChat } from './ClaudeChat';
@@ -35,6 +36,43 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
+
+  const handleOpenFile = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      if (result.success) {
+        setEditorFile({ path: filePath, content: result.output });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, []);
+
+  const handleOpenDiff = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      const modResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      const origResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: taskCwd,
+        command: `git show origin/develop:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || git show HEAD~1:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || echo ''`,
+      });
+      if (modResult.success) {
+        setEditorFile({
+          path: filePath,
+          content: modResult.output,
+          original: origResult.success ? origResult.output : '',
+        });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, [taskCwd]);
+
   if (task) console.log('[cortx:cwd]', { worktreePath: task.worktreePath, repoPath: task.repoPath, projectPath: taskProject?.localPath, taskCwd });
 
   if (!task) {
@@ -42,7 +80,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="main">
         <div className="empty-state">
           <div className="empty-state-inner">
-            <div className="empty-state-icon">🧠</div>
+            <div className="empty-state-icon" />
             <div className="empty-state-title">No active task</div>
             <div className="empty-state-sub">Select or create a task to get started</div>
           </div>
@@ -66,51 +104,13 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   };
   const handleDone = () => setTaskStatus(task.id, 'done');
 
-  const handleOpenFile = useCallback(async (filePath: string) => {
-    try {
-      const escaped = filePath.replace(/'/g, "'\\''");
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat '${escaped}' 2>/dev/null | head -5000`,
-      });
-      if (result.success) {
-        setEditorFile({ path: filePath, content: result.output });
-        setActiveTab('editor');
-      }
-    } catch { /* skip */ }
-  }, []);
-
-  const handleOpenDiff = useCallback(async (filePath: string) => {
-    try {
-      const escaped = filePath.replace(/'/g, "'\\''");
-      // Get current (modified) content
-      const modResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat '${escaped}' 2>/dev/null | head -5000`,
-      });
-      // Get original content from develop or HEAD~1
-      const origResult = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: taskCwd,
-        command: `git show origin/develop:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || git show HEAD~1:'${escaped.replace(taskCwd + '/', '')}' 2>/dev/null || echo ''`,
-      });
-      if (modResult.success) {
-        setEditorFile({
-          path: filePath,
-          content: modResult.output,
-          original: origResult.success ? origResult.output : '',
-        });
-        setActiveTab('editor');
-      }
-    } catch { /* skip */ }
-  }, [taskCwd]);
-
   const fileName = editorFile?.path.split('/').pop() || '';
 
   const tabs: { key: Tab; label: string; badge?: number; closable?: boolean }[] = [
-    { key: 'claude', label: '🤖 Claude' },
-    { key: 'terminal', label: '⌨ Terminal' },
-    { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
-    ...(editorFile ? [{ key: 'editor' as Tab, label: `📝 ${fileName}`, closable: true }] : []),
+    { key: 'claude', label: 'Claude' },
+    { key: 'terminal', label: 'Terminal' },
+    { key: 'context', label: 'Context Pack', badge: taskDeltaCount || undefined },
+    ...(editorFile ? [{ key: 'editor' as Tab, label: fileName, closable: true }] : []),
   ];
 
   return (
@@ -126,25 +126,25 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           {task.elapsedSeconds > 0 && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#71717a', border: '1px solid #27272a', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
+              style={{ background: 'none', color: '#6b7585', border: '1px solid #2a3642', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
               onClick={() => { if (window.confirm('Reset timer, status & interrupts?')) { updateTask(task.id, { elapsedSeconds: 0, interrupts: [] }); setTaskStatus(task.id, 'waiting'); } }}
               title="Reset timer"
-            >↺</button>
+            ><RotateCcw size={12} strokeWidth={1.5} /></button>
           )}
-          {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}>▶ Start</button>}
-          {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}>⏸ Pause</button>}
-          {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}>▶ Resume</button>}
-          {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}>✓ Done</button>}
+          {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}><Play size={12} strokeWidth={1.5} /> Start</button>}
+          {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}><Pause size={12} strokeWidth={1.5} /> Pause</button>}
+          {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}><Play size={12} strokeWidth={1.5} /> Resume</button>}
+          {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}><Check size={12} strokeWidth={1.5} /> Done</button>}
           <button
             className="mh-btn"
-            style={{ background: 'none', color: '#3f3f46', border: '1px solid #18181b' }}
+            style={{ background: 'none', color: '#3d4856', border: '1px solid #1e2530' }}
             onClick={() => { if (window.confirm(`Delete task "${task.title}"?`)) removeTask(task.id); }}
             title="Delete task"
-          >🗑</button>
+          ><Trash2 size={14} strokeWidth={1.5} /></button>
           {onToggleRightPanel && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#52525b', border: '1px solid #18181b', padding: '4px 8px' }}
+              style={{ background: 'none', color: '#4d5868', border: '1px solid #1e2530', padding: '4px 8px' }}
               onClick={onToggleRightPanel}
               title="Toggle right panel ⌘⇧B"
             >
@@ -167,13 +167,14 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
+            {t.closable && <FileText size={14} strokeWidth={1.5} style={{ marginRight: 4 }} />}
             {t.label}
             {t.badge && t.badge > 0 && <span className="badge">{t.badge}</span>}
             {t.closable && (
               <span
                 onClick={(e) => { e.stopPropagation(); setEditorFile(null); setActiveTab('claude'); }}
-                style={{ marginLeft: 6, color: '#71717a', cursor: 'pointer', fontSize: 10 }}
-              >✕</span>
+                style={{ marginLeft: 6, color: '#6b7585', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              ><X size={12} strokeWidth={1.5} /></span>
             )}
           </button>
         ))}

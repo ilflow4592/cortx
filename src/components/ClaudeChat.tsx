@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { ArrowUp, Square, Paperclip } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -75,6 +76,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
+  const claudeSessionIdRef = useRef<string>('');
 
   // Slash command state
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
@@ -308,6 +310,11 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         try {
           const evt = JSON.parse(line);
 
+          // Capture session_id from init event for conversation continuity
+          if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
+            claudeSessionIdRef.current = evt.session_id;
+          }
+
           if (evt.type === 'assistant' && evt.message?.content) {
             // Check for text content
             const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
@@ -496,6 +503,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         contextFiles: contextFiles.length > 0 ? contextFiles : null,
         contextSummary: contextSummary || null,
         allowAllTools: text.startsWith('/') || null,
+        sessionId: claudeSessionIdRef.current || null,
       });
 
       await donePromise;
@@ -519,7 +527,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         {messages.length === 0 && !loading && (
           <div className="empty-state" style={{ height: '100%' }}>
             <div className="empty-state-inner">
-              <div className="empty-state-icon">🤖</div>
+              <div className="empty-state-icon" />
               <div className="empty-state-title">Claude Code</div>
               <div className="empty-state-sub">
                 Uses your Claude CLI authentication.<br />
@@ -527,16 +535,16 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 {contextTotalCount > 0 && (
                   <>
                     <br />
-                    <span style={{ color: '#818cf8' }}>
-                      📎 {contextTotalCount} context items
+                    <span style={{ color: '#7dbdbd', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Paperclip size={12} strokeWidth={1.5} /> {contextTotalCount} context items
                       {contextFileCount > 0 && ` (${contextFileCount} files)`}
                     </span>{' '}
                     will be included
                   </>
                 )}
                 <br />
-                <span style={{ color: '#52525e', fontSize: 11 }}>
-                  Type <code style={{ color: '#818cf8', background: '#232330', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>/</code> for commands
+                <span style={{ color: '#4d5868', fontSize: 11 }}>
+                  Type <code style={{ color: '#7dbdbd', background: '#242d38', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>/</code> for commands
                 </span>
               </div>
             </div>
@@ -551,7 +559,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
               fontSize: 11, color: '#6b6b78',
             }}>
               <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5, flexShrink: 0, marginTop: msg.content.includes('\n') ? 2 : 0 }} />
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontFamily: "'Fira Code', 'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
                 {msg.content}
               </div>
             </div>
@@ -581,7 +589,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             <div className="msg-avatar ai">C</div>
             <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
               <div className="loading-dot" />
-              <span style={{ fontSize: 13, color: '#52525b' }}>Claude is thinking...</span>
+              <span style={{ fontSize: 13, color: '#4d5868' }}>Claude is thinking...</span>
             </div>
           </div>
         )}
@@ -629,10 +637,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         />
         {messages.length > 0 && !loading && (
           <button
-            onClick={() => { setMessages([]); setError(''); }}
+            onClick={() => { setMessages([]); setError(''); claudeSessionIdRef.current = ''; }}
             style={{
-              background: 'none', border: '1px solid #27272a', borderRadius: 6,
-              color: '#52525e', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
+              background: 'none', border: '1px solid #2a3642', borderRadius: 6,
+              color: '#4d5868', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
               fontFamily: 'inherit', whiteSpace: 'nowrap',
             }}
             title="Clear chat"
@@ -642,24 +650,30 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
           Opus 4.6
           {contextTotalCount > 0 && (
-            <span style={{ color: '#818cf8', marginLeft: 4, fontSize: 10 }}>
-              📎{contextTotalCount}
+            <span style={{ color: '#7dbdbd', marginLeft: 6, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Paperclip size={11} strokeWidth={1.5} />
+              {contextTotalCount}
             </span>
           )}
         </div>
         {loading ? (
           <button className="send-btn" onClick={() => {
-            // Stop current response — kill process + unlisten + remove activity messages
+            // Stop current response — kill process + unlisten + remove activity + reset pipeline
             if (currentReqIdRef.current) {
               invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
             }
             unlistenRefs.current.forEach((fn) => fn());
             unlistenRefs.current = [];
             setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
+            // Reset pipeline state
+            const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+            if (currentTask?.pipeline?.enabled) {
+              useTaskStore.getState().updateTask(taskId, { pipeline: undefined });
+            }
             setLoading(false);
-          }} style={{ background: '#ef4444' }} title="Stop response">■</button>
+          }} style={{ background: '#ef4444' }} title="Stop response"><Square size={14} fill="white" strokeWidth={0} /></button>
         ) : (
-          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>↑</button>
+          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}><ArrowUp size={16} strokeWidth={1.5} /></button>
         )}
       </div>
     </>

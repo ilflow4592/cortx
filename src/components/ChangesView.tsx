@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
+import { ArrowLeft, RotateCw } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 
 const EXT_LANG: Record<string, string> = {
@@ -92,34 +93,34 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #27272f', flexShrink: 0 }}>
-          <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 14 }}>←</button>
-          <span style={{ fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace", flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #2a3642', flexShrink: 0 }}>
+          <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} strokeWidth={1.5} /></button>
+          <span style={{ fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selectedFile}
           </span>
           {onOpenFile && (
             <button
               onClick={() => onOpenFile(`${cwd}/${selectedFile}`)}
-              style={{ background: '#232330', border: '1px solid #2d2d3a', borderRadius: 4, color: '#b4b4bc', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit' }}
+              style={{ background: '#242d38', border: '1px solid #2a3642', borderRadius: 4, color: '#c0c8d4', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit' }}
             >Open</button>
           )}
         </div>
 
         {/* Diff view */}
         {viewMode === 'diff' && (
-          <div style={{ flex: 1, overflowY: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
-            {diffHunks.length === 0 && <div style={{ padding: 16, color: '#71717a', fontSize: 11 }}>No diff available</div>}
+          <div style={{ flex: 1, overflowY: 'auto', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
+            {diffHunks.length === 0 && <div style={{ padding: 16, color: '#6b7585', fontSize: 11 }}>No diff available</div>}
             {diffHunks.map((hunk, hi) => (
               <div key={hi}>
-                <div style={{ padding: '4px 16px', color: '#818cf8', background: 'rgba(99,102,241,0.04)', fontSize: 11 }}>{hunk.header}</div>
+                <div style={{ padding: '4px 16px', color: '#7dbdbd', background: 'rgba(90,165,165,0.04)', fontSize: 11 }}>{hunk.header}</div>
                 {hunk.lines.map((line, li) => (
                   <div key={li} style={{
                     display: 'flex', minHeight: 20,
                     background: line.type === 'add' ? 'rgba(52,211,153,0.06)' : line.type === 'del' ? 'rgba(239,68,68,0.06)' : 'transparent',
                   }}>
-                    <span style={{ width: 48, textAlign: 'right', paddingRight: 12, color: '#3f3f46', flexShrink: 0, userSelect: 'none' }}>{line.num || ''}</span>
+                    <span style={{ width: 48, textAlign: 'right', paddingRight: 12, color: '#3d4856', flexShrink: 0, userSelect: 'none' }}>{line.num || ''}</span>
                     <span style={{
-                      color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : '#71717a',
+                      color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : '#6b7585',
                       whiteSpace: 'pre', overflow: 'hidden',
                     }}>{line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '} {line.content}</span>
                   </div>
@@ -139,7 +140,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
               theme="cortx-dark"
               options={{
                 fontSize: 13,
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
@@ -157,16 +158,29 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
                   monaco.editor.defineTheme('cortx-dark', {
                     base: 'vs-dark',
                     inherit: true,
-                    rules: [],
+                    rules: [
+                      { token: 'keyword', foreground: 'cc7832' },
+                      { token: 'type', foreground: 'a9b7c6' },
+                      { token: 'type.identifier', foreground: 'ffc66d' },
+                      { token: 'class', foreground: 'ffc66d' },
+                      { token: 'string', foreground: '6a8759' },
+                      { token: 'number', foreground: '6897bb' },
+                      { token: 'comment', foreground: '808080', fontStyle: 'italic' },
+                      { token: 'annotation', foreground: 'bbb529' },
+                      { token: 'function', foreground: 'ffc66d' },
+                      { token: 'operator', foreground: 'a9b7c6' },
+                      { token: 'constant', foreground: '9876aa' },
+                    ],
                     colors: {
-                      'editor.background': '#0c0c12',
-                      'editor.foreground': '#b4b4bc',
-                      'editorLineNumber.foreground': '#3f3f46',
-                      'editorLineNumber.activeForeground': '#71717a',
-                      'editor.lineHighlightBackground': '#ffffff06',
-                      'editor.selectionBackground': '#6366f140',
-                      'editorCursor.foreground': '#818cf8',
-                      'editorIndentGuide.background': '#1e1e26',
+                      'editor.background': '#0f1419',
+                      'editor.foreground': '#c0c8d4',
+                      'editorLineNumber.foreground': '#3d4856',
+                      'editorLineNumber.activeForeground': '#6b7585',
+                      'editor.lineHighlightBackground': '#1e2530',
+                      'editor.lineHighlightBorder': '#00000000',
+                      'editor.selectionBackground': 'rgba(90,165,165,0.15)',
+                      'editorCursor.foreground': '#5aa5a5',
+                      'editorIndentGuide.background': '#2a3642',
                     },
                   });
                 }
@@ -181,28 +195,28 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Sub-tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 16px', borderBottom: '1px solid #27272f', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 16px', borderBottom: '1px solid #2a3642', flexShrink: 0 }}>
         <button className={`ctx-filter ${subTab === 'files' ? 'active' : ''}`} onClick={() => setSubTab('files')}>
           All files
         </button>
         <button className={`ctx-filter ${subTab === 'changes' ? 'active' : ''}`} onClick={() => setSubTab('changes')}>
           Changes {changedFiles.length > 0 && <span className="count">{changedFiles.length}</span>}
         </button>
-        <button onClick={loadChanges} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 11 }}>
-          ↻
+        <button onClick={loadChanges} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          <RotateCw size={14} strokeWidth={1.5} />
         </button>
       </div>
 
       {/* File list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-        {loading && <div style={{ padding: 16, fontSize: 11, color: '#71717a' }}>Loading...</div>}
+        {loading && <div style={{ padding: 16, fontSize: 11, color: '#6b7585' }}>Loading...</div>}
         {filteredFiles.length === 0 && !loading && (
-          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: '#71717a' }}>
+          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: '#6b7585' }}>
             {subTab === 'changes' ? 'No changes' : 'No files'}
           </div>
         )}
         {filteredFiles.map((file) => {
-          const statusColor = file.status === 'M' ? '#eab308' : file.status === 'A' ? '#34d399' : file.status === 'D' ? '#ef4444' : '#71717a';
+          const statusColor = file.status === 'M' ? '#eab308' : file.status === 'A' ? '#34d399' : file.status === 'D' ? '#ef4444' : '#6b7585';
           return (
             <button
               key={file.path}
@@ -210,7 +224,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '5px 16px', background: 'none', border: 'none', borderBottom: '1px solid #ffffff06',
-                color: '#b4b4bc', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, textAlign: 'left',
+                color: '#c0c8d4', cursor: 'pointer', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", fontSize: 11, textAlign: 'left',
               }}
             >
               {file.status && (

@@ -1,4 +1,5 @@
 import { DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
+import { ArrowLeft } from 'lucide-react';
 
 const EXT_LANG: Record<string, string> = {
   java: 'java', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
@@ -27,16 +28,16 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid #27272f', flexShrink: 0, background: '#0c0c12',
+        borderBottom: '1px solid #2a3642', flexShrink: 0, background: '#0f1419',
       }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 14 }}>←</button>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} strokeWidth={1.5} /></button>
         <span style={{
-          fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
         }}>
           {relativePath}
         </span>
-        <span style={{ fontSize: 9, color: '#71717a' }}>Diff</span>
+        <span style={{ fontSize: 9, color: '#6b7585' }}>Diff</span>
       </div>
       <div style={{ flex: 1 }}>
         <MonacoDiffEditor
@@ -47,7 +48,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
           options={{
             readOnly: true,
             fontSize: 13,
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
@@ -60,17 +61,38 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
             monaco.editor.defineTheme('cortx-dark', {
               base: 'vs-dark',
               inherit: true,
-              rules: [],
+              rules: [
+                { token: 'keyword', foreground: 'cc7832' },
+                { token: 'keyword.control', foreground: 'cc7832' },
+                { token: 'type', foreground: 'a9b7c6' },
+                { token: 'type.identifier', foreground: 'ffc66d' },
+                { token: 'class', foreground: 'ffc66d' },
+                { token: 'string', foreground: '6a8759' },
+                { token: 'number', foreground: '6897bb' },
+                { token: 'comment', foreground: '808080', fontStyle: 'italic' },
+                { token: 'comment.doc', foreground: '629755', fontStyle: 'italic' },
+                { token: 'annotation', foreground: 'bbb529' },
+                { token: 'variable', foreground: 'a9b7c6' },
+                { token: 'function', foreground: 'ffc66d' },
+                { token: 'operator', foreground: 'a9b7c6' },
+                { token: 'delimiter', foreground: 'a9b7c6' },
+                { token: 'constant', foreground: '9876aa' },
+              ],
               colors: {
-                'editor.background': '#0c0c12',
-                'editor.foreground': '#b4b4bc',
-                'editorLineNumber.foreground': '#3f3f46',
-                'editorLineNumber.activeForeground': '#71717a',
-                'editor.lineHighlightBackground': '#ffffff06',
-                'editor.selectionBackground': '#6366f140',
-                'editorCursor.foreground': '#818cf8',
-                'diffEditor.insertedTextBackground': '#34d39920',
-                'diffEditor.removedTextBackground': '#ef444420',
+                'editor.background': '#0f1419',
+                'editor.foreground': '#c0c8d4',
+                'editorLineNumber.foreground': '#3d4856',
+                'editorLineNumber.activeForeground': '#6b7585',
+                'editor.lineHighlightBackground': '#1e2530',
+                'editor.lineHighlightBorder': '#00000000',
+                'editor.selectionBackground': 'rgba(90,165,165,0.15)',
+                'editorCursor.foreground': '#5aa5a5',
+                'diffEditor.insertedTextBackground': '#2a4632',
+                'diffEditor.removedTextBackground': '#4b2228',
+                'diffEditorGutter.insertedLineBackground': '#1e3326',
+                'diffEditorGutter.removedLineBackground': '#3b1a1f',
+                'diffEditor.insertedLineBackground': '#1e3326',
+                'diffEditor.removedLineBackground': '#3b1a1f',
               },
             });
           }}

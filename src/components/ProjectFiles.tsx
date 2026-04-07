@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Folder, File, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface TreeNode {
   name: string;
@@ -63,7 +64,7 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid #27272f', fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid #2a3642', fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", flexShrink: 0 }}>
         {cwd.split('/').pop() || cwd}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
@@ -89,17 +90,17 @@ function TreeItem({ node, depth, expanded, selected, onToggle, onOpen }: {
         style={{
           display: 'flex', alignItems: 'center', gap: 6, width: '100%',
           padding: `3px 12px 3px ${12 + depth * 16}px`,
-          background: isSelected ? 'rgba(99,102,241,0.08)' : 'none',
-          border: 'none', color: isSelected ? '#e4e4e7' : '#b4b4bc', cursor: 'pointer',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: 'left',
+          background: isSelected ? 'rgba(90,165,165,0.08)' : 'none',
+          border: 'none', color: isSelected ? '#e8eef5' : '#c0c8d4', cursor: 'pointer',
+          fontFamily: "'Fira Code', 'JetBrains Mono', monospace", fontSize: 12, textAlign: 'left',
         }}
       >
         {node.isDir ? (
-          <span style={{ color: '#71717a', fontSize: 10, width: 12, flexShrink: 0 }}>{isOpen ? '▼' : '▶'}</span>
+          <span style={{ color: '#6b7585', width: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{isOpen ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}</span>
         ) : (
           <span style={{ width: 12, flexShrink: 0 }} />
         )}
-        <span style={{ fontSize: 13 }}>{node.isDir ? '📁' : '📄'}</span>
+        <span style={{ display: 'flex', alignItems: 'center' }}>{node.isDir ? <Folder size={14} color="#5aa5a5" strokeWidth={1.5} /> : <File size={14} color="#8b95a5" strokeWidth={1.5} />}</span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
       </button>
       {node.isDir && isOpen && node.children?.map((child) => (
