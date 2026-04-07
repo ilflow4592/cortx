@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import Editor from '@monaco-editor/react';
+import { CodeEditor } from './CodeEditor';
+
+const EXT_LANG: Record<string, string> = {
+  java: 'java', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+  json: 'json', md: 'markdown', yml: 'yaml', yaml: 'yaml', xml: 'xml', html: 'html',
+  css: 'css', sql: 'sql', sh: 'shell', py: 'python', kt: 'kotlin', gradle: 'groovy',
+  properties: 'ini', toml: 'ini',
+};
+function getLanguageFromPath(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  return EXT_LANG[ext] || 'plaintext';
+}
 
 interface ChangedFile {
   path: string;
@@ -114,15 +127,48 @@ export function ChangesView({ cwd, branchName }: { cwd: string; branchName: stri
           </div>
         )}
 
-        {/* Code view */}
+        {/* Code view — Monaco editor */}
         {viewMode === 'edit' && fileContent !== null && (
-          <div style={{ flex: 1, overflowY: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
-            {fileContent.split('\n').map((line, i) => (
-              <div key={i} style={{ display: 'flex', minHeight: 20 }}>
-                <span style={{ width: 48, textAlign: 'right', paddingRight: 12, color: '#3f3f46', flexShrink: 0, userSelect: 'none' }}>{i + 1}</span>
-                <span style={{ color: '#b4b4bc', whiteSpace: 'pre', overflow: 'hidden' }}>{line}</span>
-              </div>
-            ))}
+          <div style={{ flex: 1 }}>
+            <Editor
+              key={selectedFile}
+              defaultValue={fileContent}
+              language={getLanguageFromPath(selectedFile)}
+              theme="cortx-dark"
+              options={{
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', monospace",
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                renderLineHighlight: 'line',
+                padding: { top: 8 },
+                wordWrap: 'off',
+                tabSize: 4,
+                smoothScrolling: true,
+                cursorBlinking: 'smooth',
+                bracketPairColorization: { enabled: true },
+              }}
+              beforeMount={(monaco) => {
+                if (!monaco.editor.getModel(null as unknown as Parameters<typeof monaco.editor.getModel>[0])) {
+                  monaco.editor.defineTheme('cortx-dark', {
+                    base: 'vs-dark',
+                    inherit: true,
+                    rules: [],
+                    colors: {
+                      'editor.background': '#0c0c12',
+                      'editor.foreground': '#b4b4bc',
+                      'editorLineNumber.foreground': '#3f3f46',
+                      'editorLineNumber.activeForeground': '#71717a',
+                      'editor.lineHighlightBackground': '#ffffff06',
+                      'editor.selectionBackground': '#6366f140',
+                      'editorCursor.foreground': '#818cf8',
+                      'editorIndentGuide.background': '#1e1e26',
+                    },
+                  });
+                }
+              }}
+            />
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { CodeEditor } from './CodeEditor';
 
 interface TreeNode {
   name: string;
@@ -61,22 +62,12 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
 
   if (fileContent) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #27272f', flexShrink: 0 }}>
-          <button onClick={() => setFileContent(null)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 14 }}>←</button>
-          <span style={{ fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {fileContent.path.replace(cwd + '/', '')}
-          </span>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
-          {fileContent.content.split('\n').map((line, i) => (
-            <div key={i} style={{ display: 'flex', minHeight: 20 }}>
-              <span style={{ width: 48, textAlign: 'right', paddingRight: 12, color: '#3f3f46', flexShrink: 0, userSelect: 'none' }}>{i + 1}</span>
-              <span style={{ color: '#b4b4bc', whiteSpace: 'pre', overflow: 'hidden' }}>{line}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <CodeEditor
+        filePath={fileContent.path}
+        content={fileContent.content}
+        cwd={cwd}
+        onBack={() => setFileContent(null)}
+      />
     );
   }
 
