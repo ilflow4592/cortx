@@ -23,6 +23,12 @@ const PHASE_LABELS: Record<PipelinePhase, string> = {
 
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 
+function formatTokens(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return `${n}`;
+}
+
 function phaseIcon(status: PhaseStatus): ReactNode {
   switch (status) {
     case 'done': return <CheckCircle2 size={14} color="#34d399" strokeWidth={2} />;
@@ -189,14 +195,37 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, onResetSes
                           fontWeight: isActive ? 600 : 400,
                         }}>{PHASE_LABELS[phase]}</span>
                         {entry.memo && (
-                          <span style={{ fontSize: 9, color: '#4d5868', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 9, color: '#4d5868', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {entry.memo}
+                          </span>
+                        )}
+                        {(entry.inputTokens || entry.outputTokens) && (
+                          <span style={{ fontSize: 9, color: '#4d5868', whiteSpace: 'nowrap', fontFamily: "'Fira Code', monospace" }}>
+                            {formatTokens((entry.inputTokens || 0) + (entry.outputTokens || 0))}
                           </span>
                         )}
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Total tokens */}
+                {(() => {
+                  const totalIn = PHASE_ORDER.reduce((s, p) => s + (pipeline.phases[p]?.inputTokens || 0), 0);
+                  const totalOut = PHASE_ORDER.reduce((s, p) => s + (pipeline.phases[p]?.outputTokens || 0), 0);
+                  const totalCost = PHASE_ORDER.reduce((s, p) => s + (pipeline.phases[p]?.costUsd || 0), 0);
+                  if (totalIn + totalOut === 0) return null;
+                  return (
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', marginTop: 8, borderTop: '1px solid #2a3642',
+                      fontSize: 10, color: '#6b7585', fontFamily: "'Fira Code', monospace",
+                    }}>
+                      <span>Total: {formatTokens(totalIn)} in / {formatTokens(totalOut)} out</span>
+                      {totalCost > 0 && <span>${totalCost.toFixed(4)}</span>}
+                    </div>
+                  );
+                })()}
 
                 {/* Dev Plan artifact */}
                 {pipeline.devPlan && (

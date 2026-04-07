@@ -34,6 +34,9 @@ export interface PipelinePhaseEntry {
   startedAt?: string;
   completedAt?: string;
   memo?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
 }
 
 export interface PipelineState {

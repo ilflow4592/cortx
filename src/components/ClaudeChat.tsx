@@ -30,6 +30,7 @@ interface SlashCommand {
 
 const EMPTY_ARR: never[] = [];
 const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
+const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -391,6 +392,30 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                   const filtered = prev.filter((m) => m.id !== activityId);
                   return [...filtered, { id: resultId, role: 'assistant', content: response }];
                 });
+              }
+            }
+            // Track token usage per active pipeline phase
+            if (evt.usage) {
+              const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+              if (task?.pipeline?.enabled) {
+                const inTok = (evt.usage.input_tokens || 0) + (evt.usage.cache_creation_input_tokens || 0) + (evt.usage.cache_read_input_tokens || 0);
+                const outTok = evt.usage.output_tokens || 0;
+                const cost = evt.total_cost_usd || 0;
+                // Find current active phase
+                const activePhase = PHASE_ORDER.find((p) =>
+                  PHASE_KEYS.has(p) && task.pipeline!.phases[p]?.status === 'in_progress'
+                );
+                if (activePhase) {
+                  const phases = { ...task.pipeline!.phases };
+                  const entry = { ...phases[activePhase] };
+                  entry.inputTokens = (entry.inputTokens || 0) + inTok;
+                  entry.outputTokens = (entry.outputTokens || 0) + outTok;
+                  entry.costUsd = (entry.costUsd || 0) + cost;
+                  phases[activePhase] = entry;
+                  useTaskStore.getState().updateTask(taskId, {
+                    pipeline: { ...task.pipeline!, phases },
+                  });
+                }
               }
             }
           }
