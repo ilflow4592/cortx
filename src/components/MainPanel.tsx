@@ -23,6 +23,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
+  const [rightPanelWidth, setRightPanelWidth] = useState(380);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const startTask = useTaskStore((s) => s.startTask);
@@ -180,7 +181,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
         ))}
       </div>
 
-      <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? '1fr 340px' : '1fr' }}>
+      <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? `1fr ${rightPanelWidth}px` : '1fr' }}>
         <div className="chat">
           <div style={{ display: activeTab === 'claude' ? 'contents' : 'none' }}>
             <ClaudeChat key={task.id} taskId={task.id} cwd={taskCwd} />
@@ -212,7 +213,29 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
             )
           )}
         </div>
-        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} />}
+        {showRightPanel && (
+          <div style={{ display: 'flex', overflow: 'hidden', position: 'relative' }}>
+            <div
+              onMouseDown={(e) => {
+                const startX = e.clientX;
+                const startWidth = rightPanelWidth;
+                const onMove = (ev: MouseEvent) => {
+                  const delta = startX - ev.clientX;
+                  setRightPanelWidth(Math.max(250, Math.min(700, startWidth + delta)));
+                };
+                const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+              }}
+              style={{ width: 4, cursor: 'col-resize', background: '#2a3642', flexShrink: 0, opacity: 0, transition: 'opacity 200ms ease' }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0'; }}
+            />
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} />
+            </div>
+          </div>
+        )}
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}
