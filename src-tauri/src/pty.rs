@@ -100,21 +100,11 @@ impl PtyManager {
                 "claude-opus-4-6".to_string(),
             ];
 
-            // For slash commands / pipelines: allow all tools
+            // For slash commands / pipelines: allow all tools with full permissions
             if allow_tools {
                 cmd_parts.extend([
-                    "--allowedTools".to_string(),
-                    "'mcp__github__*'".to_string(),
-                    "'mcp__notion__*'".to_string(),
-                    "'mcp__slack__*'".to_string(),
-                    "'mcp__obsidian__*'".to_string(),
-                    "Bash".to_string(),
-                    "Read".to_string(),
-                    "Write".to_string(),
-                    "Edit".to_string(),
-                    "Grep".to_string(),
-                    "Glob".to_string(),
-                    "Agent".to_string(),
+                    "--permission-mode".to_string(),
+                    "dangerously-skip-permissions".to_string(),
                 ]);
             }
 
