@@ -158,7 +158,17 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
                   monaco.editor.defineTheme('cortx-dark', {
                     base: 'vs-dark',
                     inherit: true,
-                    rules: [],
+                    rules: [
+                      { token: 'keyword', foreground: 'ab98c7' },
+                      { token: 'type', foreground: 'a3d4d4' },
+                      { token: 'string', foreground: '22c55e' },
+                      { token: 'number', foreground: 'f59e0b' },
+                      { token: 'comment', foreground: '6b7585', fontStyle: 'italic' },
+                      { token: 'annotation', foreground: 'f59e0b' },
+                      { token: 'function', foreground: '7dbdbd' },
+                      { token: 'operator', foreground: '8b95a5' },
+                      { token: 'constant', foreground: 'f59e0b' },
+                    ],
                     colors: {
                       'editor.background': '#0f1419',
                       'editor.foreground': '#c0c8d4',
