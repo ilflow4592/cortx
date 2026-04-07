@@ -103,7 +103,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                   <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
-                  <ProjBtn icon="▼" title={isCollapsed ? 'Expand' : 'Collapse'} onClick={() => toggleCollapse(project.id)} />
+                  <ProjBtn icon={<span style={{ display: 'inline-block', transition: 'transform 200ms ease', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▼</span>} title={isCollapsed ? 'Expand' : 'Collapse'} onClick={() => toggleCollapse(project.id)} />
                   {onAddTaskForProject && <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />}
                   {onEditProject && <ProjBtn icon="⚙" title="Settings" onClick={() => onEditProject(project.id)} />}
                   <ProjBtn icon={<X size={12} strokeWidth={1.5} />} title="Delete" onClick={() => handleDeleteProject(project.id, project.name)} hoverColor="#ef4444" />
