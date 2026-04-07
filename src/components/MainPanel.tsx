@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { ClaudeChat } from './ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
+import { CodeEditor } from './CodeEditor';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';
 import type { InterruptReason } from '../types/task';
 
-type Tab = 'claude' | 'terminal' | 'context';
+type Tab = 'claude' | 'terminal' | 'context' | 'editor';
 
 export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   showRightPanel?: boolean;
@@ -18,6 +20,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
+  const [editorFile, setEditorFile] = useState<{ path: string; content: string } | null>(null);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const startTask = useTaskStore((s) => s.startTask);
@@ -62,10 +65,27 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   };
   const handleDone = () => setTaskStatus(task.id, 'done');
 
-  const tabs: { key: Tab; label: string; badge?: number }[] = [
+  const handleOpenFile = useCallback(async (filePath: string) => {
+    try {
+      const escaped = filePath.replace(/'/g, "'\\''");
+      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat '${escaped}' 2>/dev/null | head -5000`,
+      });
+      if (result.success) {
+        setEditorFile({ path: filePath, content: result.output });
+        setActiveTab('editor');
+      }
+    } catch { /* skip */ }
+  }, []);
+
+  const fileName = editorFile?.path.split('/').pop() || '';
+
+  const tabs: { key: Tab; label: string; badge?: number; closable?: boolean }[] = [
     { key: 'claude', label: '🤖 Claude' },
     { key: 'terminal', label: '⌨ Terminal' },
     { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
+    ...(editorFile ? [{ key: 'editor' as Tab, label: `📝 ${fileName}`, closable: true }] : []),
   ];
 
   return (
@@ -124,6 +144,12 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
             {t.label}
             {t.badge && t.badge > 0 && <span className="badge">{t.badge}</span>}
+            {t.closable && (
+              <span
+                onClick={(e) => { e.stopPropagation(); setEditorFile(null); setActiveTab('claude'); }}
+                style={{ marginLeft: 6, color: '#71717a', cursor: 'pointer', fontSize: 10 }}
+              >✕</span>
+            )}
           </button>
         ))}
       </div>
@@ -139,8 +165,17 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
             <ContextPack key={task.id} taskId={task.id} />
           </div>
+          {activeTab === 'editor' && editorFile && (
+            <CodeEditor
+              key={editorFile.path}
+              filePath={editorFile.path}
+              content={editorFile.content}
+              cwd={taskCwd}
+              onBack={() => { setEditorFile(null); setActiveTab('claude'); }}
+            />
+          )}
         </div>
-        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} />}
+        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} />}
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}

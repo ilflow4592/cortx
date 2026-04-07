@@ -26,7 +26,7 @@ interface DiffHunk {
 
 type SubTab = 'files' | 'changes';
 
-export function ChangesView({ cwd, branchName }: { cwd: string; branchName: string }) {
+export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void }) {
   const [subTab, setSubTab] = useState<SubTab>('changes');
   const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([]);
   const [allFiles, setAllFiles] = useState<ChangedFile[]>([]);
@@ -97,10 +97,12 @@ export function ChangesView({ cwd, branchName }: { cwd: string; branchName: stri
           <span style={{ fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace", flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selectedFile}
           </span>
-          <button
-            onClick={() => selectFile(selectedFile, viewMode === 'diff' ? 'edit' : 'diff')}
-            style={{ background: '#232330', border: '1px solid #2d2d3a', borderRadius: 4, color: '#b4b4bc', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit' }}
-          >{viewMode === 'diff' ? 'Code' : 'Diff'}</button>
+          {onOpenFile && (
+            <button
+              onClick={() => onOpenFile(`${cwd}/${selectedFile}`)}
+              style={{ background: '#232330', border: '1px solid #2d2d3a', borderRadius: 4, color: '#b4b4bc', cursor: 'pointer', fontSize: 10, padding: '2px 8px', fontFamily: 'inherit' }}
+            >Open</button>
+          )}
         </div>
 
         {/* Diff view */}
@@ -203,7 +205,7 @@ export function ChangesView({ cwd, branchName }: { cwd: string; branchName: stri
           return (
             <button
               key={file.path}
-              onClick={() => selectFile(file.path, subTab === 'changes' ? 'diff' : 'edit')}
+              onClick={() => subTab === 'files' && onOpenFile ? onOpenFile(`${cwd}/${file.path}`) : selectFile(file.path, 'diff')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '5px 16px', background: 'none', border: 'none', borderBottom: '1px solid #ffffff06',

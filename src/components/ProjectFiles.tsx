@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { CodeEditor } from './CodeEditor';
 
 interface TreeNode {
   name: string;
@@ -10,11 +9,10 @@ interface TreeNode {
   loaded?: boolean;
 }
 
-export function ProjectFiles({ cwd }: { cwd: string }) {
+export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (path: string) => void }) {
   const [root, setRoot] = useState<TreeNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string>('');
-  const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
 
   useEffect(() => { if (cwd) loadChildren(cwd).then(setRoot); }, [cwd]);
 
@@ -58,27 +56,10 @@ export function ProjectFiles({ cwd }: { cwd: string }) {
     setExpanded(newExpanded);
   }, [expanded, root]);
 
-  const openFile = async (path: string) => {
+  const openFile = (path: string) => {
     setSelected(path);
-    try {
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `head -500 '${path.replace(/'/g, "'\\''")}'`,
-      });
-      if (result.success) setFileContent({ path, content: result.output });
-    } catch { /* skip */ }
+    onOpenFile?.(path);
   };
-
-  if (fileContent) {
-    return (
-      <CodeEditor
-        filePath={fileContent.path}
-        content={fileContent.content}
-        cwd={cwd}
-        onBack={() => setFileContent(null)}
-      />
-    );
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>

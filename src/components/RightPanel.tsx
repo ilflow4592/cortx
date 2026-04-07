@@ -40,7 +40,7 @@ function phaseColor(status: PhaseStatus): string {
   }
 }
 
-export function RightPanel({ cwd, branchName }: { cwd: string; branchName: string }) {
+export function RightPanel({ cwd, branchName, onOpenFile }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void }) {
   const [upperTab, setUpperTab] = useState<UpperTab>('projects');
   const [lowerTab, setLowerTab] = useState<LowerTab>('dashboard');
   const [splitRatio, setSplitRatio] = useState(0.5);
@@ -88,8 +88,8 @@ export function RightPanel({ cwd, branchName }: { cwd: string; branchName: strin
           ))}
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          {upperTab === 'projects' && <ProjectFiles cwd={cwd} />}
-          {upperTab === 'changes' && <ChangesView cwd={cwd} branchName={branchName} />}
+          {upperTab === 'projects' && <ProjectFiles cwd={cwd} onOpenFile={onOpenFile} />}
+          {upperTab === 'changes' && <ChangesView cwd={cwd} branchName={branchName} onOpenFile={onOpenFile} />}
         </div>
       </div>
 
