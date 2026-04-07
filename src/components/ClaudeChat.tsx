@@ -648,12 +648,13 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         </div>
         {loading ? (
           <button className="send-btn" onClick={() => {
-            // Stop current response — kill process + unlisten
+            // Stop current response — kill process + unlisten + remove activity messages
             if (currentReqIdRef.current) {
               invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
             }
             unlistenRefs.current.forEach((fn) => fn());
             unlistenRefs.current = [];
+            setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
             setLoading(false);
           }} style={{ background: '#ef4444' }} title="Stop response">■</button>
         ) : (
