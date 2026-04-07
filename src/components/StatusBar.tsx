@@ -16,15 +16,9 @@ export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onTogg
     <div className="statusbar">
       <div className="sb-l">
         {activeTask ? (
-          <>
-            <span className="sb-active-tag"><span className="dot" />{activeTask.title}</span>
-            <span>{formatTime(activeTask.elapsedSeconds)}</span>
-            <span style={{ color: '#18181b' }}>|</span>
-            <span>Focus {formatTime(totalFocus)}</span>
-            <span>Done {doneCount}/{tasks.length}</span>
-          </>
+          <span className="sb-active-tag"><span className="dot" />{activeTask.title}</span>
         ) : (
-          <span style={{ color: '#3f3f46' }}>No active task</span>
+          <span style={{ color: '#3d4856' }}>No active task</span>
         )}
       </div>
       <div className="sb-r">
