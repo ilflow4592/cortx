@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, RotateCw, Undo2, Trash2 } from 'lucide-react';
@@ -35,10 +35,17 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
   const [viewMode, setViewMode] = useState<'diff' | 'edit'>('diff');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { if (cwd) loadChanges(); }, [cwd, branchName]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadChanges = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (cwd) loadChanges(true);
+    // Auto-refresh every 5 seconds to pick up changes from Claude
+    pollRef.current = setInterval(() => { if (cwd) loadChanges(false); }, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [cwd, branchName]);
+
+  const loadChanges = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       // Get changed files (branch diff + staged + unstaged)
       const branchDiff = await run(`git diff --name-status origin/develop...HEAD 2>/dev/null || git diff --name-status HEAD~5 2>/dev/null`);
@@ -220,7 +227,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
               <Trash2 size={13} strokeWidth={1.5} />
             </button>
           )}
-          <button onClick={loadChanges} title="Refresh" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          <button onClick={() => loadChanges(true)} title="Refresh" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
             <RotateCw size={14} strokeWidth={1.5} />
           </button>
         </span>
