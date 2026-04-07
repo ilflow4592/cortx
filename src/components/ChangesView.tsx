@@ -25,12 +25,10 @@ interface DiffHunk {
   lines: { type: 'add' | 'del' | 'ctx'; num: number; content: string }[];
 }
 
-type SubTab = 'files' | 'changes';
 
 export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void }) {
-  const [subTab, setSubTab] = useState<SubTab>('changes');
   const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([]);
-  const [allFiles, setAllFiles] = useState<ChangedFile[]>([]);
+  const [confirmDiscard, setConfirmDiscard] = useState<{ type: 'file' | 'all'; path?: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [diffHunks, setDiffHunks] = useState<DiffHunk[]>([]);
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -53,10 +51,6 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
         if (match) fileMap.set(match[2], match[1]);
       }
       setChangedFiles([...fileMap.entries()].map(([path, status]) => ({ path, status })));
-
-      // Get all tracked files
-      const allResult = await run(`git ls-files 2>/dev/null`);
-      setAllFiles(allResult.trim().split('\n').filter(Boolean).map((p) => ({ path: p, status: '' })));
     } catch { /* skip */ }
     setLoading(false);
   };
@@ -66,18 +60,25 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
     return result.success ? result.output : '';
   };
 
-  const discardFile = async (filePath: string, e: React.MouseEvent) => {
+  const requestDiscardFile = (filePath: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Discard changes to ${filePath.split('/').pop()}?`)) return;
-    const escaped = filePath.replace(/'/g, "'\\''");
-    await run(`git checkout -- '${escaped}' 2>/dev/null`);
-    await loadChanges();
+    setConfirmDiscard({ type: 'file', path: filePath });
   };
 
-  const discardAll = async () => {
-    if (!window.confirm(`Discard ALL ${changedFiles.length} changes? This cannot be undone.`)) return;
-    await run(`git checkout -- . 2>/dev/null`);
-    await run(`git clean -fd 2>/dev/null`);
+  const requestDiscardAll = () => {
+    setConfirmDiscard({ type: 'all' });
+  };
+
+  const executeDiscard = async () => {
+    if (!confirmDiscard) return;
+    if (confirmDiscard.type === 'file' && confirmDiscard.path) {
+      const escaped = confirmDiscard.path.replace(/'/g, "'\\''");
+      await run(`git checkout -- '${escaped}' 2>/dev/null`);
+    } else if (confirmDiscard.type === 'all') {
+      await run(`git checkout -- . 2>/dev/null`);
+      await run(`git clean -fd 2>/dev/null`);
+    }
+    setConfirmDiscard(null);
     await loadChanges();
   };
 
@@ -101,8 +102,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
     }
   };
 
-  const currentFiles = subTab === 'changes' ? changedFiles : allFiles;
-  const filteredFiles = currentFiles;
+  const filteredFiles = changedFiles;
 
   if (selectedFile) {
     return (
@@ -209,17 +209,14 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Sub-tabs */}
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 16px', borderBottom: '1px solid #2a3642', flexShrink: 0 }}>
-        <button className={`ctx-filter ${subTab === 'files' ? 'active' : ''}`} onClick={() => setSubTab('files')}>
-          All files
-        </button>
-        <button className={`ctx-filter ${subTab === 'changes' ? 'active' : ''}`} onClick={() => setSubTab('changes')}>
-          Changes {changedFiles.length > 0 && <span className="count">{changedFiles.length}</span>}
-        </button>
+        <span style={{ fontSize: 11, color: '#8b95a5', fontWeight: 500 }}>
+          Changes {changedFiles.length > 0 && <span style={{ color: '#5aa5a5' }}>{changedFiles.length}</span>}
+        </span>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {subTab === 'changes' && changedFiles.length > 0 && (
-            <button onClick={discardAll} title="Discard all changes" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          {changedFiles.length > 0 && (
+            <button onClick={requestDiscardAll} title="Discard all changes" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Trash2 size={13} strokeWidth={1.5} />
             </button>
           )}
@@ -234,7 +231,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
         {loading && <div style={{ padding: 16, fontSize: 11, color: '#6b7585' }}>Loading...</div>}
         {filteredFiles.length === 0 && !loading && (
           <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: '#6b7585' }}>
-            {subTab === 'changes' ? 'No changes' : 'No files'}
+            No changes
           </div>
         )}
         {filteredFiles.map((file) => {
@@ -253,9 +250,9 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
                 <span style={{ color: statusColor, fontSize: 10, fontWeight: 600, width: 14, flexShrink: 0 }}>{file.status}</span>
               )}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{file.path}</span>
-              {subTab === 'changes' && file.status && (
+              {file.status && (
                 <span
-                  onClick={(e) => discardFile(file.path, e)}
+                  onClick={(e) => requestDiscardFile(file.path, e)}
                   title="Discard changes"
                   style={{ color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 2px' }}
                 >
@@ -266,6 +263,39 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
           );
         })}
       </div>
+
+      {/* Inline confirm modal */}
+      {confirmDiscard && (
+        <div style={{
+          padding: '10px 14px', borderTop: '1px solid #2a3642', flexShrink: 0,
+          background: '#1a1f26', display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <span style={{ fontSize: 11, color: '#c0c8d4' }}>
+            {confirmDiscard.type === 'all'
+              ? `Discard all ${changedFiles.length} changes?`
+              : `Discard ${confirmDiscard.path?.split('/').pop()}?`}
+          </span>
+          <span style={{ fontSize: 10, color: '#6b7585' }}>This cannot be undone.</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={executeDiscard}
+              style={{
+                padding: '4px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)',
+                color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Discard</button>
+            <button
+              onClick={() => setConfirmDiscard(null)}
+              style={{
+                padding: '4px 12px', borderRadius: 5, fontSize: 10,
+                background: 'none', border: '1px solid #3d4856',
+                color: '#8b95a5', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
