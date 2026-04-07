@@ -26,6 +26,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const resumeTask = useTaskStore((s) => s.resumeTask);
   const setTaskStatus = useTaskStore((s) => s.setTaskStatus);
   const removeTask = useTaskStore((s) => s.removeTask);
+  const updateTask = useTaskStore((s) => s.updateTask);
   const projects = useProjectStore((s) => s.projects);
   const task = tasks.find((t) => t.id === activeTaskId);
   const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
@@ -82,7 +83,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
             <button
               className="mh-btn"
               style={{ background: 'none', color: '#71717a', border: '1px solid #27272a', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
-              onClick={() => { if (window.confirm('Reset timer to 00:00?')) updateTask(task.id, { elapsedSeconds: 0 }); }}
+              onClick={() => { if (window.confirm('Reset timer, status & interrupts?')) { updateTask(task.id, { elapsedSeconds: 0, interrupts: [] }); setTaskStatus(task.id, 'waiting'); } }}
               title="Reset timer"
             >↺</button>
           )}
