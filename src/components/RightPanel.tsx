@@ -3,20 +3,42 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from './SourceIcons';
-import { formatTime } from '../utils/time';
+import type { PipelinePhase, PhaseStatus } from '../types/task';
 
-type RTab = 'worktree' | 'context' | 'history' | 'log' | 'memo';
+type RTab = 'dashboard' | 'worktree' | 'context' | 'history' | 'memo';
 
-const reasonLabel: Record<string, string> = {
-  interrupt: '🔔 Interrupted',
-  'other-task': '🔄 Task switch',
-  break: '☕ Break',
-  meeting: '📅 Meeting',
-  other: '💭 Other',
+const PHASE_LABELS: Record<PipelinePhase, string> = {
+  grill_me: 'Grill-me',
+  obsidian_save: 'Save',
+  dev_plan: 'Dev Plan',
+  implement: 'Implement',
+  commit_pr: 'PR',
+  review_loop: 'Review',
+  done: 'Done',
 };
 
+const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
+
+function phaseIcon(status: PhaseStatus): string {
+  switch (status) {
+    case 'done': return '✅';
+    case 'in_progress': return '🔄';
+    case 'skipped': return '⏭';
+    default: return '⬚';
+  }
+}
+
+function phaseColor(status: PhaseStatus): string {
+  switch (status) {
+    case 'done': return '#34d399';
+    case 'in_progress': return '#818cf8';
+    case 'skipped': return '#52525e';
+    default: return '#27272a';
+  }
+}
+
 export function RightPanel() {
-  const [tab, setTab] = useState<RTab>('worktree');
+  const [tab, setTab] = useState<RTab>('dashboard');
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
@@ -33,17 +55,16 @@ export function RightPanel() {
   const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
   const taskItems = [...(taskItemsRaw || [])].sort((a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9));
   const taskDelta = taskDeltaRaw || [];
-  const newCount = taskItems.filter((i) => i.isNew).length;
-  const interrupts = task.interrupts || [];
-  const totalInterruptTime = interrupts.reduce((s, e) => s + e.durationSeconds, 0);
+  const pipeline = task.pipeline;
+  const phaseDoneCount = pipeline ? PHASE_ORDER.filter((p) => pipeline.phases[p]?.status === 'done').length : 0;
 
   const icon = (type: string) => type === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : type === 'slack' ? <SlackIcon size={14} /> : type === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
 
   const tabs: { key: RTab; label: string; badge?: number }[] = [
+    { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled ? phaseDoneCount : undefined },
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: taskItems.length || undefined },
     { key: 'history', label: 'History', badge: taskHistory.length || undefined },
-    { key: 'log', label: 'Log', badge: interrupts.length || undefined },
     { key: 'memo', label: 'Memo' },
   ];
 
@@ -58,6 +79,91 @@ export function RightPanel() {
         ))}
       </div>
       <div className="rp-content">
+        {tab === 'dashboard' && (
+          <>
+            {!pipeline?.enabled ? (
+              <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>⚡</div>
+                <div style={{ fontSize: 12, color: '#52525e', marginBottom: 16 }}>No pipeline active</div>
+                <div style={{ fontSize: 10, color: '#3f3f46', lineHeight: 1.6 }}>
+                  Run <code style={{ background: '#232330', padding: '1px 5px', borderRadius: 3 }}>/pipeline:dev-task</code> to start
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Progress stepper */}
+                <div className="rp-section">Progress</div>
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16,
+                  padding: '10px 12px', background: '#16161e', borderRadius: 8, border: '1px solid #1e1e26',
+                }}>
+                  {PHASE_ORDER.map((phase, i) => {
+                    const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
+                    return (
+                      <span key={phase} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span style={{ fontSize: 11 }}>{phaseIcon(entry.status)}</span>
+                        <span style={{
+                          fontSize: 9, color: phaseColor(entry.status),
+                          fontWeight: entry.status === 'in_progress' ? 600 : 400,
+                        }}>{PHASE_LABELS[phase]}</span>
+                        {i < PHASE_ORDER.length - 1 && (
+                          <span style={{ color: '#27272a', fontSize: 9, margin: '0 1px' }}>→</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Detail table */}
+                <div className="rp-section">Phases</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {PHASE_ORDER.map((phase) => {
+                    const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
+                    const isActive = entry.status === 'in_progress';
+                    return (
+                      <div key={phase} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '6px 10px', borderRadius: 6,
+                        background: isActive ? 'rgba(99,102,241,0.06)' : 'transparent',
+                        border: isActive ? '1px solid rgba(99,102,241,0.15)' : '1px solid transparent',
+                      }}>
+                        <span style={{ fontSize: 12, width: 18, textAlign: 'center' }}>{phaseIcon(entry.status)}</span>
+                        <span style={{
+                          fontSize: 11, color: phaseColor(entry.status), flex: 1,
+                          fontWeight: isActive ? 600 : 400,
+                        }}>{PHASE_LABELS[phase]}</span>
+                        {entry.memo && (
+                          <span style={{ fontSize: 9, color: '#52525e', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {entry.memo}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Metadata */}
+                {(pipeline.complexity || pipeline.prUrl || pipeline.reviewRounds !== undefined) && (
+                  <>
+                    <div className="rp-section" style={{ marginTop: 14 }}>Info</div>
+                    <div className="wt-info">
+                      {pipeline.complexity && (
+                        <div className="wt-row"><span>Complexity</span><span className="val">{pipeline.complexity}</span></div>
+                      )}
+                      {pipeline.prNumber && (
+                        <div className="wt-row"><span>PR</span><span className="val">#{pipeline.prNumber}</span></div>
+                      )}
+                      {pipeline.reviewRounds !== undefined && (
+                        <div className="wt-row"><span>Review rounds</span><span className="val">{pipeline.reviewRounds}</span></div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </>
+        )}
+
         {tab === 'worktree' && (
           <>
             {taskProject && (
@@ -222,53 +328,6 @@ export function RightPanel() {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'log' && (
-          <>
-            <div className="rp-section">Interrupt Log</div>
-            {interrupts.length > 0 && (
-              <div className="wt-info" style={{ marginBottom:14 }}>
-                <div className="wt-row"><span>Total interrupts</span><span className="val">{interrupts.length}</span></div>
-                <div className="wt-row"><span>Time lost</span><span className="val" style={{ color:'#eab308' }}>{formatTime(totalInterruptTime)}</span></div>
-              </div>
-            )}
-            {interrupts.length === 0 ? (
-              <div style={{ fontSize:11, color:'#3f3f46', padding:'16px 0', textAlign:'center' }}>No interrupts recorded yet</div>
-            ) : (
-              <div style={{ position:'relative', paddingLeft:16 }}>
-                {/* Timeline line */}
-                <div style={{ position:'absolute', left:5, top:0, bottom:0, width:1, background:'#18181b' }} />
-                {[...interrupts].reverse().map((entry) => (
-                  <div key={entry.id} style={{ position:'relative', paddingBottom:16, paddingLeft:16 }}>
-                    {/* Dot */}
-                    <div style={{
-                      position:'absolute', left:-4, top:4, width:8, height:8, borderRadius:'50%',
-                      background: entry.resumedAt ? '#eab308' : '#ef4444',
-                      boxShadow: entry.resumedAt ? 'none' : '0 0 6px rgba(239,68,68,0.4)',
-                    }} />
-                    <div style={{ fontSize:11, color:'#71717a', marginBottom:2 }}>
-                      {reasonLabel[entry.reason] || entry.reason}
-                    </div>
-                    {entry.memo && (
-                      <div style={{ fontSize:12, color:'#a1a1aa', marginBottom:2 }}>"{entry.memo}"</div>
-                    )}
-                    <div style={{ fontSize:10, color:'#3f3f46', display:'flex', gap:8 }}>
-                      <span>{new Date(entry.pausedAt).toLocaleTimeString()}</span>
-                      {entry.resumedAt && (
-                        <>
-                          <span>→</span>
-                          <span>{new Date(entry.resumedAt).toLocaleTimeString()}</span>
-                          <span style={{ color:'#eab308' }}>{formatTime(entry.durationSeconds)}</span>
-                        </>
-                      )}
-                      {!entry.resumedAt && <span style={{ color:'#ef4444' }}>Still paused</span>}
-                    </div>
-                  </div>
-                ))}
               </div>
             )}
           </>
