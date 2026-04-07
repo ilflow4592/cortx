@@ -65,7 +65,7 @@ impl PtyManager {
         Ok(())
     }
 
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, app: &AppHandle) -> Result<(), String> {
+    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, session_id: Option<&str>, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -75,6 +75,7 @@ impl PtyManager {
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
         let allow_tools = allow_all_tools;
+        let session_id_owned = session_id.map(|s| s.to_string());
 
         let pid_holder: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
@@ -109,6 +110,14 @@ impl PtyManager {
                 "--permission-mode".to_string(),
                 "bypassPermissions".to_string(),
             ]);
+
+            // Resume existing conversation if session_id is provided
+            if let Some(ref sid) = session_id_owned {
+                cmd_parts.extend([
+                    "--resume".to_string(),
+                    sid.clone(),
+                ]);
+            }
 
             // Build system prompt from context summary + file list
             let mut system_parts: Vec<String> = vec![];

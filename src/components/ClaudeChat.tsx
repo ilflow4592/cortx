@@ -76,6 +76,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
+  const claudeSessionIdRef = useRef<string>('');
 
   // Slash command state
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
@@ -309,6 +310,11 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         try {
           const evt = JSON.parse(line);
 
+          // Capture session_id from init event for conversation continuity
+          if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
+            claudeSessionIdRef.current = evt.session_id;
+          }
+
           if (evt.type === 'assistant' && evt.message?.content) {
             // Check for text content
             const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
@@ -497,6 +503,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         contextFiles: contextFiles.length > 0 ? contextFiles : null,
         contextSummary: contextSummary || null,
         allowAllTools: text.startsWith('/') || null,
+        sessionId: claudeSessionIdRef.current || null,
       });
 
       await donePromise;
@@ -630,7 +637,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         />
         {messages.length > 0 && !loading && (
           <button
-            onClick={() => { setMessages([]); setError(''); }}
+            onClick={() => { setMessages([]); setError(''); claudeSessionIdRef.current = ''; }}
             style={{
               background: 'none', border: '1px solid #2a3642', borderRadius: 6,
               color: '#4d5868', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
