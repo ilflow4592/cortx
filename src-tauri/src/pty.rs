@@ -100,13 +100,11 @@ impl PtyManager {
                 "claude-opus-4-6".to_string(),
             ];
 
-            // For slash commands / pipelines: allow all tools with full permissions
-            if allow_tools {
-                cmd_parts.extend([
-                    "--permission-mode".to_string(),
-                    "bypassPermissions".to_string(),
-                ]);
-            }
+            // Always bypass permissions — Cortx app runs non-interactively
+            cmd_parts.extend([
+                "--permission-mode".to_string(),
+                "bypassPermissions".to_string(),
+            ]);
 
             // Build system prompt from context summary + file list
             let mut system_parts: Vec<String> = vec![];

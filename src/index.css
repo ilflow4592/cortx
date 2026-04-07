@@ -120,10 +120,23 @@ body {
 .msg-name { font-size:11px; font-weight:600; color:#8b8b95; margin-bottom:4px }
 .msg-text { font-size:14px; color:#d4d4d8; line-height:1.7; -webkit-user-select:text; user-select:text }
 .msg-text code { font-family:'JetBrains Mono',monospace; font-size:12px; background:#232330; padding:2px 6px; border-radius:4px; color:#818cf8 }
-.chat-input { padding:12px 16px; border-top:1px solid #27272f; display:flex; align-items:center; gap:8px; background:#111118 }
-.chat-input input { flex:1; background:#16161e; border:1px solid #2d2d3a; border-radius:10px; padding:10px 14px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; height:40px; -webkit-user-select:text; user-select:text }
-.chat-input input::placeholder { color:#8b8b95 }
-.chat-input input:focus { border-color:rgba(99,102,241,0.3) }
+.msg-text pre { background:#0c0c12; border:1px solid #2d2d3a; border-radius:8px; padding:12px 14px; overflow-x:auto; margin:8px 0 }
+.msg-text pre code { background:none; padding:0; font-size:12px; color:#b4b4bc; line-height:1.6 }
+.msg-text h1,.msg-text h2,.msg-text h3 { color:#e4e4e7; margin:12px 0 6px; font-weight:700 }
+.msg-text h1 { font-size:18px } .msg-text h2 { font-size:16px } .msg-text h3 { font-size:14px }
+.msg-text p { margin:4px 0 }
+.msg-text ul,.msg-text ol { padding-left:20px; margin:4px 0 }
+.msg-text li { margin:2px 0 }
+.msg-text table { border-collapse:collapse; margin:8px 0; font-size:12px; width:100% }
+.msg-text th,.msg-text td { border:1px solid #2d2d3a; padding:4px 8px; text-align:left }
+.msg-text th { background:#16161e; color:#b4b4bc; font-weight:600 }
+.msg-text strong { color:#e4e4e7 }
+.msg-text blockquote { border-left:3px solid #6366f1; padding-left:12px; margin:8px 0; color:#8b8b95 }
+.msg-text hr { border:none; border-top:1px solid #2d2d3a; margin:12px 0 }
+.chat-input { padding:12px 16px; border-top:1px solid #27272f; display:flex; align-items:flex-end; gap:8px; background:#111118 }
+.chat-input textarea { flex:1; background:#16161e; border:1px solid #2d2d3a; border-radius:10px; padding:10px 14px; font-size:13px; color:#d4d4d8; font-family:inherit; outline:none; min-height:40px; -webkit-user-select:text; user-select:text; line-height:1.5 }
+.chat-input textarea::placeholder { color:#8b8b95 }
+.chat-input textarea:focus { border-color:rgba(99,102,241,0.3) }
 
 /* Slash command menu */
 .slash-menu { position:absolute; bottom:100%; left:16px; right:16px; max-height:280px; overflow-y:auto; background:#16161e; border:1px solid #2d2d3a; border-radius:10px; box-shadow:0 -4px 24px rgba(0,0,0,0.4); margin-bottom:8px; padding:4px; z-index:50 }

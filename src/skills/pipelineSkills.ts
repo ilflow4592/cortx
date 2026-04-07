@@ -9,6 +9,11 @@ export const CORTX_SKILLS: Record<string, string> = {
 
 Context Pack의 태스크 스펙을 기반으로 Grill-me 대화를 진행하고 개발 계획서를 작성합니다.
 
+## 중요 규칙
+- **코드베이스 스캔은 Step 0에서 1회만 수행**합니다. Grill-me 대화 중 추가 스캔하지 마세요.
+- Grill-me 중에는 질문에만 집중하고, 코드베이스 재탐색 없이 이미 파악한 내용으로 대화합니다.
+- 한국어로만 대화합니다.
+
 ## Arguments
 - \`$ARGUMENTS\` — 업무번호(BE-XXXX)와 태스크 설명
 

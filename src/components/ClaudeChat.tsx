@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import Markdown from 'react-markdown';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
@@ -71,7 +72,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const contextItems = contextItemsRaw || EMPTY_ARR;
   const endRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Slash command state
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
@@ -143,7 +144,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     setShowSlashMenu(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSlashMenu && filteredCommands.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -532,8 +533,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 <div className="msg-name">
                   {msg.role === 'user' ? 'You' : 'Claude Code'}
                 </div>
-                <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {msg.content}
+                <div className="msg-text" style={{ wordBreak: 'break-word' }}>
+                  {msg.role === 'assistant' ? (
+                    <Markdown>{msg.content}</Markdown>
+                  ) : (
+                    <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -580,14 +585,16 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           </div>
         )}
 
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
           placeholder="Send a message or type / for commands..."
+          rows={1}
+          style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
+          onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }}
         />
         {messages.length > 0 && !loading && (
           <button
