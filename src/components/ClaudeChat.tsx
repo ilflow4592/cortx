@@ -459,6 +459,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             pipeline: { enabled: true, phases: defaultPhases },
           });
         }
+
+        // Auto-start task timer if not already active
+        const taskNow = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+        if (taskNow && (taskNow.status === 'waiting' || taskNow.status === 'paused')) {
+          useTaskStore.getState().startTask(taskId);
+        }
       }
 
       // Local file paths for --add-dir
