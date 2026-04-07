@@ -64,7 +64,7 @@ impl PtyManager {
         Ok(())
     }
 
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, app: &AppHandle) -> Result<(), String> {
+    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -73,8 +73,13 @@ impl PtyManager {
         let msg_owned = message.to_string();
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
+        let allow_tools = allow_all_tools;
 
         thread::spawn(move || {
+            // Write message to temp file (avoids shell escape issues with long prompts)
+            let msg_path = format!("/tmp/cortx-msg-{}.md", event_id);
+            let _ = std::fs::write(&msg_path, &msg_owned);
+
             // Write context summary to temp file if present
             let tmp_path = format!("/tmp/cortx-ctx-{}.md", event_id);
             let has_summary = !summary_owned.is_empty();
@@ -82,13 +87,26 @@ impl PtyManager {
                 let _ = std::fs::write(&tmp_path, &summary_owned);
             }
 
-            // Build claude command with context
+            // Build claude command — read message from temp file via stdin, stream JSON output
             let mut cmd_parts = vec![
+                format!("cat {} |", shell_escape(&msg_path)),
                 "claude".to_string(),
                 "-p".to_string(),
-                shell_escape(&msg_owned),
+                "-".to_string(),
+                "--output-format".to_string(),
+                "stream-json".to_string(),
                 "--verbose".to_string(),
+                "--model".to_string(),
+                "claude-opus-4-6".to_string(),
             ];
+
+            // For slash commands / pipelines: allow all tools with full permissions
+            if allow_tools {
+                cmd_parts.extend([
+                    "--permission-mode".to_string(),
+                    "bypassPermissions".to_string(),
+                ]);
+            }
 
             // Build system prompt from context summary + file list
             let mut system_parts: Vec<String> = vec![];
@@ -129,27 +147,67 @@ impl PtyManager {
             }
 
             let full_cmd = cmd_parts.join(" ");
-            let output = std::process::Command::new("zsh")
+            let child = std::process::Command::new("zsh")
                 .args(["-l", "-c", &full_cmd])
                 .current_dir(&cwd_owned)
                 .env("TERM", "dumb")
-                .output();
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
 
-            // Clean up temp file
-            if has_summary {
-                let _ = std::fs::remove_file(&tmp_path);
-            }
+            match child {
+                Ok(mut proc) => {
+                    // Read stderr in a separate thread so it doesn't block stdout streaming
+                    let stderr_handle = proc.stderr.take().map(|stderr| {
+                        std::thread::spawn(move || {
+                            use std::io::Read;
+                            let mut buf = String::new();
+                            let mut reader = std::io::BufReader::new(stderr);
+                            let _ = reader.read_to_string(&mut buf);
+                            buf
+                        })
+                    });
 
-            match output {
-                Ok(out) => {
-                    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-                    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                    let response = if stdout.is_empty() { stderr } else { stdout };
-                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), response);
+                    // Stream stdout line by line
+                    if let Some(stdout) = proc.stdout.take() {
+                        use std::io::BufRead;
+                        let reader = std::io::BufReader::new(stdout);
+                        for line in reader.lines() {
+                            match line {
+                                Ok(l) => {
+                                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), l);
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    }
+                    let _ = proc.wait();
+
+                    // If stderr has content, emit it as an error event
+                    if let Some(handle) = stderr_handle {
+                        if let Ok(stderr_output) = handle.join() {
+                            let trimmed = stderr_output.trim();
+                            if !trimmed.is_empty() {
+                                let escaped = trimmed.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+                                let _ = app_handle.emit(&format!("claude-data-{}", event_id), format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped));
+                            }
+                        }
+                    }
+
+                    // Clean up temp files
+                    let _ = std::fs::remove_file(&msg_path);
+                    if has_summary {
+                        let _ = std::fs::remove_file(&tmp_path);
+                    }
+
                     let _ = app_handle.emit(&format!("claude-done-{}", event_id), ());
                 }
                 Err(e) => {
-                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), format!("Error: {}", e));
+                    let _ = std::fs::remove_file(&msg_path);
+                    if has_summary {
+                        let _ = std::fs::remove_file(&tmp_path);
+                    }
+                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), format!("{{\"type\":\"error\",\"content\":\"{}\" }}", e));
                     let _ = app_handle.emit(&format!("claude-done-{}", event_id), ());
                 }
             }

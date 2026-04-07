@@ -26,6 +26,25 @@ export interface TaskModelConfig {
   modelId?: string;
 }
 
+export type PipelinePhase = 'grill_me' | 'obsidian_save' | 'dev_plan' | 'implement' | 'commit_pr' | 'review_loop' | 'done';
+export type PhaseStatus = 'pending' | 'in_progress' | 'done' | 'skipped';
+
+export interface PipelinePhaseEntry {
+  status: PhaseStatus;
+  startedAt?: string;
+  completedAt?: string;
+  memo?: string;
+}
+
+export interface PipelineState {
+  enabled: boolean;
+  phases: Record<PipelinePhase, PipelinePhaseEntry>;
+  complexity?: string;
+  prNumber?: number;
+  prUrl?: string;
+  reviewRounds?: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -40,6 +59,7 @@ export interface Task {
   chatHistory: ChatMessage[];
   interrupts: InterruptEntry[];
   modelOverride?: TaskModelConfig;
+  pipeline?: PipelineState;
   createdAt: string;
   updatedAt: string;
 }

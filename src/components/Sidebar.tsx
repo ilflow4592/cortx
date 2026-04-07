@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -18,8 +19,23 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const totalInterrupts = tasks.reduce((s, t) => s + (t.interrupts?.length || 0), 0);
   const totalInterruptTime = tasks.reduce((s, t) => s + (t.interrupts || []).reduce((a, e) => a + e.durationSeconds, 0), 0);
 
-  const handleDeleteTask = (id: string, title: string) => {
-    if (window.confirm(`Delete task "${title}"?`)) removeTask(id);
+  const handleDeleteTask = async (task: { id: string; worktreePath?: string; repoPath?: string; branchName?: string }) => {
+    // Remove worktree and branch
+    const repoPath = task.repoPath || '';
+    if (task.worktreePath && repoPath) {
+      try {
+        await invoke('remove_worktree', { repoPath, worktreePath: task.worktreePath });
+      } catch { /* worktree might not exist */ }
+      if (task.branchName) {
+        try {
+          await invoke('run_shell_command', {
+            cwd: repoPath,
+            command: `git branch -D ${task.branchName} 2>/dev/null`,
+          });
+        } catch { /* branch might not exist */ }
+      }
+    }
+    removeTask(task.id);
   };
 
   const handleDeleteProject = (id: string, name: string) => {
@@ -95,7 +111,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               {!isCollapsed && (
                 <>
                   {projTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task.id, task.title)} indent />
+                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent />
                   ))}
                   {projTasks.length === 0 && (
                     <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#27272a', fontStyle: 'italic' }}>
@@ -115,7 +131,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <div className="sb-section" style={{ color: '#27272a' }}>No project</div>
             )}
             {unassigned.map((task) => (
-              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task.id, task.title)} indent={false} />
+              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} />
             ))}
           </>
         )}
@@ -174,6 +190,9 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
   task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number };
   isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean;
 }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const cls = [
     'sb-task',
     isActive ? 'active' : '',
@@ -186,16 +205,16 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
     <div className="task-row-wrap" style={{ position: 'relative' }}>
       <button className={cls} onClick={onSelect} style={indent ? { paddingLeft: 24 } : undefined}>
         <div className="sb-task-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <div className={`sb-dot ${dotCls}`} />
-            <span className="sb-task-name">{task.title}</span>
+            <span className="sb-task-name" title={task.title}>{task.title}</span>
           </div>
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>
         </div>
         {task.branchName && <div className="sb-meta"><code>{task.branchName}</code></div>}
       </button>
       <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
         style={{
           position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
           width: 22, height: 22, borderRadius: 6,
@@ -209,6 +228,45 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
         className="task-delete-btn"
         title="Delete task"
       >×</button>
+
+      {/* Inline delete confirmation */}
+      {showConfirm && (
+        <div style={{
+          position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+          background: '#1a1a24', border: '1px solid #ef444430', borderRadius: 8,
+          padding: '8px 12px', zIndex: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontSize: 11, color: '#d4d4d8' }}>
+            {deleting ? 'Deleting...' : 'Delete this task?'}
+          </span>
+          {!deleting && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleting(true);
+                  onDelete();
+                }}
+                style={{
+                  padding: '3px 10px', borderRadius: 5, fontSize: 11, fontWeight: 600,
+                  background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                  color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Yes</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowConfirm(false); }}
+                style={{
+                  padding: '3px 10px', borderRadius: 5, fontSize: 11,
+                  background: 'none', border: '1px solid #32323c',
+                  color: '#888895', cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >No</button>
+            </>
+          )}
+          {deleting && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
+        </div>
+      )}
     </div>
   );
 }

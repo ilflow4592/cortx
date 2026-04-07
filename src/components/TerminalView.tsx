@@ -15,7 +15,8 @@ interface TerminalViewProps {
 interface TerminalCache {
   term: Terminal;
   fit: FitAddon;
-  wrapper: HTMLDivElement; // the div that xterm rendered into
+  wrapper: HTMLDivElement;
+  cwd: string;
   unlistenData: UnlistenFn | null;
   unlistenExit: UnlistenFn | null;
   spawned: boolean;
@@ -30,9 +31,18 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
     if (!containerRef.current) return;
 
     const ptyId = `term-${taskId}`;
-    const cwd = worktreePath || '/';
+    const cwd = worktreePath && worktreePath !== '' ? worktreePath : '~';
     const container = containerRef.current;
     let cache = terminalCache.get(taskId);
+
+    // Invalidate cache if cwd changed (e.g. worktree created after initial open)
+    if (cache && cache.cwd !== cwd) {
+      cache.unlistenData?.();
+      cache.unlistenExit?.();
+      cache.term.dispose();
+      terminalCache.delete(taskId);
+      cache = undefined;
+    }
 
     if (cache) {
       // Move existing wrapper DOM into this container
@@ -70,7 +80,7 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
       term.loadAddon(new WebLinksAddon());
       term.open(wrapper);
 
-      cache = { term, fit, wrapper, unlistenData: null, unlistenExit: null, spawned: false };
+      cache = { term, fit, wrapper, cwd, unlistenData: null, unlistenExit: null, spawned: false };
       terminalCache.set(taskId, cache);
 
       setTimeout(() => fit.fit(), 50);

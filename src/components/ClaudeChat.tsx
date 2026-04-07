@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
+import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
+import { CORTX_SKILLS } from '../skills/pipelineSkills';
 
 interface ClaudeChatProps {
   taskId: string;
@@ -11,8 +14,9 @@ interface ClaudeChatProps {
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'activity';
   content: string;
+  toolName?: string;
 }
 
 interface SlashCommand {
@@ -22,6 +26,7 @@ interface SlashCommand {
 }
 
 const EMPTY_ARR: never[] = [];
+const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -48,7 +53,7 @@ function serializeContextItems(items: ContextItem[]): string {
       const parts = [`- **${item.title}**`];
       if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
       if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
-      if (item.metadata?.fullText) parts.push(`  > ${item.metadata.fullText.slice(0, 300)}`);
+      if (item.metadata?.fullText) parts.push(`\n${item.metadata.fullText}`);
       return parts.join('\n');
     });
     sections.push(`## ${label}\n${lines.join('\n')}`);
@@ -168,32 +173,190 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     }
   };
 
+  const resolveSlashCommand = async (text: string): Promise<string> => {
+    if (!text.startsWith('/')) return text;
+
+    const parts = text.slice(1).split(/\s+/);
+    const cmdName = parts[0];
+    const args = parts.slice(1).join(' ');
+
+    // Check for Cortx-specific pipeline skills first
+    const skillKey = cmdName.replace(/:/g, '/');
+    if (CORTX_SKILLS[skillKey]) {
+      let prompt = CORTX_SKILLS[skillKey];
+      prompt = prompt.replace(/\$ARGUMENTS/g, args);
+      return prompt;
+    }
+
+    // Fall back to file-based skill resolution
+    const filePath = skillKey + '.md';
+    for (const base of ['~/.claude/commands', `${cwd}/.claude/commands`]) {
+      try {
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `cat "${base}/${filePath}" 2>/dev/null`,
+        });
+        if (result.success && result.output.trim()) {
+          let prompt = result.output;
+          prompt = prompt.replace(/\$ARGUMENTS/g, args);
+          return prompt;
+        }
+      } catch { /* continue */ }
+    }
+
+    return text;
+  };
+
+  // Parse pipeline markers from Claude's text output and update task state
+  const PIPELINE_MARKER_RE = /\[PIPELINE:([a-z_]+):([a-z_]+)(?::([^\]]*))?\]/g;
+  const parsePipelineMarkers = (text: string): string => {
+    let cleaned = text;
+    let match: RegExpExecArray | null;
+    const re = new RegExp(PIPELINE_MARKER_RE.source, 'g');
+    while ((match = re.exec(text)) !== null) {
+      const [fullMatch, key, value, memo] = match;
+      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      if (!task?.pipeline?.enabled) continue;
+
+      const phases = { ...task.pipeline.phases };
+
+      if (key === 'complexity') {
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, complexity: value },
+        });
+      } else if (key === 'pr') {
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, prNumber: parseInt(value) || 0, prUrl: memo || '' },
+        });
+      } else if (PHASE_KEYS.has(key as PipelinePhase)) {
+        const phase = key as PipelinePhase;
+        const status = value as PhaseStatus;
+        const now = new Date().toISOString();
+        phases[phase] = {
+          ...phases[phase],
+          status,
+          ...(status === 'in_progress' ? { startedAt: now } : {}),
+          ...(status === 'done' || status === 'skipped' ? { completedAt: now } : {}),
+          ...(memo ? { memo } : {}),
+        };
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, phases },
+        });
+      }
+
+      // Remove marker from display text
+      cleaned = cleaned.replace(fullMatch, '');
+    }
+    return cleaned;
+  };
+
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text) return;
 
     setInput('');
     setShowSlashMenu(false);
     setError('');
+
     setLoading(true);
 
     const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
+    // Resolve slash command to full prompt
+    const resolvedText = await resolveSlashCommand(text);
+
     const reqId = `claude-${taskId}-${Date.now()}`;
     let response = '';
 
     try {
+      // Track current message ID — each new assistant turn gets a new ID
+      let currentMsgId = '';
+      let turnCounter = 0;
+      const activityId = `${reqId}-activity`;
+
       const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
-        response += event.payload;
-        const assistantId = `${reqId}-reply`;
-        setMessages((prev) => {
-          const existing = prev.find((m) => m.id === assistantId);
-          if (existing) {
-            return prev.map((m) => m.id === assistantId ? { ...m, content: response } : m);
+        const line = event.payload;
+
+        // Try to parse stream-json
+        try {
+          const evt = JSON.parse(line);
+
+          if (evt.type === 'assistant' && evt.message?.content) {
+            // Check for text content
+            const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
+              .filter((b: { type: string }) => b.type === 'text')
+              .map((b: { text?: string }) => b.text || '');
+
+            // Check for tool_use content
+            const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>)
+              .filter((b: { type: string }) => b.type === 'tool_use');
+
+            if (textBlocks.length > 0) {
+              // New assistant turn — create a new message
+              turnCounter++;
+              currentMsgId = `${reqId}-turn-${turnCounter}`;
+              response = parsePipelineMarkers(textBlocks.join(''));
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: currentMsgId, role: 'assistant', content: response }];
+              });
+            }
+
+            if (toolBlocks.length > 0) {
+              const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel }];
+              });
+            }
+          } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
+            // Append to current turn's message
+            response = parsePipelineMarkers(response + evt.delta.text);
+            if (!currentMsgId) {
+              turnCounter++;
+              currentMsgId = `${reqId}-turn-${turnCounter}`;
+            }
+            const msgId = currentMsgId;
+            setMessages((prev) => {
+              const existing = prev.find((m) => m.id === msgId);
+              if (existing) {
+                return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+              }
+              return [...prev.filter((m) => m.id !== activityId), { id: msgId, role: 'assistant', content: response }];
+            });
+          } else if (evt.type === 'error') {
+            // Error from claude CLI (stderr or spawn failure)
+            const errMsg = evt.content || 'Unknown error from Claude CLI';
+            setError(errMsg);
+          } else if (evt.type === 'result') {
+            // Final result — add as the last message
+            if (evt.result) {
+              turnCounter++;
+              const resultId = `${reqId}-result`;
+              response = parsePipelineMarkers(evt.result);
+              setMessages((prev) => {
+                const filtered = prev.filter((m) => m.id !== activityId);
+                return [...filtered, { id: resultId, role: 'assistant', content: response }];
+              });
+            }
           }
-          return [...prev, { id: assistantId, role: 'assistant', content: response }];
-        });
+        } catch {
+          // Not JSON — treat as plain text (fallback), append to current message
+          response = parsePipelineMarkers(response + line + '\n');
+          if (!currentMsgId) {
+            turnCounter++;
+            currentMsgId = `${reqId}-turn-${turnCounter}`;
+          }
+          const msgId = currentMsgId;
+          setMessages((prev) => {
+            const existing = prev.find((m) => m.id === msgId);
+            if (existing) {
+              return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+            }
+            return [...prev, { id: msgId, role: 'assistant', content: response }];
+          });
+        }
       });
       unlistenRefs.current.push(unData);
 
@@ -207,19 +370,97 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       const nonFileItems = contextItems.filter(
         (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
       );
-      const contextSummary = serializeContextItems(nonFileItems);
+      let contextSummary = serializeContextItems(nonFileItems);
+
+      // For pipeline commands: add directives
+      const isPipeline = text.startsWith('/pipeline:');
+      if (isPipeline) {
+        const directives: string[] = [];
+
+        // Phase tracking directive — always add for pipelines
+        directives.push(
+          '## CORTX_PIPELINE_TRACKING',
+          'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
+          'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
+          'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+          'Valid statuses: in_progress, done, skipped',
+          'Examples:',
+          '  [PIPELINE:dev_plan:in_progress]',
+          '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
+          '  [PIPELINE:commit_pr:done:PR #4920]',
+          'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
+          'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
+          'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
+        );
+
+        // Context Pack mode — when context items exist
+        if (contextItems.length > 0) {
+          directives.push(
+            '',
+            '## CORTX_CONTEXT_PACK_MODE',
+            'This pipeline was invoked from the Cortx app with Context Pack data.',
+            'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+            'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+            'If a dev-plan is needed, generate it from the Context Pack data.',
+          );
+        }
+
+        // Also skip Obsidian dashboard updates
+        directives.push(
+          '',
+          '## CORTX_DASHBOARD',
+          'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
+        );
+
+        const fullDirective = directives.join('\n');
+        contextSummary = contextSummary
+          ? `${fullDirective}\n\n---\n\n${contextSummary}`
+          : fullDirective;
+
+        // Initialize pipeline state on task if not already set
+        const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+        if (currentTask && !currentTask.pipeline?.enabled) {
+          const defaultPhases: Record<PipelinePhase, PipelinePhaseEntry> = {
+            grill_me: { status: 'pending' },
+            obsidian_save: { status: 'pending' },
+            dev_plan: { status: 'pending' },
+            implement: { status: 'pending' },
+            commit_pr: { status: 'pending' },
+            review_loop: { status: 'pending' },
+            done: { status: 'pending' },
+          };
+          useTaskStore.getState().updateTask(taskId, {
+            pipeline: { enabled: true, phases: defaultPhases },
+          });
+        }
+      }
 
       // Local file paths for --add-dir
       const contextFiles = contextItems
         .filter((item) => item.url && !item.url.startsWith('http'))
         .map((item) => item.url);
 
+      // Show loaded context items before Claude starts
+      if (isPipeline && contextItems.length > 0) {
+        const sourceIcons: Record<string, string> = {
+          github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin',
+        };
+        const lines = contextItems.map((item) => {
+          const src = sourceIcons[item.sourceType] || item.sourceType;
+          return `  [${src}] ${item.title}`;
+        });
+        const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
+        const ctxMsgId = `${reqId}-context-load`;
+        setMessages((prev) => [...prev, { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' }]);
+      }
+
       await invoke('claude_spawn', {
         id: reqId,
         cwd: cwd || '/',
-        message: text,
+        message: resolvedText,
         contextFiles: contextFiles.length > 0 ? contextFiles : null,
         contextSummary: contextSummary || null,
+        allowAllTools: text.startsWith('/') || null,
       });
 
       await donePromise;
@@ -268,19 +509,32 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id} className="msg">
-            <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>
-              {msg.role === 'user' ? 'U' : 'C'}
-            </div>
-            <div className="msg-body">
-              <div className="msg-name">
-                {msg.role === 'user' ? 'You' : 'Claude Code'}
-              </div>
-              <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          msg.role === 'activity' ? (
+            <div key={msg.id} style={{
+              display: 'flex', alignItems: msg.content.includes('\n') ? 'flex-start' : 'center',
+              gap: 8, padding: '4px 16px',
+              fontSize: 11, color: '#6b6b78',
+            }}>
+              <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5, flexShrink: 0, marginTop: msg.content.includes('\n') ? 2 : 0 }} />
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
                 {msg.content}
               </div>
             </div>
-          </div>
+          ) : (
+            <div key={msg.id} className="msg">
+              <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>
+                {msg.role === 'user' ? 'U' : 'C'}
+              </div>
+              <div className="msg-body">
+                <div className="msg-name">
+                  {msg.role === 'user' ? 'You' : 'Claude Code'}
+                </div>
+                <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {msg.content}
+                </div>
+              </div>
+            </div>
+          )
         ))}
 
         {loading && (
@@ -331,18 +585,37 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           onKeyDown={handleKeyDown}
           onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
           placeholder="Send a message or type / for commands..."
-          disabled={loading}
         />
+        {messages.length > 0 && !loading && (
+          <button
+            onClick={() => { setMessages([]); setError(''); }}
+            style={{
+              background: 'none', border: '1px solid #27272a', borderRadius: 6,
+              color: '#52525e', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
+              fontFamily: 'inherit', whiteSpace: 'nowrap',
+            }}
+            title="Clear chat"
+          >Clear</button>
+        )}
         <div className="model-select" style={{ cursor: 'default' }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
-          Claude Code (CLI)
+          Opus 4.6
           {contextTotalCount > 0 && (
             <span style={{ color: '#818cf8', marginLeft: 4, fontSize: 10 }}>
               📎{contextTotalCount}
             </span>
           )}
         </div>
-        <button className="send-btn" onClick={handleSend} disabled={!input.trim() || loading}>↑</button>
+        {loading ? (
+          <button className="send-btn" onClick={() => {
+            // Stop current response
+            unlistenRefs.current.forEach((fn) => fn());
+            unlistenRefs.current = [];
+            setLoading(false);
+          }} style={{ background: '#ef4444' }} title="Stop response">■</button>
+        ) : (
+          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>↑</button>
+        )}
       </div>
     </>
   );

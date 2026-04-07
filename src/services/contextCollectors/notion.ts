@@ -37,6 +37,12 @@ export async function collectNotion(
         const url = result.url || '';
         const lastEdited = result.last_edited_time || '';
 
+        // Fetch page body content
+        let fullText = '';
+        if (result.object === 'page') {
+          fullText = await fetchNotionPageContent(result.id, headers);
+        }
+
         items.push({
           id,
           sourceType: 'notion',
@@ -49,6 +55,7 @@ export async function collectNotion(
           metadata: {
             objectType: result.object,
             notionId: result.id,
+            fullText,
           },
         });
       }
@@ -84,6 +91,8 @@ export async function collectNotion(
           const id = `notion-db-${page.id}`;
           if (items.some((i) => i.id === id)) continue;
 
+          const fullText = await fetchNotionPageContent(page.id, headers);
+
           items.push({
             id,
             sourceType: 'notion',
@@ -93,7 +102,7 @@ export async function collectNotion(
             timestamp: page.last_edited_time || '',
             isNew: false,
             category: 'linked',
-            metadata: { notionId: page.id },
+            metadata: { notionId: page.id, fullText },
           });
         }
       }
@@ -103,6 +112,35 @@ export async function collectNotion(
   }
 
   return items;
+}
+
+async function fetchNotionPageContent(pageId: string, headers: Record<string, string>): Promise<string> {
+  try {
+    const resp = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
+      headers,
+    });
+    if (!resp.ok) return '';
+    const data = await resp.json();
+
+    const texts: string[] = [];
+    for (const block of data.results || []) {
+      const richTexts = block[block.type]?.rich_text as Array<{ plain_text: string }> | undefined;
+      if (richTexts) {
+        const line = richTexts.map((t) => t.plain_text).join('');
+        if (line) texts.push(line);
+      }
+      // Handle child_page, child_database titles
+      if (block.type === 'child_page') {
+        texts.push(`[Page] ${block.child_page?.title || ''}`);
+      }
+      if (block.type === 'child_database') {
+        texts.push(`[Database] ${block.child_database?.title || ''}`);
+      }
+    }
+    return texts.join('\n');
+  } catch {
+    return '';
+  }
 }
 
 function extractNotionTitle(obj: Record<string, unknown>): string {
