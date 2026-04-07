@@ -651,13 +651,18 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         </div>
         {loading ? (
           <button className="send-btn" onClick={() => {
-            // Stop current response — kill process + unlisten + remove activity messages
+            // Stop current response — kill process + unlisten + remove activity + reset pipeline
             if (currentReqIdRef.current) {
               invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
             }
             unlistenRefs.current.forEach((fn) => fn());
             unlistenRefs.current = [];
             setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
+            // Reset pipeline state
+            const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+            if (currentTask?.pipeline?.enabled) {
+              useTaskStore.getState().updateTask(taskId, { pipeline: undefined });
+            }
             setLoading(false);
           }} style={{ background: '#ef4444' }} title="Stop response"><Square size={14} fill="white" strokeWidth={0} /></button>
         ) : (
