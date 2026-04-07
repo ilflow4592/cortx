@@ -49,7 +49,7 @@ function serializeContextItems(items: ContextItem[]): string {
       const parts = [`- **${item.title}**`];
       if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
       if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
-      if (item.metadata?.fullText) parts.push(`  > ${item.metadata.fullText.slice(0, 300)}`);
+      if (item.metadata?.fullText) parts.push(`\n${item.metadata.fullText}`);
       return parts.join('\n');
     });
     sections.push(`## ${label}\n${lines.join('\n')}`);
