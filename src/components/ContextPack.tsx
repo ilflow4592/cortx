@@ -274,10 +274,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
       {isDragging && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 10,
-          background: 'rgba(99,102,241,0.08)', border: '2px dashed #6366f1',
+          background: 'rgba(90,165,165,0.08)', border: '2px dashed #5aa5a5',
           borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div style={{ textAlign: 'center', color: '#818cf8' }}>
+          <div style={{ textAlign: 'center', color: '#7dbdbd' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📎</div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
             <div style={{ fontSize: 11, color: '#6b6b78', marginTop: 4 }}>They'll be pinned to this task's context</div>
@@ -307,14 +307,14 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* MCP Servers */}
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e' }}>
-              MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3f3f46' }}>({mcpServers.length})</span>}
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}>
+              MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3d4856' }}>({mcpServers.length})</span>}
             </div>
             <button
               onClick={loadMcpServers}
               disabled={mcpLoading}
               style={{
-                background: 'none', border: 'none', fontSize: 10, color: '#52525e',
+                background: 'none', border: 'none', fontSize: 10, color: '#4d5868',
                 cursor: 'pointer', fontFamily: 'inherit', padding: '2px 4px',
               }}
               title="Reload MCP servers from config"
@@ -351,7 +351,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
               })}
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: '#3f3f46', fontStyle: 'italic' }}>No MCP servers configured</div>
+            <div style={{ fontSize: 11, color: '#3d4856', fontStyle: 'italic' }}>No MCP servers configured</div>
           )}
         </div>
 
@@ -372,8 +372,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
               disabled={searchingRelated || !(vectorStatus.ollama && vectorStatus.qdrant)}
               style={{
                 padding: '3px 8px', borderRadius: 4, fontSize: 10,
-                background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)',
-                color: '#818cf8', cursor: 'pointer', fontFamily: 'inherit',
+                background: 'rgba(125,189,189,0.06)', border: '1px solid rgba(125,189,189,0.15)',
+                color: '#7dbdbd', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               {searchingRelated ? '...' : '🔍 Find related'}
@@ -384,7 +384,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Related items from other tasks */}
         {relatedItems.length > 0 && (
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>Related from other tasks</div>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>Related from other tasks</div>
             {relatedItems.map((item) => (
               <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: 12 }}>
                 <span style={{ fontSize: 11, marginTop: 2 }}>
@@ -392,7 +392,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: '#a1a1aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
-                  <div style={{ fontSize: 10, color: '#52525e', marginTop: 1 }}>{item.content?.slice(0, 80)}</div>
+                  <div style={{ fontSize: 10, color: '#4d5868', marginTop: 1 }}>{item.content?.slice(0, 80)}</div>
                 </div>
               </div>
             ))}
@@ -402,17 +402,17 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Connected Sources */}
         {sources.filter(s => s.enabled && s.token).length > 0 && (
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>Connected Sources</div>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>Connected Sources</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {sources.filter(s => s.enabled && s.token).map((source, i) => {
-                const sourceIcon = source.type === 'github' ? <GitHubIcon size={12} color="#818cf8" /> : source.type === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#818cf8" />;
+                const sourceIcon = source.type === 'github' ? <GitHubIcon size={12} color="#7dbdbd" /> : source.type === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#7dbdbd" />;
                 const name = source.type === 'github' ? `${source.owner}/${source.repo}` : source.type === 'slack' ? 'Slack' : 'Notion';
                 return (
                   <span key={i} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                     padding: '4px 10px', borderRadius: 6,
-                    background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.15)',
-                    fontSize: 11, color: '#818cf8',
+                    background: 'rgba(125,189,189,0.06)', border: '1px solid rgba(125,189,189,0.15)',
+                    fontSize: 11, color: '#7dbdbd',
                   }}>
                     {sourceIcon} {name}
                   </span>
@@ -442,7 +442,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
           return (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e', marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>
                 Search Resources
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -462,13 +462,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                        background: checked ? 'rgba(99,102,241,0.08)' : '#16161e',
-                        border: `1px solid ${checked ? 'rgba(99,102,241,0.25)' : '#232330'}`,
-                        color: checked ? '#818cf8' : '#52525e',
+                        background: checked ? 'rgba(90,165,165,0.08)' : '#1a1f26',
+                        border: `1px solid ${checked ? 'rgba(90,165,165,0.25)' : '#242d38'}`,
+                        color: checked ? '#7dbdbd' : '#4d5868',
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
-                      <span style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${checked ? '#818cf8' : '#3f3f46'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, flexShrink: 0 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${checked ? '#7dbdbd' : '#3d4856'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, flexShrink: 0 }}>
                         {checked && '✓'}
                       </span>
                       {serviceIcons[s.serviceType]}
@@ -487,10 +487,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showKeywords ? 8 : 0 }}
             onClick={() => setShowKeywords(!showKeywords)}
           >
-            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#52525e' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}>
               Search Keywords ({storedKeywords.length})
             </span>
-            <span style={{ fontSize: 10, color: '#52525e' }}>{showKeywords ? '▾' : '▸'}</span>
+            <span style={{ fontSize: 10, color: '#4d5868' }}>{showKeywords ? '▾' : '▸'}</span>
           </div>
 
           {showKeywords && (
@@ -500,18 +500,18 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   <span key={kw} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     padding: '3px 8px', borderRadius: 4, fontSize: 11,
-                    background: '#232330', color: '#a1a1aa',
-                    fontFamily: "'JetBrains Mono', monospace",
+                    background: '#242d38', color: '#a1a1aa',
+                    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                   }}>
                     {kw}
                     <button onClick={() => handleRemoveKeyword(kw)} style={{
-                      background: 'none', border: 'none', color: '#52525e', cursor: 'pointer',
+                      background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer',
                       fontSize: 12, padding: 0, lineHeight: 1,
                     }}>×</button>
                   </span>
                 ))}
                 {storedKeywords.length === 0 && (
-                  <span style={{ fontSize: 11, color: '#52525e', fontStyle: 'italic' }}>No keywords — branch name will be used</span>
+                  <span style={{ fontSize: 11, color: '#4d5868', fontStyle: 'italic' }}>No keywords — branch name will be used</span>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
@@ -521,14 +521,14 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKeyword(); } }}
                   placeholder="e.g. BE-1390, 오토부킹"
                   style={{
-                    flex: 1, background: '#16161e', border: '1px solid #232330', borderRadius: 6,
-                    padding: '5px 10px', fontSize: 11, color: '#d4d4d8', fontFamily: "'JetBrains Mono', monospace",
+                    flex: 1, background: '#1a1f26', border: '1px solid #242d38', borderRadius: 6,
+                    padding: '5px 10px', fontSize: 11, color: '#e8eef5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     outline: 'none',
                   }}
                 />
                 <button onClick={handleAddKeyword} style={{
                   padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                  background: '#232330', border: '1px solid #32323c', color: '#888895',
+                  background: '#242d38', border: '1px solid #3d4856', color: '#888895',
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}>Add</button>
               </div>
@@ -555,9 +555,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
               title="Model for MCP search (Notion/Slack)"
               style={{
                 appearance: 'none', WebkitAppearance: 'none',
-                background: '#16161e', border: '1px solid #232330', borderRadius: 6,
+                background: '#1a1f26', border: '1px solid #242d38', borderRadius: 6,
                 padding: '6px 24px 6px 10px', fontSize: 11, color: '#6b6b78',
-                fontFamily: "'JetBrains Mono', monospace", outline: 'none', cursor: 'pointer',
+                fontFamily: "'Fira Code', 'JetBrains Mono', monospace", outline: 'none', cursor: 'pointer',
                 height: '100%',
               }}
             >
@@ -565,7 +565,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <option value="claude-sonnet-4-6">Sonnet</option>
               <option value="claude-opus-4-6">Opus</option>
             </select>
-            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: '#52525e', pointerEvents: 'none' }}>▼</span>
+            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: '#4d5868', pointerEvents: 'none' }}>▼</span>
           </div>
         </div>
 
@@ -575,19 +575,19 @@ export function ContextPack({ taskId }: { taskId: string }) {
             {collectProgress.map((p) => (
               <div key={p.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
                 <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
-                  {p.status === 'pending' && <span style={{ color: '#52525e' }}>○</span>}
+                  {p.status === 'pending' && <span style={{ color: '#4d5868' }}>○</span>}
                   {p.status === 'collecting' && <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />}
                   {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
                   {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
                 </span>
-                <span style={{ color: p.status === 'collecting' ? '#d4d4d8' : '#888895', textTransform: 'capitalize' }}>
+                <span style={{ color: p.status === 'collecting' ? '#e8eef5' : '#888895', textTransform: 'capitalize' }}>
                   {p.type}
                 </span>
                 {p.status === 'done' && (
-                  <span style={{ color: '#52525e' }}>
+                  <span style={{ color: '#4d5868' }}>
                     — {p.itemCount} items
                     {p.tokenUsage && (
-                      <span style={{ marginLeft: 6, color: '#3f3f46' }}>
+                      <span style={{ marginLeft: 6, color: '#3d4856' }}>
                         (~{p.tokenUsage.input + p.tokenUsage.output} tok)
                       </span>
                     )}
@@ -600,9 +600,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       <span
                         onClick={() => navigator.clipboard.writeText(p.error || '')}
                         title="Click to copy"
-                        style={{ color: '#52525e', fontSize: 10, marginTop: 2, wordBreak: 'break-all', maxWidth: 400, cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
+                        style={{ color: '#4d5868', fontSize: 10, marginTop: 2, wordBreak: 'break-all', maxWidth: 400, cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
                       >
-                        {p.error.slice(0, 200)} <span style={{ color: '#3f3f46' }}>📋</span>
+                        {p.error.slice(0, 200)} <span style={{ color: '#3d4856' }}>📋</span>
                       </span>
                     )}
                   </div>
@@ -611,7 +611,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
             ))}
             {/* Total token usage */}
             {collectProgress.some((p) => p.tokenUsage) && (
-              <div style={{ fontSize: 10, color: '#3f3f46', marginTop: 4, textAlign: 'right' }}>
+              <div style={{ fontSize: 10, color: '#3d4856', marginTop: 4, textAlign: 'right' }}>
                 Total: ~{collectProgress.reduce((sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0), 0)} tokens
               </div>
             )}
@@ -621,10 +621,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {showPin && (
           <div className="ctx-pin-form">
             <input value={pinTitle} onChange={(e) => setPinTitle(e.target.value)} placeholder="Title" />
-            <input value={pinUrl} onChange={(e) => setPinUrl(e.target.value)} placeholder="URL (optional)" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }} />
+            <input value={pinUrl} onChange={(e) => setPinUrl(e.target.value)} placeholder="URL (optional)" style={{ fontFamily: 'Fira Code, JetBrains Mono, monospace', fontSize: 11 }} />
             <div className="ctx-pin-actions">
               <button style={{ background: 'none', color: '#888895' }} onClick={() => setShowPin(false)}>Cancel</button>
-              <button style={{ background: '#6366f1', color: '#fff' }} onClick={handlePin}>Pin</button>
+              <button style={{ background: '#5aa5a5', color: '#fff' }} onClick={handlePin}>Pin</button>
             </div>
           </div>
         )}
@@ -645,9 +645,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 onClick={() => setSourceFilter(null)}
                 style={{
                   padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 500,
-                  background: sourceFilter === null ? 'rgba(99,102,241,0.08)' : 'none',
-                  border: sourceFilter === null ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent',
-                  color: sourceFilter === null ? '#818cf8' : '#6b6b78',
+                  background: sourceFilter === null ? 'rgba(90,165,165,0.08)' : 'none',
+                  border: sourceFilter === null ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
+                  color: sourceFilter === null ? '#7dbdbd' : '#6b6b78',
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >All ({taskItems.length})</button>
@@ -658,9 +658,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   style={{
                     padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 500,
                     display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: sourceFilter === st ? 'rgba(99,102,241,0.08)' : 'none',
-                    border: sourceFilter === st ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent',
-                    color: sourceFilter === st ? '#818cf8' : '#6b6b78',
+                    background: sourceFilter === st ? 'rgba(90,165,165,0.08)' : 'none',
+                    border: sourceFilter === st ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
+                    color: sourceFilter === st ? '#7dbdbd' : '#6b6b78',
                     cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
                   }}
                 >
@@ -673,7 +673,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
             <button
               onClick={() => useContextPackStore.getState().clearCollected(taskId)}
               style={{
-                background: 'none', border: 'none', fontSize: 10, color: '#52525e',
+                background: 'none', border: 'none', fontSize: 10, color: '#4d5868',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >Clear collected</button>
@@ -683,7 +683,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
       {/* Link preview */}
       {(preview || loadingPreview) && (
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e1e26', background: '#111118', flexShrink: 0 }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e2530', background: '#0f1419', flexShrink: 0 }}>
           {loadingPreview ? (
             <div style={{ fontSize: 11, color: '#6b6b78', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div className="loading-dot" /> Loading preview...
@@ -691,11 +691,11 @@ export function ContextPack({ taskId }: { taskId: string }) {
           ) : preview && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#d4d4d8' }}>{preview.title || 'No title'}</div>
-                <button onClick={() => setPreview(null)} style={{ background: 'none', border: 'none', color: '#52525e', cursor: 'pointer', fontSize: 14 }}>×</button>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>{preview.title || 'No title'}</div>
+                <button onClick={() => setPreview(null)} style={{ background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer', fontSize: 14 }}>×</button>
               </div>
               {preview.description && <div style={{ fontSize: 11, color: '#888895', lineHeight: 1.5, marginBottom: 6 }}>{preview.description.slice(0, 200)}</div>}
-              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>{preview.url}</a>
+              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7dbdbd', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", wordBreak: 'break-all' }}>{preview.url}</a>
             </div>
           )}
         </div>
@@ -709,13 +709,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} />
                 <div style={{ fontSize: 13, color: '#888895' }}>Searching via MCP...</div>
-                <div style={{ fontSize: 11, color: '#52525e' }}>This may take a few seconds</div>
+                <div style={{ fontSize: 11, color: '#4d5868' }}>This may take a few seconds</div>
               </div>
             ) : (
               <div>
                 <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.3 }}>📎</div>
                 <div style={{ marginBottom: 6 }}>Drop files or URLs here to pin them</div>
-                <div style={{ color: '#52525e', fontSize: 11 }}>or click "Collect Now" to gather from connected sources</div>
+                <div style={{ color: '#4d5868', fontSize: 11 }}>or click "Collect Now" to gather from connected sources</div>
               </div>
             )}
           </div>
@@ -726,16 +726,16 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <div className="cp-body">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {item.url ? (
-                    <span className="cp-name" style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#32323c' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
+                    <span className="cp-name" style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#3d4856' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
                   ) : (
                     <span className="cp-name">{item.title}</span>
                   )}
                   {item.isNew && <span className="cp-new">NEW</span>}
-                  {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#52525e', flexShrink: 0 }} title="Open in browser">↗</a>}
+                  {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#4d5868', flexShrink: 0 }} title="Open in browser">↗</a>}
                 </div>
                 <div className="cp-sub">{item.summary}</div>
               </div>
-              <button onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#32323c', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
+              <button onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
             </div>
           ))
         )}

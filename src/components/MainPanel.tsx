@@ -126,7 +126,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           {task.elapsedSeconds > 0 && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#71717a', border: '1px solid #27272a', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
+              style={{ background: 'none', color: '#6b7585', border: '1px solid #2a3642', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
               onClick={() => { if (window.confirm('Reset timer, status & interrupts?')) { updateTask(task.id, { elapsedSeconds: 0, interrupts: [] }); setTaskStatus(task.id, 'waiting'); } }}
               title="Reset timer"
             >↺</button>
@@ -137,14 +137,14 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}>✓ Done</button>}
           <button
             className="mh-btn"
-            style={{ background: 'none', color: '#3f3f46', border: '1px solid #18181b' }}
+            style={{ background: 'none', color: '#3d4856', border: '1px solid #1e2530' }}
             onClick={() => { if (window.confirm(`Delete task "${task.title}"?`)) removeTask(task.id); }}
             title="Delete task"
           >🗑</button>
           {onToggleRightPanel && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#52525b', border: '1px solid #18181b', padding: '4px 8px' }}
+              style={{ background: 'none', color: '#4d5868', border: '1px solid #1e2530', padding: '4px 8px' }}
               onClick={onToggleRightPanel}
               title="Toggle right panel ⌘⇧B"
             >
@@ -172,7 +172,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
             {t.closable && (
               <span
                 onClick={(e) => { e.stopPropagation(); setEditorFile(null); setActiveTab('claude'); }}
-                style={{ marginLeft: 6, color: '#71717a', cursor: 'pointer', fontSize: 10 }}
+                style={{ marginLeft: 6, color: '#6b7585', cursor: 'pointer', fontSize: 10 }}
               >✕</span>
             )}
           </button>

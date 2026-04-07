@@ -68,14 +68,14 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   return (
     <div className="sidebar">
       <div className="sb-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#e4e4e7' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
         <span className="sb-title" style={{ fontSize: 10 }}>Tasks</span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {projects.length === 0 && nonDone.length === 0 && doneList.length === 0 && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 12, color: '#52525e', lineHeight: 1.8, padding: 16 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 12, color: '#4d5868', lineHeight: 1.8, padding: 16 }}>
             <div>
               No projects yet.<br />
               Click 📁 in the dock to add a project.
@@ -114,7 +114,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                     <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent />
                   ))}
                   {projTasks.length === 0 && (
-                    <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#27272a', fontStyle: 'italic' }}>
+                    <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
                       No tasks — click + to add one
                     </div>
                   )}
@@ -128,7 +128,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         {unassigned.length > 0 && (
           <>
             {projects.length > 0 && (
-              <div className="sb-section" style={{ color: '#27272a' }}>No project</div>
+              <div className="sb-section" style={{ color: '#2a3642' }}>No project</div>
             )}
             {unassigned.map((task) => (
               <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} />
@@ -144,7 +144,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <div key={task.id} className="task-row-wrap" style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div className="sb-dot done" />
-                  <span style={{ fontSize: 13, color: '#3f3f46', textDecoration: 'line-through' }}>{task.title}</span>
+                  <span style={{ fontSize: 13, color: '#3d4856', textDecoration: 'line-through' }}>{task.title}</span>
                 </div>
                 <span className="sb-timer">{formatTime(task.elapsedSeconds)}</span>
                 <button
@@ -153,13 +153,13 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                   style={{
                     position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                     width: 22, height: 22, borderRadius: 6,
-                    background: '#18181b', border: '1px solid #27272a',
-                    color: '#52525b', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                    background: '#1e2530', border: '1px solid #2a3642',
+                    color: '#4d5868', cursor: 'pointer', fontSize: 11, fontWeight: 600,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#34d39920'; e.currentTarget.style.color = '#34d399'; e.currentTarget.style.borderColor = '#34d39940'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#52525b'; e.currentTarget.style.borderColor = '#27272a'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#1e2530'; e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.borderColor = '#2a3642'; }}
                   title="Undo — move back to waiting"
                 >↩</button>
               </div>
@@ -173,12 +173,12 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
           {onShowReport && (
-            <button onClick={onShowReport} style={{ background: 'none', border: 'none', color: '#3f3f46', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit' }}>
+            <button onClick={onShowReport} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit' }}>
               📊 Report
             </button>
           )}
         </div>
-        <div className="sb-summary"><span>Focus</span><span className="val" style={{ color: '#818cf8' }}>{formatTime(totalFocus)}</span></div>
+        <div className="sb-summary"><span>Focus</span><span className="val" style={{ color: '#7dbdbd' }}>{formatTime(totalFocus)}</span></div>
         <div className="sb-summary"><span>Interrupts</span><span className="val" style={{ color: '#eab308' }}>{totalInterrupts} ({formatTime(totalInterruptTime)})</span></div>
         <div className="sb-summary"><span>Done</span><span className="val" style={{ color: '#34d399' }}>{doneList.length}/{tasks.length}</span></div>
       </div>
@@ -218,13 +218,13 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
         style={{
           position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
           width: 22, height: 22, borderRadius: 6,
-          background: '#18181b', border: '1px solid #27272a',
-          color: '#52525b', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+          background: '#1e2530', border: '1px solid #2a3642',
+          color: '#4d5868', cursor: 'pointer', fontSize: 14, fontWeight: 600,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444420'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef444440'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#52525b'; e.currentTarget.style.borderColor = '#27272a'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#1e2530'; e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.borderColor = '#2a3642'; }}
         className="task-delete-btn"
         title="Delete task"
       >×</button>
@@ -233,11 +233,11 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
       {showConfirm && (
         <div style={{
           position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-          background: '#1a1a24', border: '1px solid #ef444430', borderRadius: 8,
+          background: '#1e2530', border: '1px solid #ef444430', borderRadius: 8,
           padding: '8px 12px', zIndex: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
           display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontSize: 11, color: '#d4d4d8' }}>
+          <span style={{ fontSize: 11, color: '#e8eef5' }}>
             {deleting ? 'Deleting...' : 'Delete this task?'}
           </span>
           {!deleting && (
@@ -258,7 +258,7 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
                 onClick={(e) => { e.stopPropagation(); setShowConfirm(false); }}
                 style={{
                   padding: '3px 10px', borderRadius: 5, fontSize: 11,
-                  background: 'none', border: '1px solid #32323c',
+                  background: 'none', border: '1px solid #3d4856',
                   color: '#888895', cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >No</button>
@@ -280,13 +280,13 @@ function ProjBtn({ icon, title, onClick, hoverColor }: { icon: string; title: st
       style={{
         width: 28, height: 28, borderRadius: 6,
         background: 'none', border: 'none',
-        color: '#52525e', cursor: 'pointer',
+        color: '#4d5868', cursor: 'pointer',
         fontSize: 16, fontWeight: 500,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'color 0.1s, background 0.1s',
       }}
       onMouseEnter={(e) => { e.currentTarget.style.color = color; e.currentTarget.style.background = `${color}15`; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = '#52525e'; e.currentTarget.style.background = 'none'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.background = 'none'; }}
     >{icon}</button>
   );
 }

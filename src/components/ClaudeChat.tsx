@@ -527,7 +527,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 {contextTotalCount > 0 && (
                   <>
                     <br />
-                    <span style={{ color: '#818cf8' }}>
+                    <span style={{ color: '#7dbdbd' }}>
                       📎 {contextTotalCount} context items
                       {contextFileCount > 0 && ` (${contextFileCount} files)`}
                     </span>{' '}
@@ -535,8 +535,8 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                   </>
                 )}
                 <br />
-                <span style={{ color: '#52525e', fontSize: 11 }}>
-                  Type <code style={{ color: '#818cf8', background: '#232330', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>/</code> for commands
+                <span style={{ color: '#4d5868', fontSize: 11 }}>
+                  Type <code style={{ color: '#7dbdbd', background: '#242d38', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>/</code> for commands
                 </span>
               </div>
             </div>
@@ -551,7 +551,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
               fontSize: 11, color: '#6b6b78',
             }}>
               <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5, flexShrink: 0, marginTop: msg.content.includes('\n') ? 2 : 0 }} />
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontFamily: "'Fira Code', 'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
                 {msg.content}
               </div>
             </div>
@@ -581,7 +581,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             <div className="msg-avatar ai">C</div>
             <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
               <div className="loading-dot" />
-              <span style={{ fontSize: 13, color: '#52525b' }}>Claude is thinking...</span>
+              <span style={{ fontSize: 13, color: '#4d5868' }}>Claude is thinking...</span>
             </div>
           </div>
         )}
@@ -631,8 +631,8 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           <button
             onClick={() => { setMessages([]); setError(''); }}
             style={{
-              background: 'none', border: '1px solid #27272a', borderRadius: 6,
-              color: '#52525e', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
+              background: 'none', border: '1px solid #2a3642', borderRadius: 6,
+              color: '#4d5868', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
               fontFamily: 'inherit', whiteSpace: 'nowrap',
             }}
             title="Clear chat"
@@ -642,7 +642,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
           Opus 4.6
           {contextTotalCount > 0 && (
-            <span style={{ color: '#818cf8', marginLeft: 4, fontSize: 10 }}>
+            <span style={{ color: '#7dbdbd', marginLeft: 4, fontSize: 10 }}>
               📎{contextTotalCount}
             </span>
           )}

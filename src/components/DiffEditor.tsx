@@ -27,16 +27,16 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid #27272f', flexShrink: 0, background: '#0c0c12',
+        borderBottom: '1px solid #2a3642', flexShrink: 0, background: '#0f1419',
       }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 14 }}>←</button>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', fontSize: 14 }}>←</button>
         <span style={{
-          fontSize: 11, color: '#8b8b95', fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
         }}>
           {relativePath}
         </span>
-        <span style={{ fontSize: 9, color: '#71717a' }}>Diff</span>
+        <span style={{ fontSize: 9, color: '#6b7585' }}>Diff</span>
       </div>
       <div style={{ flex: 1 }}>
         <MonacoDiffEditor
@@ -47,7 +47,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
           options={{
             readOnly: true,
             fontSize: 13,
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
@@ -62,13 +62,13 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
               inherit: true,
               rules: [],
               colors: {
-                'editor.background': '#0c0c12',
-                'editor.foreground': '#b4b4bc',
-                'editorLineNumber.foreground': '#3f3f46',
-                'editorLineNumber.activeForeground': '#71717a',
-                'editor.lineHighlightBackground': '#ffffff06',
-                'editor.selectionBackground': '#6366f140',
-                'editorCursor.foreground': '#818cf8',
+                'editor.background': '#0f1419',
+                'editor.foreground': '#c0c8d4',
+                'editorLineNumber.foreground': '#3d4856',
+                'editorLineNumber.activeForeground': '#6b7585',
+                'editor.lineHighlightBackground': 'rgba(90,165,165,0.04)',
+                'editor.selectionBackground': 'rgba(90,165,165,0.25)',
+                'editorCursor.foreground': '#5aa5a5',
                 'diffEditor.insertedTextBackground': '#34d39920',
                 'diffEditor.removedTextBackground': '#ef444420',
               },
