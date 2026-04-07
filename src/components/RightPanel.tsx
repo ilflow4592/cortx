@@ -51,7 +51,7 @@ function phaseColor(status: PhaseStatus): string {
 export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, onResetSession }: { cwd: string; branchName: string; onOpenFile?: (path: string) => void; onOpenDiff?: (path: string) => void; resetKey?: number; onResetSession?: () => void }) {
   const [upperTab, setUpperTab] = useState<UpperTab>('projects');
   const [lowerTab, setLowerTab] = useState<LowerTab>('dashboard');
-  const [splitRatio, setSplitRatio] = useState(0.5);
+  const [splitRatio, setSplitRatio] = useState(0.35);
   const [showResetModal, setShowResetModal] = useState(false);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
@@ -88,7 +88,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
   return (
     <div className="right-panel">
       {/* Upper section: Projects / Changes */}
-      <div style={{ flex: splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 80 }}>
+      <div style={{ flex: splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 120 }}>
         <div className="rp-tabs">
           {upperTabs.map((t) => (
             <button key={t.key} className={`rp-tab ${upperTab === t.key ? 'active' : ''}`} onClick={() => setUpperTab(t.key)}>
@@ -123,7 +123,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
       />
 
       {/* Lower section: Dashboard / Worktree / Context / History */}
-      <div style={{ flex: 1 - splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 80 }}>
+      <div style={{ flex: 1 - splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 120 }}>
         <div className="rp-tabs">
           {lowerTabs.map((t) => (
             <button key={t.key} className={`rp-tab ${lowerTab === t.key ? 'active' : ''}`} onClick={() => setLowerTab(t.key)}>
