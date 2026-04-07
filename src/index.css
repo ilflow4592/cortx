@@ -59,7 +59,7 @@ body {
 .sb-task:hover { background:#1e2530 }
 .task-row-wrap:hover .task-delete-btn { opacity:1 !important }
 .task-row-wrap:hover .sb-timer { opacity:0 !important }
-.sb-task.active { background:#1e2530; border-left-color:#5aa5a5 }
+.sb-task.active { background:#1e2530; border-left-color:#5aa5a5; box-shadow:inset 3px 0 8px -3px rgba(90,165,165,0.3) }
 .sb-task-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; min-width:0 }
 .sb-task-name { font-size:14px; font-weight:600; color:#e8eef5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0 }
 .sb-task.is-paused .sb-task-name { color:#c0c8d4 }

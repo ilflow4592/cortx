@@ -188,7 +188,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 }
 
 function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
-  task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number };
+  task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number; pipeline?: { enabled: boolean; phases: Record<string, { status: string }> } };
   isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -213,6 +213,17 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>
         </div>
         {task.branchName && <div className="sb-meta"><code>{task.branchName}</code></div>}
+        {task.pipeline?.enabled && (() => {
+          const phases = task.pipeline.phases;
+          const activePhase = Object.entries(phases).find(([, v]) => v.status === 'in_progress');
+          if (activePhase) {
+            return <div style={{ fontSize: 9, color: '#5aa5a5', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#5aa5a5', animation: 'pulse 1.2s infinite' }} />
+              Running
+            </div>;
+          }
+          return null;
+        })()}
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}

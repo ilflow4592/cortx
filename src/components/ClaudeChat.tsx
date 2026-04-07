@@ -31,6 +31,18 @@ interface SlashCommand {
 const EMPTY_ARR: never[] = [];
 const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
+const PHASE_NAMES: Record<PipelinePhase, string> = {
+  grill_me: 'Grill-me', obsidian_save: 'Save', dev_plan: 'Dev Plan',
+  implement: 'Implement', commit_pr: 'PR', review_loop: 'Review', done: 'Done',
+};
+
+function sendNotification(title: string, body: string) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body });
+  } else if ('Notification' in window && Notification.permission !== 'denied') {
+    Notification.requestPermission().then((p) => { if (p === 'granted') new Notification(title, { body }); });
+  }
+}
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -273,6 +285,11 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           updates.devPlan = cleaned.replace(/\[PIPELINE:[^\]]*\]/g, '').trim();
         }
         useTaskStore.getState().updateTask(taskId, { pipeline: updates });
+
+        // macOS notification on phase completion
+        if (status === 'done') {
+          sendNotification('Cortx Pipeline', `${PHASE_NAMES[phase] || phase} completed`);
+        }
       }
 
       // Remove marker from display text
