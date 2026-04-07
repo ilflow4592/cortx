@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -474,6 +475,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, onResetSes
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Task timer (back to 00:00)</li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Claude conversation context (new session)</li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Task status (back to Waiting)</li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />Git changes (discard all uncommitted changes)</li>
             </ul>
             <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 20 }}>
               This cannot be undone.
@@ -488,7 +490,14 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, onResetSes
                 }}
               >Cancel</button>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  // Discard git changes
+                  if (cwd) {
+                    await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                    await invoke('run_shell_command', { cwd, command: 'git clean -fd 2>/dev/null' }).catch(() => {});
+                    await invoke('run_shell_command', { cwd, command: 'git reset origin/develop 2>/dev/null || git reset HEAD~1 2>/dev/null' }).catch(() => {});
+                    await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                  }
                   // Reset pipeline, timer, status
                   updateTask(task.id, {
                     pipeline: undefined,
