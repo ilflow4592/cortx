@@ -98,6 +98,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
             minimap: { enabled: false },
             lineNumbers: 'on',
             scrollBeyondLastLine: false,
+            scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
             renderLineHighlight: 'line',
             padding: { top: 8 },
             wordWrap: 'off',

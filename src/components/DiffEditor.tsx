@@ -50,6 +50,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
             fontFamily: "'JetBrains Mono', monospace",
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
+            scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
             renderSideBySide: false,
             padding: { top: 8 },
             wordWrap: 'off',

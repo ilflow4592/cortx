@@ -143,6 +143,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
+                scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
                 renderLineHighlight: 'line',
                 padding: { top: 8 },
                 wordWrap: 'off',
