@@ -71,8 +71,8 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
                 'editor.lineHighlightBorder': '#00000000',
                 'editor.selectionBackground': 'rgba(90,165,165,0.15)',
                 'editorCursor.foreground': '#5aa5a5',
-                'diffEditor.insertedTextBackground': '#34d39920',
-                'diffEditor.removedTextBackground': '#ef444420',
+                'diffEditor.insertedTextBackground': 'rgba(90,165,165,0.08)',
+                'diffEditor.removedTextBackground': 'rgba(255,255,255,0.04)',
               },
             });
           }}
