@@ -233,7 +233,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
               onMouseLeave={(e) => { e.currentTarget.style.opacity = '0'; }}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} onResetSession={() => setClaudeResetKey((k) => k + 1)} />
+              <RightPanel cwd={taskCwd} branchName={task.branchName} onOpenFile={handleOpenFile} onOpenDiff={handleOpenDiff} resetKey={claudeResetKey} onResetSession={() => setClaudeResetKey((k) => k + 1)} />
             </div>
           </div>
         )}
