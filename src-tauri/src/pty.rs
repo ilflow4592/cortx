@@ -104,7 +104,7 @@ impl PtyManager {
             if allow_tools {
                 cmd_parts.extend([
                     "--permission-mode".to_string(),
-                    "dangerously-skip-permissions".to_string(),
+                    "bypassPermissions".to_string(),
                 ]);
             }
 
