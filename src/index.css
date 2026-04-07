@@ -160,7 +160,7 @@ body {
 .send-btn:hover:not(:disabled) { filter:brightness(1.1) }
 
 /* ── Right panel ── */
-.right-panel { display:flex; flex-direction:column; overflow:hidden; background:#0f1419 }
+.right-panel { display:flex; flex-direction:column; overflow:hidden; background:#0f1419; height:100% }
 .rp-tabs { height:36px; display:flex; align-items:flex-end; padding:0 8px; border-bottom:1px solid #2a3642; gap:0; flex-shrink:0 }
 .rp-tab { padding:6px 8px; font-size:11px; color:#6b7585; cursor:pointer; border:none; border-bottom:2px solid transparent; font-weight:500; background:none; font-family:inherit; white-space:nowrap; flex-shrink:0 }
 .rp-tab:hover { color:#c0c8d4 }
