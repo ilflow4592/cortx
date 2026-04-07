@@ -398,7 +398,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             if (evt.usage) {
               const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
               if (task?.pipeline?.enabled) {
-                const inTok = (evt.usage.input_tokens || 0) + (evt.usage.cache_creation_input_tokens || 0) + (evt.usage.cache_read_input_tokens || 0);
+                const inTok = (evt.usage.input_tokens || 0);
                 const outTok = evt.usage.output_tokens || 0;
                 const cost = evt.total_cost_usd || 0;
                 // Find current active phase
