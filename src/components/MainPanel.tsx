@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { FileText, X, Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { ClaudeChat } from './ClaudeChat';
@@ -79,7 +80,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="main">
         <div className="empty-state">
           <div className="empty-state-inner">
-            <div className="empty-state-icon">🧠</div>
+            <div className="empty-state-icon" />
             <div className="empty-state-title">No active task</div>
             <div className="empty-state-sub">Select or create a task to get started</div>
           </div>
@@ -106,10 +107,10 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const fileName = editorFile?.path.split('/').pop() || '';
 
   const tabs: { key: Tab; label: string; badge?: number; closable?: boolean }[] = [
-    { key: 'claude', label: '🤖 Claude' },
-    { key: 'terminal', label: '⌨ Terminal' },
-    { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
-    ...(editorFile ? [{ key: 'editor' as Tab, label: `📝 ${fileName}`, closable: true }] : []),
+    { key: 'claude', label: 'Claude' },
+    { key: 'terminal', label: 'Terminal' },
+    { key: 'context', label: 'Context Pack', badge: taskDeltaCount || undefined },
+    ...(editorFile ? [{ key: 'editor' as Tab, label: fileName, closable: true }] : []),
   ];
 
   return (
@@ -128,18 +129,18 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
               style={{ background: 'none', color: '#6b7585', border: '1px solid #2a3642', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
               onClick={() => { if (window.confirm('Reset timer, status & interrupts?')) { updateTask(task.id, { elapsedSeconds: 0, interrupts: [] }); setTaskStatus(task.id, 'waiting'); } }}
               title="Reset timer"
-            >↺</button>
+            ><RotateCcw size={12} strokeWidth={1.5} /></button>
           )}
-          {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}>▶ Start</button>}
-          {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}>⏸ Pause</button>}
-          {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}>▶ Resume</button>}
-          {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}>✓ Done</button>}
+          {task.status === 'waiting' && <button className="mh-btn start" onClick={handleStart}><Play size={12} strokeWidth={1.5} /> Start</button>}
+          {task.status === 'active' && <button className="mh-btn pause" onClick={() => setShowPause(true)}><Pause size={12} strokeWidth={1.5} /> Pause</button>}
+          {task.status === 'paused' && <button className="mh-btn resume" onClick={handleResume}><Play size={12} strokeWidth={1.5} /> Resume</button>}
+          {task.status !== 'done' && <button className="mh-btn done" onClick={handleDone}><Check size={12} strokeWidth={1.5} /> Done</button>}
           <button
             className="mh-btn"
             style={{ background: 'none', color: '#3d4856', border: '1px solid #1e2530' }}
             onClick={() => { if (window.confirm(`Delete task "${task.title}"?`)) removeTask(task.id); }}
             title="Delete task"
-          >🗑</button>
+          ><Trash2 size={14} strokeWidth={1.5} /></button>
           {onToggleRightPanel && (
             <button
               className="mh-btn"
@@ -166,13 +167,14 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
+            {t.closable && <FileText size={14} strokeWidth={1.5} style={{ marginRight: 4 }} />}
             {t.label}
             {t.badge && t.badge > 0 && <span className="badge">{t.badge}</span>}
             {t.closable && (
               <span
                 onClick={(e) => { e.stopPropagation(); setEditorFile(null); setActiveTab('claude'); }}
-                style={{ marginLeft: 6, color: '#6b7585', cursor: 'pointer', fontSize: 10 }}
-              >✕</span>
+                style={{ marginLeft: 6, color: '#6b7585', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              ><X size={12} strokeWidth={1.5} /></span>
             )}
           </button>
         ))}

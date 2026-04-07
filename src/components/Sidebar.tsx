@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { BarChart3, X } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -105,7 +106,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                   <ProjBtn icon="▼" title={isCollapsed ? 'Expand' : 'Collapse'} onClick={() => toggleCollapse(project.id)} />
                   {onAddTaskForProject && <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />}
                   {onEditProject && <ProjBtn icon="⚙" title="Settings" onClick={() => onEditProject(project.id)} />}
-                  <ProjBtn icon="×" title="Delete" onClick={() => handleDeleteProject(project.id, project.name)} hoverColor="#ef4444" />
+                  <ProjBtn icon={<X size={12} strokeWidth={1.5} />} title="Delete" onClick={() => handleDeleteProject(project.id, project.name)} hoverColor="#ef4444" />
                 </div>
               </div>
               {!isCollapsed && (
@@ -173,8 +174,8 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
           {onShowReport && (
-            <button onClick={onShowReport} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit' }}>
-              📊 Report
+            <button onClick={onShowReport} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <BarChart3 size={14} strokeWidth={1.5} /> Report
             </button>
           )}
         </div>
@@ -227,7 +228,7 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
         onMouseLeave={(e) => { e.currentTarget.style.background = '#1e2530'; e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.borderColor = '#2a3642'; }}
         className="task-delete-btn"
         title="Delete task"
-      >×</button>
+      ><X size={12} strokeWidth={1.5} /></button>
 
       {/* Inline delete confirmation */}
       {showConfirm && (
@@ -271,7 +272,7 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
   );
 }
 
-function ProjBtn({ icon, title, onClick, hoverColor }: { icon: string; title: string; onClick: () => void; hoverColor?: string }) {
+function ProjBtn({ icon, title, onClick, hoverColor }: { icon: React.ReactNode; title: string; onClick: () => void; hoverColor?: string }) {
   const color = hoverColor || '#a1a1aa';
   return (
     <button

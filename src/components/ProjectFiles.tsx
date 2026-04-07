@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Folder, File, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface TreeNode {
   name: string;
@@ -95,11 +96,11 @@ function TreeItem({ node, depth, expanded, selected, onToggle, onOpen }: {
         }}
       >
         {node.isDir ? (
-          <span style={{ color: '#6b7585', fontSize: 10, width: 12, flexShrink: 0 }}>{isOpen ? '▼' : '▶'}</span>
+          <span style={{ color: '#6b7585', width: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{isOpen ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}</span>
         ) : (
           <span style={{ width: 12, flexShrink: 0 }} />
         )}
-        <span style={{ fontSize: 13 }}>{node.isDir ? '📁' : '📄'}</span>
+        <span style={{ display: 'flex', alignItems: 'center' }}>{node.isDir ? <Folder size={14} color="#5aa5a5" strokeWidth={1.5} /> : <File size={14} color="#8b95a5" strokeWidth={1.5} />}</span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
       </button>
       {node.isDir && isOpen && node.children?.map((child) => (

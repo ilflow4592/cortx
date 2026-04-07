@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { ArrowUp, Square } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -519,7 +520,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         {messages.length === 0 && !loading && (
           <div className="empty-state" style={{ height: '100%' }}>
             <div className="empty-state-inner">
-              <div className="empty-state-icon">🤖</div>
+              <div className="empty-state-icon" />
               <div className="empty-state-title">Claude Code</div>
               <div className="empty-state-sub">
                 Uses your Claude CLI authentication.<br />
@@ -657,9 +658,9 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             unlistenRefs.current = [];
             setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
             setLoading(false);
-          }} style={{ background: '#ef4444' }} title="Stop response">■</button>
+          }} style={{ background: '#ef4444' }} title="Stop response"><Square size={14} fill="white" strokeWidth={0} /></button>
         ) : (
-          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>↑</button>
+          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}><ArrowUp size={16} strokeWidth={1.5} /></button>
         )}
       </div>
     </>

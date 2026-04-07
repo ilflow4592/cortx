@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
+import { ArrowLeft, RotateCw } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 
 const EXT_LANG: Record<string, string> = {
@@ -93,7 +94,7 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid #2a3642', flexShrink: 0 }}>
-          <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', fontSize: 14 }}>←</button>
+          <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} strokeWidth={1.5} /></button>
           <span style={{ fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selectedFile}
           </span>
@@ -188,8 +189,8 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
         <button className={`ctx-filter ${subTab === 'changes' ? 'active' : ''}`} onClick={() => setSubTab('changes')}>
           Changes {changedFiles.length > 0 && <span className="count">{changedFiles.length}</span>}
         </button>
-        <button onClick={loadChanges} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', fontSize: 11 }}>
-          ↻
+        <button onClick={loadChanges} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          <RotateCw size={14} strokeWidth={1.5} />
         </button>
       </div>
 
