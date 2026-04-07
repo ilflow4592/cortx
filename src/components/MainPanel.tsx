@@ -81,7 +81,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           {task.elapsedSeconds > 0 && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#3f3f46', border: '1px solid #18181b', padding: '4px 6px', fontSize: 10 }}
+              style={{ background: 'none', color: '#71717a', border: '1px solid #27272a', borderRadius: 5, padding: '4px 6px', fontSize: 10 }}
               onClick={() => { if (window.confirm('Reset timer to 00:00?')) updateTask(task.id, { elapsedSeconds: 0 }); }}
               title="Reset timer"
             >↺</button>
