@@ -85,6 +85,23 @@ export function RightPanel() {
               <div className="wt-row"><span>Repo</span><span className="val">{task.repoPath || taskProject?.localPath || '—'}</span></div>
               <div className="wt-row"><span>Status</span><span className="val">{task.status}</span></div>
               <div className="wt-row"><span>Layer</span><span className="val">{task.layer || 'focus'}</span></div>
+              <div className="wt-row">
+                <span>Timer</span>
+                <span className="val" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {formatTime(task.elapsedSeconds)}
+                  {task.elapsedSeconds > 0 && (
+                    <button
+                      onClick={() => { if (window.confirm('Reset timer to 00:00?')) updateTask(task.id, { elapsedSeconds: 0 }); }}
+                      style={{
+                        background: 'none', border: '1px solid #27272a', borderRadius: 4,
+                        color: '#52525e', cursor: 'pointer', fontSize: 9, padding: '1px 5px',
+                        fontFamily: 'inherit',
+                      }}
+                      title="Reset timer"
+                    >Reset</button>
+                  )}
+                </span>
+              </div>
             </div>
             {task.memo && (
               <>
