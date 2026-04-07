@@ -5,6 +5,7 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
 import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
+import { CORTX_SKILLS } from '../skills/pipelineSkills';
 
 interface ClaudeChatProps {
   taskId: string;
@@ -178,8 +179,17 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const parts = text.slice(1).split(/\s+/);
     const cmdName = parts[0];
     const args = parts.slice(1).join(' ');
-    const filePath = cmdName.replace(/:/g, '/') + '.md';
 
+    // Check for Cortx-specific pipeline skills first
+    const skillKey = cmdName.replace(/:/g, '/');
+    if (CORTX_SKILLS[skillKey]) {
+      let prompt = CORTX_SKILLS[skillKey];
+      prompt = prompt.replace(/\$ARGUMENTS/g, args);
+      return prompt;
+    }
+
+    // Fall back to file-based skill resolution
+    const filePath = skillKey + '.md';
     for (const base of ['~/.claude/commands', `${cwd}/.claude/commands`]) {
       try {
         const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
