@@ -402,58 +402,84 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         }).then((un) => unlistenRefs.current.push(un));
       });
 
-      // Serialize all context items (non-file items as summary)
-      const nonFileItems = contextItems.filter(
-        (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
-      );
-      let contextSummary = serializeContextItems(nonFileItems);
-
-      // For pipeline commands: add directives
+      const hasExistingSession = !!claudeSessionIdRef.current;
       const isPipeline = text.startsWith('/pipeline:');
-      if (isPipeline) {
-        const directives: string[] = [];
 
-        // Phase tracking directive — always add for pipelines
-        directives.push(
-          '## CORTX_PIPELINE_TRACKING',
-          'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
-          'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-          'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
-          'Valid statuses: in_progress, done, skipped',
-          'Examples:',
-          '  [PIPELINE:dev_plan:in_progress]',
-          '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
-          '  [PIPELINE:commit_pr:done:PR #4920]',
-          'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
-          'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
-          'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
+      let contextSummary = '';
+      let contextFiles: string[] = [];
+
+      // Only send context on first message (no existing session)
+      if (!hasExistingSession) {
+        // Serialize all context items (non-file items as summary)
+        const nonFileItems = contextItems.filter(
+          (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
         );
+        contextSummary = serializeContextItems(nonFileItems);
 
-        // Context Pack mode — when context items exist
-        if (contextItems.length > 0) {
+        // For pipeline commands: add directives
+        if (isPipeline) {
+          const directives: string[] = [];
+
+          directives.push(
+            '## CORTX_PIPELINE_TRACKING',
+            'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
+            'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
+            'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+            'Valid statuses: in_progress, done, skipped',
+            'Examples:',
+            '  [PIPELINE:dev_plan:in_progress]',
+            '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
+            '  [PIPELINE:commit_pr:done:PR #4920]',
+            'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
+            'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
+            'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
+          );
+
+          if (contextItems.length > 0) {
+            directives.push(
+              '',
+              '## CORTX_CONTEXT_PACK_MODE',
+              'This pipeline was invoked from the Cortx app with Context Pack data.',
+              'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+              'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+              'If a dev-plan is needed, generate it from the Context Pack data.',
+            );
+          }
+
           directives.push(
             '',
-            '## CORTX_CONTEXT_PACK_MODE',
-            'This pipeline was invoked from the Cortx app with Context Pack data.',
-            'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
-            'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
-            'If a dev-plan is needed, generate it from the Context Pack data.',
+            '## CORTX_DASHBOARD',
+            'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
           );
+
+          const fullDirective = directives.join('\n');
+          contextSummary = contextSummary
+            ? `${fullDirective}\n\n---\n\n${contextSummary}`
+            : fullDirective;
         }
 
-        // Also skip Obsidian dashboard updates
-        directives.push(
-          '',
-          '## CORTX_DASHBOARD',
-          'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
-        );
+        // Local file paths for --add-dir
+        contextFiles = contextItems
+          .filter((item) => item.url && !item.url.startsWith('http'))
+          .map((item) => item.url);
 
-        const fullDirective = directives.join('\n');
-        contextSummary = contextSummary
-          ? `${fullDirective}\n\n---\n\n${contextSummary}`
-          : fullDirective;
+        // Show loaded context items before Claude starts
+        if (isPipeline && contextItems.length > 0) {
+          const sourceIcons: Record<string, string> = {
+            github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin',
+          };
+          const lines = contextItems.map((item) => {
+            const src = sourceIcons[item.sourceType] || item.sourceType;
+            return `  [${src}] ${item.title}`;
+          });
+          const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
+          const ctxMsgId = `${reqId}-context-load`;
+          setMessages((prev) => [...prev, { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' }]);
+        }
+      }
 
-        // Initialize pipeline state on task if not already set
+      // Pipeline state init + timer (always, even on resume)
+      if (isPipeline) {
         const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
         if (currentTask && !currentTask.pipeline?.enabled) {
           const defaultPhases: Record<PipelinePhase, PipelinePhaseEntry> = {
@@ -469,31 +495,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             pipeline: { enabled: true, phases: defaultPhases },
           });
         }
-
-        // Auto-start task timer if not already active
         const taskNow = useTaskStore.getState().tasks.find((t) => t.id === taskId);
         if (taskNow && (taskNow.status === 'waiting' || taskNow.status === 'paused')) {
           useTaskStore.getState().startTask(taskId);
         }
-      }
-
-      // Local file paths for --add-dir
-      const contextFiles = contextItems
-        .filter((item) => item.url && !item.url.startsWith('http'))
-        .map((item) => item.url);
-
-      // Show loaded context items before Claude starts
-      if (isPipeline && contextItems.length > 0) {
-        const sourceIcons: Record<string, string> = {
-          github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin',
-        };
-        const lines = contextItems.map((item) => {
-          const src = sourceIcons[item.sourceType] || item.sourceType;
-          return `  [${src}] ${item.title}`;
-        });
-        const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
-        const ctxMsgId = `${reqId}-context-load`;
-        setMessages((prev) => [...prev, { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' }]);
       }
 
       await invoke('claude_spawn', {
