@@ -270,7 +270,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         const updates: Partial<PipelineState> = { ...task.pipeline, phases };
         // Save dev plan content when dev_plan phase completes
         if (phase === 'dev_plan' && status === 'done') {
-          updates.devPlan = response.trim();
+          updates.devPlan = cleaned.replace(/\[PIPELINE:[^\]]*\]/g, '').trim();
         }
         useTaskStore.getState().updateTask(taskId, { pipeline: updates });
       }
