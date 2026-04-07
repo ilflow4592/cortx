@@ -469,11 +469,11 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, onResetSes
             <div style={{ fontSize: 12, color: '#8b95a5', lineHeight: 1.7, marginBottom: 8 }}>
               The following will be reset:
             </div>
-            <ul style={{ fontSize: 12, color: '#c0c8d4', lineHeight: 1.8, paddingLeft: 20, marginBottom: 16 }}>
-              <li>Pipeline progress (all phases)</li>
-              <li>Task timer (back to 00:00)</li>
-              <li>Claude conversation context (new session)</li>
-              <li>Task status (back to Waiting)</li>
+            <ul style={{ fontSize: 12, color: '#c0c8d4', lineHeight: 2, paddingLeft: 8, marginBottom: 16, listStyle: 'none' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Pipeline progress (all phases)</li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Task timer (back to 00:00)</li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Claude conversation context (new session)</li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />Task status (back to Waiting)</li>
             </ul>
             <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 20 }}>
               This cannot be undone.
