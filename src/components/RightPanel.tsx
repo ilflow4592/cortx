@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckCircle2, Loader2, SkipForward, Circle } from 'lucide-react';
+import { CheckCircle2, Loader2, SkipForward, Circle, Download } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -187,6 +187,35 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff }: { cwd: s
                     );
                   })}
                 </div>
+
+                {/* Dev Plan artifact */}
+                {pipeline.devPlan && (
+                  <>
+                    <div className="rp-section" style={{ marginTop: 14 }}>Artifacts</div>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([pipeline.devPlan!], { type: 'text/markdown' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `dev-plan-${task.branchName || 'task'}.md`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                        padding: '8px 12px', background: '#1a1f26', border: '1px solid #2a3642',
+                        borderRadius: 6, color: '#c0c8d4', cursor: 'pointer', fontSize: 11,
+                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", textAlign: 'left',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Download size={14} color="#5aa5a5" strokeWidth={1.5} />
+                      <span style={{ flex: 1 }}>dev-plan.md</span>
+                      <span style={{ fontSize: 9, color: '#6b7585' }}>{Math.ceil(pipeline.devPlan.length / 1024)}KB</span>
+                    </button>
+                  </>
+                )}
 
                 {/* Metadata */}
                 {(pipeline.complexity || pipeline.prUrl || pipeline.reviewRounds !== undefined) && (

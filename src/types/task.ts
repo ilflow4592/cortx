@@ -43,6 +43,7 @@ export interface PipelineState {
   prNumber?: number;
   prUrl?: string;
   reviewRounds?: number;
+  devPlan?: string;
 }
 
 export interface Task {

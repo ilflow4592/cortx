@@ -266,9 +266,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           ...(status === 'done' || status === 'skipped' ? { completedAt: now } : {}),
           ...(memo ? { memo } : {}),
         };
-        useTaskStore.getState().updateTask(taskId, {
-          pipeline: { ...task.pipeline, phases },
-        });
+        const updates: Partial<PipelineState> = { ...task.pipeline, phases };
+        // Save dev plan content when dev_plan phase completes
+        if (phase === 'dev_plan' && status === 'done') {
+          updates.devPlan = response.trim();
+        }
+        useTaskStore.getState().updateTask(taskId, { pipeline: updates });
       }
 
       // Remove marker from display text
