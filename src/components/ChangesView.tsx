@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
-import { ArrowLeft, RotateCw } from 'lucide-react';
+import { ArrowLeft, RotateCw, Undo2, Trash2 } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 
 const EXT_LANG: Record<string, string> = {
@@ -64,6 +64,21 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
   const run = async (command: string): Promise<string> => {
     const result = await invoke<{ success: boolean; output: string }>('run_shell_command', { cwd, command });
     return result.success ? result.output : '';
+  };
+
+  const discardFile = async (filePath: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Discard changes to ${filePath.split('/').pop()}?`)) return;
+    const escaped = filePath.replace(/'/g, "'\\''");
+    await run(`git checkout -- '${escaped}' 2>/dev/null`);
+    await loadChanges();
+  };
+
+  const discardAll = async () => {
+    if (!window.confirm(`Discard ALL ${changedFiles.length} changes? This cannot be undone.`)) return;
+    await run(`git checkout -- . 2>/dev/null`);
+    await run(`git clean -fd 2>/dev/null`);
+    await loadChanges();
   };
 
   const selectFile = async (file: string, mode: 'diff' | 'edit' = 'diff') => {
@@ -202,9 +217,16 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
         <button className={`ctx-filter ${subTab === 'changes' ? 'active' : ''}`} onClick={() => setSubTab('changes')}>
           Changes {changedFiles.length > 0 && <span className="count">{changedFiles.length}</span>}
         </button>
-        <button onClick={loadChanges} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-          <RotateCw size={14} strokeWidth={1.5} />
-        </button>
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {subTab === 'changes' && changedFiles.length > 0 && (
+            <button onClick={discardAll} title="Discard all changes" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <Trash2 size={13} strokeWidth={1.5} />
+            </button>
+          )}
+          <button onClick={loadChanges} title="Refresh" style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <RotateCw size={14} strokeWidth={1.5} />
+          </button>
+        </span>
       </div>
 
       {/* File list */}
@@ -230,7 +252,16 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
               {file.status && (
                 <span style={{ color: statusColor, fontSize: 10, fontWeight: 600, width: 14, flexShrink: 0 }}>{file.status}</span>
               )}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.path}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{file.path}</span>
+              {subTab === 'changes' && file.status && (
+                <span
+                  onClick={(e) => discardFile(file.path, e)}
+                  title="Discard changes"
+                  style={{ color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0, padding: '0 2px' }}
+                >
+                  <Undo2 size={12} strokeWidth={1.5} />
+                </span>
+              )}
             </button>
           );
         })}
