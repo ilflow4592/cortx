@@ -3,9 +3,12 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from './SourceIcons';
+import { ProjectFiles } from './ProjectFiles';
+import { ChangesView } from './ChangesView';
 import type { PipelinePhase, PhaseStatus } from '../types/task';
 
-type RTab = 'dashboard' | 'worktree' | 'context' | 'history' | 'memo';
+type UpperTab = 'projects' | 'changes';
+type LowerTab = 'dashboard' | 'worktree' | 'context' | 'history';
 
 const PHASE_LABELS: Record<PipelinePhase, string> = {
   grill_me: 'Grill-me',
@@ -37,8 +40,10 @@ function phaseColor(status: PhaseStatus): string {
   }
 }
 
-export function RightPanel() {
-  const [tab, setTab] = useState<RTab>('dashboard');
+export function RightPanel({ cwd, branchName }: { cwd: string; branchName: string }) {
+  const [upperTab, setUpperTab] = useState<UpperTab>('projects');
+  const [lowerTab, setLowerTab] = useState<LowerTab>('dashboard');
+  const [splitRatio, setSplitRatio] = useState(0.5);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
@@ -60,26 +65,66 @@ export function RightPanel() {
 
   const icon = (type: string) => type === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : type === 'slack' ? <SlackIcon size={14} /> : type === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
 
-  const tabs: { key: RTab; label: string; badge?: number }[] = [
+  const upperTabs: { key: UpperTab; label: string }[] = [
+    { key: 'projects', label: 'Projects' },
+    { key: 'changes', label: 'Changes' },
+  ];
+  const lowerTabs: { key: LowerTab; label: string; badge?: number }[] = [
     { key: 'dashboard', label: 'Dashboard', badge: pipeline?.enabled ? phaseDoneCount : undefined },
     { key: 'worktree', label: 'Worktree' },
     { key: 'context', label: 'Context', badge: taskItems.length || undefined },
     { key: 'history', label: 'History', badge: taskHistory.length || undefined },
-    { key: 'memo', label: 'Memo' },
   ];
 
   return (
     <div className="right-panel">
-      <div className="rp-tabs">
-        {tabs.map((t) => (
-          <button key={t.key} className={`rp-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
-            {t.label}
-            {t.badge && t.badge > 0 && <span className="cp-new" style={{ marginLeft:4 }}>{t.badge}</span>}
-          </button>
-        ))}
+      {/* Upper section: Projects / Changes */}
+      <div style={{ flex: splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 80 }}>
+        <div className="rp-tabs">
+          {upperTabs.map((t) => (
+            <button key={t.key} className={`rp-tab ${upperTab === t.key ? 'active' : ''}`} onClick={() => setUpperTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {upperTab === 'projects' && <ProjectFiles cwd={cwd} />}
+          {upperTab === 'changes' && <ChangesView cwd={cwd} branchName={branchName} />}
+        </div>
       </div>
-      <div className="rp-content">
-        {tab === 'dashboard' && (
+
+      {/* Drag handle */}
+      <div
+        style={{ height: 4, cursor: 'row-resize', background: '#27272f', flexShrink: 0 }}
+        onMouseDown={(e) => {
+          const startY = e.clientY;
+          const panel = e.currentTarget.parentElement;
+          if (!panel) return;
+          const startHeight = panel.clientHeight;
+          const startRatio = splitRatio;
+          const onMove = (ev: MouseEvent) => {
+            const delta = ev.clientY - startY;
+            const newRatio = Math.max(0.15, Math.min(0.85, startRatio + delta / startHeight));
+            setSplitRatio(newRatio);
+          };
+          const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        }}
+      />
+
+      {/* Lower section: Dashboard / Worktree / Context / History */}
+      <div style={{ flex: 1 - splitRatio, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 80 }}>
+        <div className="rp-tabs">
+          {lowerTabs.map((t) => (
+            <button key={t.key} className={`rp-tab ${lowerTab === t.key ? 'active' : ''}`} onClick={() => setLowerTab(t.key)}>
+              {t.label}
+              {t.badge && t.badge > 0 && <span className="cp-new" style={{ marginLeft:4 }}>{t.badge}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="rp-content">
+        {lowerTab === 'dashboard' && (
           <>
             {!pipeline?.enabled ? (
               <div style={{ padding: '32px 0', textAlign: 'center' }}>
@@ -164,7 +209,7 @@ export function RightPanel() {
           </>
         )}
 
-        {tab === 'worktree' && (
+        {lowerTab === 'worktree' && (
           <>
             {taskProject && (
               <>
@@ -201,7 +246,7 @@ export function RightPanel() {
           </>
         )}
 
-        {tab === 'context' && (
+        {lowerTab === 'context' && (
           <>
             {taskDelta.length > 0 && (
               <>
@@ -230,7 +275,7 @@ export function RightPanel() {
           </>
         )}
 
-        {tab === 'history' && (
+        {lowerTab === 'history' && (
           <>
             <div className="rp-section">Search History</div>
             {taskHistory.length === 0 ? (
@@ -333,17 +378,7 @@ export function RightPanel() {
           </>
         )}
 
-        {tab === 'memo' && (
-          <>
-            <div className="rp-section">Context Memo</div>
-            <textarea
-              className="memo-textarea"
-              value={task.memo}
-              onChange={(e) => updateTask(task.id, { memo: e.target.value })}
-              placeholder="Write notes about what you're working on..."
-            />
-          </>
-        )}
+      </div>
       </div>
     </div>
   );

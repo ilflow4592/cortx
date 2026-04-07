@@ -4,15 +4,13 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { ClaudeChat } from './ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
-import { ProjectFiles } from './ProjectFiles';
-import { ChangesView } from './ChangesView';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
 import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';
 import type { InterruptReason } from '../types/task';
 
-type Tab = 'claude' | 'terminal' | 'projects' | 'changes' | 'context';
+type Tab = 'claude' | 'terminal' | 'context';
 
 export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   showRightPanel?: boolean;
@@ -67,8 +65,6 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'claude', label: '🤖 Claude' },
     { key: 'terminal', label: '⌨ Terminal' },
-    { key: 'projects', label: '📁 Projects' },
-    { key: 'changes', label: '📋 Changes' },
     { key: 'context', label: '📦 Context Pack', badge: taskDeltaCount || undefined },
   ];
 
@@ -140,13 +136,11 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
             <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />
           </div>
-          {activeTab === 'projects' && <ProjectFiles key={task.id} cwd={taskCwd} />}
-          {activeTab === 'changes' && <ChangesView key={task.id} cwd={taskCwd} branchName={task.branchName} />}
           <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
             <ContextPack key={task.id} taskId={task.id} />
           </div>
         </div>
-        {showRightPanel && <RightPanel />}
+        {showRightPanel && <RightPanel cwd={taskCwd} branchName={task.branchName} />}
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}
