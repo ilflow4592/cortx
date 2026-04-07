@@ -80,13 +80,18 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
     if (!confirmDiscard) return;
     if (confirmDiscard.type === 'file' && confirmDiscard.path) {
       const escaped = confirmDiscard.path.replace(/'/g, "'\\''");
+      // Try unstaged first, then revert committed changes
       await run(`git checkout -- '${escaped}' 2>/dev/null`);
+      await run(`git checkout origin/develop -- '${escaped}' 2>/dev/null`);
     } else if (confirmDiscard.type === 'all') {
+      // Reset all: unstaged + staged + committed (back to develop base)
       await run(`git checkout -- . 2>/dev/null`);
       await run(`git clean -fd 2>/dev/null`);
+      await run(`git reset origin/develop 2>/dev/null || git reset HEAD~1 2>/dev/null`);
+      await run(`git checkout -- . 2>/dev/null`);
     }
     setConfirmDiscard(null);
-    await loadChanges();
+    await loadChanges(true);
   };
 
   const selectFile = async (file: string, mode: 'diff' | 'edit' = 'diff') => {
