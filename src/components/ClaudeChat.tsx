@@ -296,7 +296,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
               // New assistant turn — create a new message
               turnCounter++;
               currentMsgId = `${reqId}-turn-${turnCounter}`;
-              response = parsePipelineMarkers(textBlocks.join(''));
+              response = parsePipelineMarkers(textBlocks.join('')).trimStart();
               setMessages((prev) => {
                 const filtered = prev.filter((m) => m.id !== activityId);
                 return [...filtered, { id: currentMsgId, role: 'assistant', content: response }];
@@ -312,7 +312,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             }
           } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
             // Append to current turn's message
-            response = parsePipelineMarkers(response + evt.delta.text);
+            response = parsePipelineMarkers(response + evt.delta.text).trimStart();
             if (!currentMsgId) {
               turnCounter++;
               currentMsgId = `${reqId}-turn-${turnCounter}`;
@@ -330,15 +330,18 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
             const errMsg = evt.content || 'Unknown error from Claude CLI';
             setError(errMsg);
           } else if (evt.type === 'result') {
-            // Final result — add as the last message
+            // Final result — only add if it differs from current response (avoid duplicates)
             if (evt.result) {
-              turnCounter++;
-              const resultId = `${reqId}-result`;
-              response = parsePipelineMarkers(evt.result);
-              setMessages((prev) => {
-                const filtered = prev.filter((m) => m.id !== activityId);
-                return [...filtered, { id: resultId, role: 'assistant', content: response }];
-              });
+              const resultText = parsePipelineMarkers(evt.result).trim();
+              if (resultText && resultText !== response.trim()) {
+                turnCounter++;
+                const resultId = `${reqId}-result`;
+                response = resultText;
+                setMessages((prev) => {
+                  const filtered = prev.filter((m) => m.id !== activityId);
+                  return [...filtered, { id: resultId, role: 'assistant', content: response }];
+                });
+              }
             }
           }
         } catch {
