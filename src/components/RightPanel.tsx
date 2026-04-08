@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -106,17 +106,19 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
               Open via
             </button>
             {showOpenMenu && (
-              <div style={{
-                position: 'absolute', right: 0, top: '100%', marginTop: 4,
-                background: '#1a1f26', border: '1px solid #2a3642', borderRadius: 8,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)', padding: 4, zIndex: 50,
-                width: 180,
-              }}>
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowOpenMenu(false)} />
+                <div style={{
+                  position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                  background: '#1a1f26', border: '1px solid #2a3642', borderRadius: 8,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)', padding: 4, zIndex: 50,
+                  width: 180,
+                }}>
                 {[
-                  { label: 'IntelliJ IDEA', cmd: `open -a "IntelliJ IDEA" "${cwd}"` },
-                  { label: 'VS Code', cmd: `code "${cwd}"` },
-                  { label: 'Finder', cmd: `open "${cwd}"` },
-                  { label: 'Terminal', cmd: `open -a Terminal "${cwd}"` },
+                  { label: 'IntelliJ IDEA', icon: <Braces size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open -a "IntelliJ IDEA" "${cwd}"` },
+                  { label: 'VS Code', icon: <Code2 size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `code "${cwd}"` },
+                  { label: 'Finder', icon: <FolderOpen size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open "${cwd}"` },
+                  { label: 'Terminal', icon: <TerminalSquare size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open -a Terminal "${cwd}"` },
                 ].map((item) => (
                   <button
                     key={item.label}
@@ -125,17 +127,19 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                       setShowOpenMenu(false);
                     }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                      padding: '7px 10px', background: 'none', border: 'none', borderRadius: 5,
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '8px 12px', background: 'none', border: 'none', borderRadius: 5,
                       color: '#c0c8d4', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', textAlign: 'left',
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.08)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                   >
+                    {item.icon}
                     {item.label}
                   </button>
                 ))}
               </div>
+              </>
             )}
           </div>
         </div>
