@@ -90,6 +90,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
   const claudeSessionIdRef = useRef<string>('');
+  const messagesRef = useRef<Message[]>([]);
 
   // Slash command state
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
@@ -114,6 +115,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesRef.current = messages;
   }, [messages, loading]);
 
   useEffect(() => {
@@ -280,9 +282,20 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           ...(memo ? { memo } : {}),
         };
         const updates: Partial<PipelineState> = { ...task.pipeline, phases };
-        // Flag dev plan save for next result event
+        // Save dev plan from all assistant messages when dev_plan completes
         if (phase === 'dev_plan' && status === 'done') {
-          (window as unknown as Record<string, boolean>).__cortx_save_devplan = true;
+          const planMessages = messagesRef.current
+            .filter((m) => m.role === 'assistant')
+            .map((m) => m.content)
+            .join('\n\n---\n\n');
+          if (planMessages.length > 50) {
+            const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
+            if (t?.pipeline) {
+              useTaskStore.getState().updateTask(taskId, {
+                pipeline: { ...t.pipeline, devPlan: planMessages },
+              });
+            }
+          }
         }
         useTaskStore.getState().updateTask(taskId, { pipeline: updates });
 
@@ -410,19 +423,6 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                   return [...filtered, { id: resultId, role: 'assistant', content: response }];
                 });
               }
-            }
-            // Save dev plan if flagged
-            if ((window as unknown as Record<string, boolean>).__cortx_save_devplan && evt.result) {
-              const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-              if (task?.pipeline) {
-                const planText = evt.result.replace(/\[PIPELINE:[^\]]*\]/g, '').trim();
-                if (planText.length > 50) {
-                  useTaskStore.getState().updateTask(taskId, {
-                    pipeline: { ...task.pipeline, devPlan: planText },
-                  });
-                }
-              }
-              (window as unknown as Record<string, boolean>).__cortx_save_devplan = false;
             }
             // Track token usage per active pipeline phase
             if (evt.usage) {

@@ -131,9 +131,12 @@ Context Pack에서 제공된 스펙을 확인합니다.
 계획대로 진행할까요? (y/수정사항)
 \`\`\`
 
-### Step 1.5: 브랜치 생성
+**사용자가 "y" 또는 승인하면 반드시 아래 마커를 출력한 뒤 다음 단계로 진행합니다:**
 
 [PIPELINE:dev_plan:done]
+
+### Step 1.5: 브랜치 생성
+
 [PIPELINE:implement:in_progress]
 
 \`\`\`bash
