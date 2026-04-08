@@ -172,22 +172,17 @@ git checkout -b feat/{TASK_ID} origin/develop
 [PIPELINE:implement:done]
 [PIPELINE:commit_pr:in_progress]
 
-**커밋**: \`{type}({scope}): {제목}\` (명령형, 한국어, 50자 이내)
+**⚠️ 중요: 커밋, push, PR 생성을 자동으로 하지 않습니다.**
 
-\`\`\`bash
-git add {변경 파일들}
-git commit -m "{type}({scope}): {제목}
+**4-1. 커밋 확인**
+구현이 완료되면 변경 파일 목록을 보여주고 사용자에게 물어봅니다:
+"커밋해도 될까요?"
+사용자가 승인하면 \`/git:commit\` 스킬 기반으로 커밋 + push를 진행합니다.
 
-{body}
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
-git push -u origin $(git branch --show-current)
-\`\`\`
-
-**PR 생성**:
-\`\`\`bash
-gh pr create --base develop --title "{type}({scope}): {제목}" --body "..." --assignee @me
-\`\`\`
+**4-2. PR 생성 확인**
+커밋 + push가 완료되면 사용자에게 물어봅니다:
+"PR을 생성할까요?"
+사용자가 승인하면 \`/git:pr\` 스킬 기반으로 PR을 생성합니다.
 
 PR 생성 후: [PIPELINE:commit_pr:done:PR #{번호}]
 PR 번호/URL 캡처: [PIPELINE:pr:{번호}:{URL}]
@@ -195,9 +190,8 @@ PR 번호/URL 캡처: [PIPELINE:pr:{번호}:{URL}]
 ### Step 5: 완료 안내
 
 \`\`\`
-✅ 구현 & PR 생성 완료
+✅ 구현 완료
 
-🔗 PR: {PR URL}
 👉 Copilot 리뷰가 달리면: /pipeline:dev-review-loop
 \`\`\`
 `,
