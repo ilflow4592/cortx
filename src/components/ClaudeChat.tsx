@@ -280,9 +280,9 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           ...(memo ? { memo } : {}),
         };
         const updates: Partial<PipelineState> = { ...task.pipeline, phases };
-        // Save dev plan content when dev_plan phase completes
+        // Flag dev plan save for next result event
         if (phase === 'dev_plan' && status === 'done') {
-          updates.devPlan = cleaned.replace(/\[PIPELINE:[^\]]*\]/g, '').trim();
+          (window as unknown as Record<string, boolean>).__cortx_save_devplan = true;
         }
         useTaskStore.getState().updateTask(taskId, { pipeline: updates });
 
@@ -410,6 +410,19 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                   return [...filtered, { id: resultId, role: 'assistant', content: response }];
                 });
               }
+            }
+            // Save dev plan if flagged
+            if ((window as unknown as Record<string, boolean>).__cortx_save_devplan && evt.result) {
+              const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+              if (task?.pipeline) {
+                const planText = evt.result.replace(/\[PIPELINE:[^\]]*\]/g, '').trim();
+                if (planText.length > 50) {
+                  useTaskStore.getState().updateTask(taskId, {
+                    pipeline: { ...task.pipeline, devPlan: planText },
+                  });
+                }
+              }
+              (window as unknown as Record<string, boolean>).__cortx_save_devplan = false;
             }
             // Track token usage per active pipeline phase
             if (evt.usage) {
