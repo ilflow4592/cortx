@@ -37,11 +37,11 @@ const PHASE_NAMES: Record<PipelinePhase, string> = {
 };
 
 function sendNotification(title: string, body: string) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body });
-  } else if ('Notification' in window && Notification.permission !== 'denied') {
-    Notification.requestPermission().then((p) => { if (p === 'granted') new Notification(title, { body }); });
-  }
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body });
+    }
+  } catch { /* ignore */ }
 }
 
 function serializeContextItems(items: ContextItem[]): string {
@@ -353,12 +353,28 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         sendNotification('Cortx Pipeline', 'Dev Plan completed — starting implementation');
       }
 
-      // implement in_progress + user approves commit → implement done + commit_pr in_progress
-      if (phases.implement?.status === 'in_progress' && (text.toLowerCase().includes('커밋') || text.toLowerCase().includes('commit')) && isApproval) {
-        const now = new Date().toISOString();
-        phases.implement = { ...phases.implement, status: 'done', completedAt: now };
-        phases.commit_pr = { ...phases.commit_pr, status: 'in_progress', startedAt: now };
-        useTaskStore.getState().updateTask(taskId, { pipeline: { ...task.pipeline, phases } });
+      // implement done (waiting for commit approval) + user approves → commit_pr in_progress
+      if (phases.implement?.status === 'in_progress' && isApproval) {
+        // Check if Claude asked for commit approval (implement is done, waiting for user)
+        const lastAssistant = messagesRef.current.filter((m) => m.role === 'assistant').pop();
+        if (lastAssistant?.content.includes('커밋') || lastAssistant?.content.includes('commit')) {
+          const now = new Date().toISOString();
+          phases.implement = { ...phases.implement, status: 'done', completedAt: now };
+          phases.commit_pr = { ...phases.commit_pr, status: 'in_progress', startedAt: now };
+          useTaskStore.getState().updateTask(taskId, { pipeline: { ...task.pipeline, phases } });
+          sendNotification('Cortx Pipeline', 'Implementation completed — committing');
+        }
+      }
+
+      // commit_pr in_progress + user approves PR → commit_pr done
+      if (phases.commit_pr?.status === 'in_progress' && isApproval) {
+        const lastAssistant = messagesRef.current.filter((m) => m.role === 'assistant').pop();
+        if (lastAssistant?.content.includes('PR') || lastAssistant?.content.includes('pr')) {
+          const now = new Date().toISOString();
+          phases.commit_pr = { ...phases.commit_pr, status: 'done', completedAt: now };
+          useTaskStore.getState().updateTask(taskId, { pipeline: { ...task.pipeline, phases } });
+          sendNotification('Cortx Pipeline', 'PR created');
+        }
       }
     }
 
@@ -540,11 +556,13 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
           '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
           '',
-          '## CORTX_RULES',
-          '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
-          '- NEVER run git commit, git push, or create PR without explicit user approval.',
-          '- When implementation is complete, ask "커밋하시겠습니까?" and wait for user response before committing.',
-          '- After commit+push, ask "PR을 생성할까요?" and wait for user response before creating PR.',
+          '## CORTX_RULES (MUST FOLLOW)',
+          '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json.',
+          '- Do NOT search for dev-plan.md files. Obsidian is not used.',
+          '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
+          '- NEVER run git commit, git push, or gh pr create without asking the user first.',
+          '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
+          '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
           '- 한국어로만 대화합니다.',
         ].join('\n');
       }

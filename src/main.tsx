@@ -39,6 +39,11 @@ new MutationObserver((mutations) => {
 }).observe(document.body, { childList: true, subtree: true });
 document.querySelectorAll('input, textarea').forEach(disableAutocomplete);
 
+// Request notification permission on app start
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission().catch(() => {});
+}
+
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <App />
