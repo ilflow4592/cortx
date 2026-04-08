@@ -249,14 +249,14 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                         )}
                         {phase === 'dev_plan' && pipeline.devPlan && (
                           <button
-                            onClick={() => {
-                              const blob = new Blob([pipeline.devPlan!], { type: 'text/markdown' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `dev-plan-${task.branchName || 'task'}.md`;
-                              a.click();
-                              URL.revokeObjectURL(url);
+                            onClick={async () => {
+                              const fileName = `dev-plan-${task.branchName || 'task'}.md`;
+                              const filePath = `~/Downloads/${fileName}`;
+                              const b64 = btoa(unescape(encodeURIComponent(pipeline.devPlan!)));
+                              await invoke('run_shell_command', {
+                                cwd: '/',
+                                command: `echo '${b64}' | base64 -d > ${filePath} && open -R ${filePath}`,
+                              }).catch(() => {});
                             }}
                             title="Download dev-plan.md"
                             style={{ background: 'none', border: 'none', color: '#5aa5a5', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
