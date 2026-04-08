@@ -185,10 +185,16 @@ git checkout -b feat/{TASK_ID} origin/develop
 
 ⚠️ 항목은 자동 수정 후 재검증 (최대 2회).
 
-### Step 3: 테스트 코드 작성
+### Step 3: 테스트 실행 및 통과
 
-기존 테스트 패턴과 동일 스타일. \`@DisplayName\`으로 한국어 테스트명.
-\`./gradlew :{module}:test --tests "{TestClass}"\`
+**반드시 테스트를 실행하고, 전체 통과할 때까지 반복합니다.**
+
+1. 기존 테스트 패턴과 동일 스타일로 테스트 코드 작성/수정
+2. \`@DisplayName\`으로 한국어 테스트명 작성
+3. 테스트 실행: \`./gradlew :{module}:test --tests "{TestClass}"\`
+4. **실패하면 코드를 수정하고 다시 실행. 모든 테스트가 통과할 때까지 반복합니다.**
+5. 관련 모듈 전체 테스트도 실행하여 기존 테스트가 깨지지 않았는지 확인: \`./gradlew :{module}:test\`
+6. **테스트가 전부 통과한 후에만 Step 4로 진행합니다.** 테스트를 건너뛰지 마세요.
 
 ### Step 4: 커밋 & PR 생성
 

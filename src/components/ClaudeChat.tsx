@@ -563,6 +563,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           '- NEVER run git commit, git push, or gh pr create without asking the user first.',
           '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
           '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
+          '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
           '- 한국어로만 대화합니다.',
         ].join('\n');
       }
