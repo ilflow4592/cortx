@@ -330,6 +330,38 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
+    // Auto-transition pipeline phases based on user input
+    const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+    if (task?.pipeline?.enabled) {
+      const phases = { ...task.pipeline.phases };
+      const approvalWords = ['y', 'ㅇ', 'ㅇㅇ', '진행', '진행해', '진행해줘', 'yes', 'ok', '네', '응', '좋아', 'go'];
+      const isApproval = approvalWords.includes(text.toLowerCase());
+
+      // dev_plan in_progress + user approves → dev_plan done + implement in_progress
+      if (phases.dev_plan?.status === 'in_progress' && isApproval) {
+        const now = new Date().toISOString();
+        phases.dev_plan = { ...phases.dev_plan, status: 'done', completedAt: now };
+        phases.implement = { ...phases.implement, status: 'in_progress', startedAt: now };
+        // Save dev plan from messages
+        const planMessages = messagesRef.current
+          .filter((m) => m.role === 'assistant')
+          .map((m) => m.content)
+          .join('\n\n---\n\n');
+        useTaskStore.getState().updateTask(taskId, {
+          pipeline: { ...task.pipeline, phases, devPlan: planMessages.length > 50 ? planMessages : task.pipeline.devPlan },
+        });
+        sendNotification('Cortx Pipeline', 'Dev Plan completed — starting implementation');
+      }
+
+      // implement in_progress + user approves commit → implement done + commit_pr in_progress
+      if (phases.implement?.status === 'in_progress' && (text.toLowerCase().includes('커밋') || text.toLowerCase().includes('commit')) && isApproval) {
+        const now = new Date().toISOString();
+        phases.implement = { ...phases.implement, status: 'done', completedAt: now };
+        phases.commit_pr = { ...phases.commit_pr, status: 'in_progress', startedAt: now };
+        useTaskStore.getState().updateTask(taskId, { pipeline: { ...task.pipeline, phases } });
+      }
+    }
+
     // On resume: auto-fill pipeline args but skip skill resolution
     // On first message: full skill resolution
     let resolvedText: string;
