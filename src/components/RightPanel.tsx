@@ -116,7 +116,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                 }}>
                 {[
                   { label: 'IntelliJ IDEA', icon: <Braces size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open -a "IntelliJ IDEA" "${cwd}"` },
-                  { label: 'VS Code', icon: <Code2 size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open -a "Visual Studio Code" "${cwd}"` },
+                  { label: 'VS Code', icon: <Code2 size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `code "${cwd}"` },
                   { label: 'Finder', icon: <FolderOpen size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open "${cwd}"` },
                   { label: 'Terminal', icon: <TerminalSquare size={14} color="#5aa5a5" strokeWidth={1.5} />, cmd: `open -a Terminal "${cwd}"` },
                 ].map((item) => (
