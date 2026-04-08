@@ -96,12 +96,13 @@ Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및
 
 ## Execution
 
-### Step 0: 컨텍스트 로딩
+### Step 0: 컨텍스트 확인
 
 [PIPELINE:dev_plan:in_progress]
 
-Context Pack에서 제공된 스펙을 확인합니다.
-도메인 태스크인 경우 \`.ai/docs/domain-rules/kr/domain-kr.md\`를 참조합니다.
+**이전 대화(Grill-me)에서 이미 스펙과 코드 구조를 파악했으므로 다시 탐색하지 마세요.**
+이전 대화의 컨텍스트를 그대로 활용하여 개발 계획을 수립합니다.
+dev-plan.md 파일을 찾지 마세요 — Cortx 앱에서는 Obsidian을 사용하지 않습니다.
 
 ### Step 1: 개발 계획 수립
 
