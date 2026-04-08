@@ -5,13 +5,17 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
+/// A single PTY session holding the master side and its writer handle.
 pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
 }
 
+/// Manages multiple PTY sessions (terminal shells) and Claude CLI processes.
+/// Each session is keyed by a task ID so the frontend can multiplex terminals.
 pub struct PtyManager {
     sessions: HashMap<String, PtySession>,
+    /// Tracks Claude CLI process IDs for graceful termination via `stop_claude`.
     claude_pids: HashMap<String, Arc<Mutex<Option<u32>>>>,
 }
 
@@ -20,10 +24,13 @@ impl PtyManager {
         Self { sessions: HashMap::new(), claude_pids: HashMap::new() }
     }
 
+    /// Returns true if a PTY session exists for the given task ID.
     pub fn has_session(&self, id: &str) -> bool {
         self.sessions.contains_key(id)
     }
 
+    /// Spawn an interactive zsh shell for the given task.
+    /// Emits `pty-data-{id}` events with stdout chunks and `pty-exit-{id}` on termination.
     pub fn spawn(&mut self, id: &str, cwd: &str, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
@@ -65,6 +72,10 @@ impl PtyManager {
         Ok(())
     }
 
+    /// Spawn a Claude CLI process for the given task.
+    /// Writes the prompt to a secure temp file, builds the CLI command with flags
+    /// (model, permission mode, resume, context), and streams JSON output via
+    /// `claude-data-{id}` events. Emits `claude-done-{id}` when the process exits.
     pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, session_id: Option<&str>, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
@@ -82,14 +93,15 @@ impl PtyManager {
 
         thread::spawn(move || {
             // Write message to temp file (avoids shell escape issues with long prompts)
+            // Uses 0o600 permissions so only the current user can read/write
             let msg_path = format!("/tmp/cortx-msg-{}.md", event_id);
-            let _ = std::fs::write(&msg_path, &msg_owned);
+            let _ = write_secure_temp(&msg_path, &msg_owned);
 
             // Write context summary to temp file if present
             let tmp_path = format!("/tmp/cortx-ctx-{}.md", event_id);
             let has_summary = !summary_owned.is_empty();
             if has_summary {
-                let _ = std::fs::write(&tmp_path, &summary_owned);
+                let _ = write_secure_temp(&tmp_path, &summary_owned);
             }
 
             // Build claude command — read message from temp file via stdin, stream JSON output
@@ -232,6 +244,7 @@ impl PtyManager {
         Ok(())
     }
 
+    /// Write raw data to the PTY session's stdin (used for terminal input).
     pub fn write(&mut self, id: &str, data: &str) -> Result<(), String> {
         let session = self.sessions.get_mut(id).ok_or("No PTY session")?;
         session.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
@@ -239,6 +252,7 @@ impl PtyManager {
         Ok(())
     }
 
+    /// Resize the PTY to match the frontend terminal dimensions.
     pub fn resize(&mut self, id: &str, rows: u16, cols: u16) -> Result<(), String> {
         let session = self.sessions.get(id).ok_or("No PTY session")?;
         session.master
@@ -246,10 +260,13 @@ impl PtyManager {
             .map_err(|e| e.to_string())
     }
 
+    /// Close and remove a PTY session, dropping the master handle.
     pub fn close(&mut self, id: &str) {
         self.sessions.remove(id);
     }
 
+    /// Terminate a running Claude CLI process by sending SIGTERM to its process group
+    /// and the process itself. Removes the PID entry from tracking.
     pub fn stop_claude(&mut self, id: &str) -> Result<(), String> {
         if let Some(pid_holder) = self.claude_pids.remove(id) {
             if let Ok(lock) = pid_holder.lock() {
@@ -270,8 +287,24 @@ impl PtyManager {
     }
 }
 
+/// Escape a string for safe use inside single quotes in a shell command.
 fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
+/// Write content to a file with restricted permissions (owner read/write only).
+/// Prevents other users on the system from reading potentially sensitive context.
+fn write_secure_temp(path: &str, content: &str) -> std::io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    file.write_all(content.as_bytes())?;
+    Ok(())
+}
+
+/// Thread-safe handle to the PTY manager, shared across Tauri command handlers.
 pub type SharedPtyManager = Arc<Mutex<PtyManager>>;

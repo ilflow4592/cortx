@@ -1,6 +1,23 @@
+/**
+ * @module contextCollectors/notion
+ * Notion 페이지/데이터베이스 수집기.
+ * 키워드 검색 + 지정 데이터베이스 쿼리로 관련 문서를 수집한다.
+ * AI 기반 관련성 필터링을 통해 불필요한 결과를 제거한 후,
+ * 관련 페이지의 본문 콘텐츠(블록)까지 가져온다.
+ */
+
 import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 
+/**
+ * Notion에서 태스크 관련 컨텍스트를 수집한다.
+ * 1) 키워드 기반 전체 검색
+ * 2) 설정된 데이터베이스에서 키워드 매칭
+ * 3) AI 관련성 필터링 후 본문 콘텐츠 로드
+ * @param config - Notion API 토큰 및 데이터베이스 ID
+ * @param keywords - 검색 키워드 (최대 3개 사용)
+ * @param taskTitle - AI 필터링에 사용할 태스크 제목
+ */
 export async function collectNotion(
   config: ContextSourceConfig,
   keywords: string[],
@@ -59,7 +76,7 @@ export async function collectNotion(
     }
   }
 
-  // 2. If database ID is configured, query it
+  // 2. 설정된 Notion 데이터베이스에서 키워드와 매칭되는 항목 추가 수집
   if (config.notionDatabaseId) {
     try {
       const resp = await fetch(
@@ -104,8 +121,10 @@ export async function collectNotion(
     }
   }
 
-  // AI relevance filter — remove unrelated results before fetching full content
+  // AI 관련성 필터링 — 본문을 가져오기 전에 불필요한 결과를 제거 (API 호출 최소화)
   if (taskTitle && items.length > 2) {
+    // Claude Haiku를 사용하여 빠르고 저렴하게 필터링
+    // 프롬프트를 base64로 인코딩하여 shell injection 방지
     const callAI = async (prompt: string): Promise<string> => {
       try {
         const tmpFile = `/tmp/cortx-notion-filter-${Date.now()}.txt`;
@@ -135,6 +154,13 @@ export async function collectNotion(
   return items;
 }
 
+/**
+ * Notion 페이지의 블록(본문) 콘텐츠를 텍스트로 추출한다.
+ * rich_text, child_page, child_database 블록을 처리한다.
+ * @param pageId - Notion 페이지 ID
+ * @param headers - Authorization 헤더 포함
+ * @returns 페이지 본문 텍스트 (줄바꿈으로 구분)
+ */
 async function fetchNotionPageContent(pageId: string, headers: Record<string, string>): Promise<string> {
   try {
     const resp = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
@@ -164,7 +190,14 @@ async function fetchNotionPageContent(pageId: string, headers: Record<string, st
   }
 }
 
-// AI relevance filter — remove unrelated results
+/**
+ * AI를 사용하여 Notion 검색 결과의 태스크 관련성을 판별한다.
+ * 2개 이하면 필터링 없이 반환. AI 실패 시 전체 반환 (graceful degradation).
+ * @param items - 필터링할 Notion 아이템
+ * @param taskTitle - 관련성 판단 기준이 되는 태스크 제목
+ * @param callAI - AI 호출 함수 (외부에서 주입)
+ * @returns 관련성이 있는 아이템만 필터링된 목록
+ */
 export async function filterNotionByRelevance(
   items: ContextItem[],
   taskTitle: string,
@@ -203,6 +236,7 @@ Be very selective — only include items that are clearly about this specific ta
   }
 }
 
+/** Notion 객체의 properties에서 title 타입 필드를 찾아 텍스트를 추출한다 */
 function extractNotionTitle(obj: Record<string, unknown>): string {
   const props = obj.properties as Record<string, { title?: { plain_text: string }[]; type?: string }> | undefined;
   if (!props) return '';
@@ -215,6 +249,7 @@ function extractNotionTitle(obj: Record<string, unknown>): string {
   return '';
 }
 
+/** ISO 타임스탬프를 상대 시간 문자열로 변환 (e.g., "3h ago") */
 function formatRelativeTime(iso: string): string {
   if (!iso) return 'unknown';
   const diff = Date.now() - new Date(iso).getTime();

@@ -7,6 +7,7 @@ use std::net::TcpListener;
 use serde::{Deserialize, Serialize};
 use pty::{PtyManager, SharedPtyManager};
 
+/// Result of a shell/git command execution, returned to the frontend.
 #[derive(Serialize, Deserialize)]
 pub struct CommandResult {
     pub success: bool,
@@ -16,6 +17,8 @@ pub struct CommandResult {
 
 // ── Git worktree commands ──
 
+/// Create a new git worktree with an associated branch.
+/// If `base_branch` is provided, the new branch is based on it; otherwise uses HEAD.
 #[tauri::command]
 fn create_worktree(repo_path: String, worktree_path: String, branch_name: String, base_branch: Option<String>) -> CommandResult {
     let base = base_branch.unwrap_or_default();
@@ -28,19 +31,21 @@ fn create_worktree(repo_path: String, worktree_path: String, branch_name: String
     }
 }
 
+/// Force-remove a git worktree directory.
 #[tauri::command]
 fn remove_worktree(repo_path: String, worktree_path: String) -> CommandResult {
     run_git(&repo_path, &["worktree", "remove", &worktree_path, "--force"])
 }
 
+/// List all worktrees in porcelain format for machine parsing.
 #[tauri::command]
 fn list_worktrees(repo_path: String) -> CommandResult {
     run_git(&repo_path, &["worktree", "list", "--porcelain"])
 }
 
+/// Get a summarized diff (--stat) between the current HEAD and its merge-base with main.
 #[tauri::command]
 fn git_diff(repo_path: String, branch_name: String) -> CommandResult {
-    // diff between current branch and its merge-base with main
     let base_result = Command::new("git")
         .args(["merge-base", "HEAD", "main"])
         .current_dir(&repo_path)
@@ -56,6 +61,7 @@ fn git_diff(repo_path: String, branch_name: String) -> CommandResult {
     run_git(&repo_path, &["diff", "--stat", &base, "HEAD"])
 }
 
+/// Get the full unified diff between the current HEAD and its merge-base with main.
 #[tauri::command]
 fn git_diff_full(repo_path: String) -> CommandResult {
     let base_result = Command::new("git")
@@ -73,16 +79,19 @@ fn git_diff_full(repo_path: String) -> CommandResult {
     run_git(&repo_path, &["diff", &base, "HEAD"])
 }
 
+/// Get the diff of staged (cached) changes only.
 #[tauri::command]
 fn git_diff_staged(repo_path: String) -> CommandResult {
     run_git(&repo_path, &["diff", "--cached"])
 }
 
+/// Get the diff of unstaged working directory changes only.
 #[tauri::command]
 fn git_diff_unstaged(repo_path: String) -> CommandResult {
     run_git(&repo_path, &["diff"])
 }
 
+/// Metadata extracted from a URL for link preview cards.
 #[derive(Serialize, Deserialize)]
 pub struct LinkPreview {
     pub url: String,
@@ -91,6 +100,8 @@ pub struct LinkPreview {
     pub success: bool,
 }
 
+/// Fetch a URL via curl and extract OpenGraph/meta title and description
+/// for rendering link preview cards in the UI. Times out after 5 seconds.
 #[tauri::command]
 fn fetch_link_preview(url: String) -> LinkPreview {
     let result = Command::new("curl")
@@ -112,6 +123,7 @@ fn fetch_link_preview(url: String) -> LinkPreview {
     }
 }
 
+/// Extract text content between HTML tags (e.g., <title>...</title>).
 fn extract_meta(html: &str, start_tag: &str, end_tag: &str) -> Option<String> {
     let lower = html.to_lowercase();
     let start = lower.find(&start_tag.to_lowercase())? + start_tag.len();
@@ -119,6 +131,7 @@ fn extract_meta(html: &str, start_tag: &str, end_tag: &str) -> Option<String> {
     Some(html[start..end].trim().to_string())
 }
 
+/// Extract the `content` attribute from a <meta> tag matching the given property/name.
 fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
     let lower = html.to_lowercase();
     // Look for <meta property="og:title" content="..."> or <meta name="description" content="...">
@@ -140,12 +153,17 @@ fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Configuration loaded from a project's cortx.yaml/cortx.yml file.
 #[derive(Serialize, Deserialize)]
 pub struct CortxConfig {
+    /// Shell commands to run during project setup.
     pub setup: Vec<String>,
+    /// Shell commands to run when archiving/cleaning up a task.
     pub archive: Vec<String>,
 }
 
+/// Read and parse the project's cortx.yaml (or cortx.yml) configuration file.
+/// Returns an empty config if no file exists.
 #[tauri::command]
 fn read_cortx_yaml(repo_path: String) -> Result<CortxConfig, String> {
     let path = std::path::Path::new(&repo_path).join("cortx.yaml");
@@ -161,8 +179,8 @@ fn read_cortx_yaml(repo_path: String) -> Result<CortxConfig, String> {
     parse_cortx_yaml(&content)
 }
 
+/// Simple line-based YAML parser for the cortx.yaml format (setup/archive sections only).
 fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
-    // Simple YAML parser for our specific format
     let mut setup = vec![];
     let mut archive = vec![];
     let mut current_section = "";
@@ -183,6 +201,8 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
     Ok(CortxConfig { setup, archive })
 }
 
+/// Execute a list of shell scripts sequentially in the given working directory.
+/// Used to run project setup commands from cortx.yaml.
 #[tauri::command]
 fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
     scripts.iter().map(|script| {
@@ -199,6 +219,7 @@ fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
 
 // ── OAuth callback server ──
 
+/// Result from the local OAuth callback server after receiving the redirect.
 #[derive(Serialize, Deserialize)]
 pub struct OAuthCallbackResult {
     pub code: String,
@@ -207,9 +228,11 @@ pub struct OAuthCallbackResult {
     pub error: String,
 }
 
+/// Start a local TCP server on the given port to receive the OAuth callback redirect.
+/// Blocks (on a background thread) until either a callback is received or 5 minutes elapse.
+/// Returns the authorization code and state from the callback query parameters.
 #[tauri::command]
 async fn start_oauth_callback_server(port: u16) -> OAuthCallbackResult {
-    // Run blocking TCP server on a separate thread
     tauri::async_runtime::spawn_blocking(move || {
         oauth_callback_listen(port)
     }).await.unwrap_or_else(|e| OAuthCallbackResult {
@@ -218,6 +241,7 @@ async fn start_oauth_callback_server(port: u16) -> OAuthCallbackResult {
     })
 }
 
+/// Internal: blocking TCP listener that waits for the OAuth callback GET request.
 fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
     let addr = format!("127.0.0.1:{}", port);
     let listener = match TcpListener::bind(&addr) {
@@ -310,6 +334,8 @@ fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
     } // end loop
 }
 
+/// Simple percent-decoding for URL query parameter values.
+/// Handles %XX hex sequences and '+' as space.
 fn urlencoding_decode(s: &str) -> String {
     let mut result = String::new();
     let mut chars = s.bytes();
@@ -330,16 +356,20 @@ fn urlencoding_decode(s: &str) -> String {
     result
 }
 
+/// Information about a configured MCP (Model Context Protocol) server.
 #[derive(Serialize, Deserialize)]
 pub struct McpServerInfo {
     pub name: String,
     pub command: String,
     pub args: Vec<String>,
     pub env: std::collections::HashMap<String, String>,
-    pub server_type: String, // "stdio" or "http"
-    pub url: String,         // for http type
+    /// Transport type: "stdio" for local processes, "http" for remote servers.
+    pub server_type: String,
+    /// URL for HTTP-type MCP servers (empty for stdio).
+    pub url: String,
 }
 
+/// Extract environment variables from an MCP server config JSON object.
 fn parse_mcp_env(config: &serde_json::Value) -> std::collections::HashMap<String, String> {
     let mut env = std::collections::HashMap::new();
     if let Some(env_obj) = config.get("env").and_then(|v| v.as_object()) {
@@ -352,6 +382,8 @@ fn parse_mcp_env(config: &serde_json::Value) -> std::collections::HashMap<String
     env
 }
 
+/// Discover MCP servers from ~/.claude.json and ~/.claude/settings.json.
+/// Returns server configs for the frontend to display connection status.
 #[tauri::command]
 fn list_mcp_servers() -> Vec<McpServerInfo> {
     let mut servers = vec![];
@@ -402,9 +434,10 @@ fn list_mcp_servers() -> Vec<McpServerInfo> {
     servers
 }
 
+/// Execute an arbitrary shell command via `zsh -l -c` in a background thread.
+/// Returns stdout, stderr, and success status. Used for git operations and file I/O.
 #[tauri::command]
 async fn run_shell_command(cwd: String, command: String) -> CommandResult {
-    // Run in background thread to avoid blocking the UI
     tauri::async_runtime::spawn_blocking(move || {
         match Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
             .env("TERM", "dumb")
@@ -419,6 +452,7 @@ async fn run_shell_command(cwd: String, command: String) -> CommandResult {
     }).await.unwrap_or_else(|e| CommandResult { success: false, output: String::new(), error: e.to_string() })
 }
 
+/// Helper: run a git command with the given arguments in the specified directory.
 fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
     match Command::new("git").args(args).current_dir(cwd).output() {
         Ok(out) => CommandResult {
@@ -432,18 +466,21 @@ fn run_git(cwd: &str, args: &[&str]) -> CommandResult {
 
 // ── Claude Code CLI ──
 
+/// Spawn a new Claude CLI process for the given task, passing prompt and context.
 #[tauri::command]
 fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, context_summary: Option<String>, allow_all_tools: Option<bool>, session_id: Option<String>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), context_summary.as_deref().unwrap_or(""), allow_all_tools.unwrap_or(false), session_id.as_deref(), &app)
 }
 
+/// Send SIGTERM to stop a running Claude CLI process.
 #[tauri::command]
 fn claude_stop(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.stop_claude(&id)
 }
 
+/// Send a follow-up message to an existing Claude CLI session via its PTY.
 #[tauri::command]
 fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
@@ -453,13 +490,17 @@ fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyMan
     mgr.write(&id, &format!("{}\n", message))
 }
 
+/// A slash command entry for the autocomplete menu in the chat UI.
 #[derive(Serialize, Deserialize)]
 pub struct SlashCommand {
     pub name: String,
     pub description: String,
-    pub source: String, // "builtin", "user", "project"
+    /// Origin of the command: "builtin", "user" (~/.claude/commands/), or "project" (.claude/commands/).
+    pub source: String,
 }
 
+/// List all available slash commands: built-in Claude commands + user/project custom commands.
+/// Scans ~/.claude/commands/ and <project>/.claude/commands/ recursively for .md files.
 #[tauri::command]
 fn list_slash_commands(project_cwd: Option<String>) -> Vec<SlashCommand> {
     let mut commands = vec![
@@ -499,6 +540,8 @@ fn list_slash_commands(project_cwd: Option<String>) -> Vec<SlashCommand> {
     commands
 }
 
+/// Recursively scan a directory for .md command files, building names from relative paths
+/// (e.g., pipeline/dev-task.md → "pipeline:dev-task").
 fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source: &str, commands: &mut Vec<SlashCommand>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
@@ -539,24 +582,28 @@ fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source
 
 // ── PTY commands ──
 
+/// Spawn an interactive terminal shell (zsh) for the given task ID.
 #[tauri::command]
 fn pty_spawn(id: String, cwd: String, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.spawn(&id, &cwd, &app)
 }
 
+/// Write keystrokes/data to a terminal PTY session.
 #[tauri::command]
 fn pty_write(id: String, data: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.write(&id, &data)
 }
 
+/// Resize a terminal PTY to match the frontend terminal panel dimensions.
 #[tauri::command]
 fn pty_resize(id: String, rows: u16, cols: u16, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.resize(&id, rows, cols)
 }
 
+/// Close a terminal PTY session, releasing its resources.
 #[tauri::command]
 fn pty_close(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;

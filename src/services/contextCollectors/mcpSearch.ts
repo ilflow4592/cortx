@@ -1,15 +1,29 @@
+/**
+ * @module contextCollectors/mcpSearch
+ * MCP(Model Context Protocol) 기반 컨텍스트 수집기.
+ * GitHub는 gh CLI로 직접 수집하고 (빠르고 토큰 불필요),
+ * Notion/Slack은 Claude CLI + MCP 서버를 통해 수집한다 (AI가 MCP 도구를 호출).
+ *
+ * GitHub: gh CLI -> JSON 파싱 (토큰 소모 없음)
+ * Notion/Slack: Claude CLI -> MCP 서버 -> JSON 파싱 (토큰 소모 있음)
+ */
+
 import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceType } from '../../types/contextPack';
 
-/**
- * Search GitHub using gh CLI directly (fast, no token/API usage).
- * Falls back to Claude CLI + MCP only for Notion/Slack.
- */
+/** MCP 수집 결과 — 아이템 목록 + 토큰 사용량 (Claude CLI 경유 시) */
 export interface McpCollectResult {
   items: ContextItem[];
   tokenUsage?: { input: number; output: number };
 }
 
+/**
+ * 서비스 타입에 따라 적절한 수집 방법을 선택하여 컨텍스트를 수집한다.
+ * @param serviceType - 수집 대상 서비스
+ * @param keywords - 검색 키워드
+ * @param cwd - 현재 작업 디렉토리 (미사용, 향후 확장용)
+ * @param extra - GitHub owner/repo, Claude CLI 모델 등 추가 옵션
+ */
 export async function collectViaMcp(
   serviceType: 'github' | 'notion' | 'slack',
   keywords: string[],
@@ -26,8 +40,9 @@ export async function collectViaMcp(
   return collectViaClaudeCli(serviceType, keywords, extra?.model);
 }
 
-// ── GitHub: gh CLI (instant, no tokens) ──
+// ── GitHub: gh CLI (즉시 실행, 토큰 소모 없음) ──
 
+/** Tauri 백엔드를 통해 shell 명령어를 실행한다 */
 async function runShell(command: string): Promise<{ success: boolean; output: string; error: string }> {
   return invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
     cwd: '/',
@@ -35,6 +50,7 @@ async function runShell(command: string): Promise<{ success: boolean; output: st
   });
 }
 
+/** gh CLI의 search 명령어로 PR과 Issue를 병렬 검색한다 (키워드당 최대 5개) */
 async function collectGitHubViaCli(
   keywords: string[],
   owner?: string,
@@ -79,8 +95,13 @@ async function collectGitHubViaCli(
   return items;
 }
 
-// ── Notion/Slack: Claude CLI + MCP (uses API tokens but necessary) ──
+// ── Notion/Slack: Claude CLI + MCP (AI가 MCP 도구를 호출하여 검색) ──
 
+/**
+ * Claude CLI를 통해 Notion/Slack MCP 서버에 검색을 요청한다.
+ * Claude가 MCP 도구를 호출하고, 결과를 JSON 배열로 반환하도록 프롬프트한다.
+ * 토큰 사용량을 stderr에서 추출하여 함께 반환.
+ */
 async function collectViaClaudeCli(
   serviceType: 'notion' | 'slack',
   keywords: string[],
@@ -106,14 +127,13 @@ async function collectViaClaudeCli(
     const output = result.output.trim();
     const stderr = result.error || '';
 
-    // Parse token usage from stderr (Claude CLI outputs usage info)
+    // 토큰 사용량 추정 (정확한 값이 없으면 ~4chars/token으로 추정)
     let tokenUsage: { input: number; output: number } | undefined;
-    // Estimate tokens from prompt/response length (~4 chars per token)
     const inputTokens = Math.ceil(prompt.length / 4);
     const outputTokens = Math.ceil(output.length / 4);
     tokenUsage = { input: inputTokens, output: outputTokens };
 
-    // Try to parse actual usage from stderr if available
+    // stderr에서 실제 사용량을 파싱할 수 있으면 추정값을 덮어씀
     const usageMatch = stderr.match(/input[:\s]+(\d+).*output[:\s]+(\d+)/i);
     if (usageMatch) {
       tokenUsage = { input: parseInt(usageMatch[1]), output: parseInt(usageMatch[2]) };
@@ -161,6 +181,7 @@ async function collectViaClaudeCli(
   }
 }
 
+/** Shell injection 방지를 위한 single-quote 이스케이프 */
 function shellEscape(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }

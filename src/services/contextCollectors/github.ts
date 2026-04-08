@@ -1,6 +1,21 @@
+/**
+ * @module contextCollectors/github
+ * GitHub 컨텍스트 수집기.
+ * Issues, PRs, commits, review comments를 키워드/브랜치 기반으로 수집한다.
+ * GitHub API 토큰이 있으면 REST API를 직접 호출하고,
+ * 없으면 gh CLI를 통해 인증된 요청을 보낸다 (fallback).
+ */
+
 import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 
+/**
+ * GitHub에서 태스크 관련 컨텍스트를 수집한다.
+ * @param config - GitHub owner/repo 및 API 토큰 설정
+ * @param keywords - 검색 키워드 (태스크에서 추출)
+ * @param branchName - 현재 작업 브랜치 (관련 PR/commit 검색에 사용)
+ * @returns 수집된 GitHub 아이템 (issues, PRs, commits, review comments)
+ */
 export async function collectGitHub(
   config: ContextSourceConfig,
   keywords: string[],
@@ -21,8 +36,9 @@ export async function collectGitHub(
   return collectWithGhCli(config.owner, config.repo, keywords, branchName);
 }
 
-// ── Direct GitHub API (with token) ──
+// ── Direct GitHub REST API (토큰 있을 때) ──
 
+/** GitHub REST API를 직접 호출하여 issues, commits, PR reviews를 수집 */
 async function collectWithToken(
   config: ContextSourceConfig,
   keywords: string[],
@@ -35,7 +51,7 @@ async function collectWithToken(
 
   const items: ContextItem[] = [];
 
-  // 1. Search issues/PRs by keywords + branch
+  // 1. 키워드 + 브랜치명으로 issues/PRs 검색 (최대 3개 쿼리)
   const queries = [
     ...keywords.map((k) => `${k} repo:${config.owner}/${config.repo}`),
     branchName ? `${branchName} repo:${config.owner}/${config.repo}` : '',
@@ -74,7 +90,7 @@ async function collectWithToken(
     }
   }
 
-  // 2. Recent commits on branch
+  // 2. 현재 브랜치의 최근 커밋 5개 수집
   if (branchName) {
     try {
       const resp = await fetch(
@@ -102,7 +118,7 @@ async function collectWithToken(
     }
   }
 
-  // 3. PR reviews/comments
+  // 3. 현재 브랜치/키워드와 관련된 오픈 PR의 리뷰 코멘트 수집
   try {
     const resp = await fetch(
       `https://api.github.com/repos/${config.owner}/${config.repo}/pulls?state=open&sort=updated&per_page=10`,
@@ -110,6 +126,7 @@ async function collectWithToken(
     );
     if (resp.ok) {
       const prs = await resp.json();
+      // 브랜치명 또는 키워드가 제목에 포함된 PR만 필터링
       const relatedPrs = prs.filter(
         (pr: { head: { ref: string }; title: string }) =>
           pr.head.ref === branchName ||
@@ -145,8 +162,14 @@ async function collectWithToken(
   return items;
 }
 
-// ── gh CLI fallback (no token needed) ──
+// ── gh CLI fallback (토큰 없을 때 — gh CLI의 인증 정보 사용) ──
 
+/**
+ * gh CLI를 통해 GitHub API를 호출한다.
+ * Tauri의 run_shell_command로 shell에서 실행.
+ * @param endpoint - GitHub API endpoint (e.g., "repos/owner/repo/commits")
+ * @returns 파싱된 JSON 응답, 실패 시 null
+ */
 async function ghApi(endpoint: string): Promise<unknown | null> {
   try {
     const escaped = endpoint.replace(/'/g, "'\\''");
@@ -166,6 +189,7 @@ async function ghApi(endpoint: string): Promise<unknown | null> {
   return null;
 }
 
+/** gh CLI를 사용하여 GitHub 컨텍스트 수집 (collectWithToken과 동일한 구조) */
 async function collectWithGhCli(
   owner: string,
   repo: string,

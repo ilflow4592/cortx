@@ -1,5 +1,21 @@
+/**
+ * @module contextCollectors/slack
+ * Slack 메시지 수집기.
+ * 프로젝트에 연결된 채널의 최근 메시지를 가져오거나, 키워드로 검색한다.
+ * AI 기반 관련성 필터링을 통해 태스크와 무관한 메시지를 제거한다.
+ */
+
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 
+/**
+ * Slack에서 컨텍스트 아이템을 수집한다.
+ * 1) 프로젝트에 연결된 채널의 최근 메시지 수집
+ * 2) 연결된 채널이 없으면 키워드 검색으로 fallback
+ * @param config - Slack API 토큰 및 채널 설정
+ * @param keywords - 검색 키워드 목록
+ * @param channelIds - 프로젝트에 연결된 Slack 채널 ID 목록
+ * @returns 수집된 Slack 메시지 목록
+ */
 export async function collectSlack(
   config: ContextSourceConfig,
   keywords: string[],
@@ -13,7 +29,7 @@ export async function collectSlack(
     'Content-Type': 'application/json',
   };
 
-  // 1. Collect from specific channels (project-linked)
+  // 1. 프로젝트에 연결된 특정 채널에서 최근 메시지 수집
   const channels = [...(channelIds || [])];
   if (config.slackChannel) channels.push(config.slackChannel);
 
@@ -61,7 +77,7 @@ export async function collectSlack(
     } catch { /* skip */ }
   }
 
-  // 2. Keyword search (fallback)
+  // 2. 연결된 채널이 없을 때 키워드 검색으로 fallback
   if (keywords.length > 0 && uniqueChannels.length === 0) {
     const query = keywords.join(' OR ');
     try {
@@ -96,7 +112,15 @@ export async function collectSlack(
   return items;
 }
 
-// AI relevance filter — called after collection
+/**
+ * AI를 사용하여 수집된 메시지의 태스크 관련성을 판별한다.
+ * AI에게 메시지 목록과 태스크 제목을 주고, 관련된 인덱스만 반환받는다.
+ * AI 호출 실패 시 모든 아이템을 그대로 반환 (graceful degradation).
+ * @param items - 필터링할 Slack 메시지 목록
+ * @param taskTitle - 현재 태스크 제목 (관련성 판단 기준)
+ * @param callAI - AI 호출 함수 (외부에서 주입)
+ * @returns 관련성이 있는 메시지만 필터링된 목록
+ */
 export async function filterByRelevance(
   items: ContextItem[],
   taskTitle: string,
@@ -136,6 +160,7 @@ Be selective — only include truly relevant messages.`;
   }
 }
 
+/** Slack mrkdwn 포맷(<@user>, <#channel|name>, 링크 등)을 일반 텍스트로 변환 */
 function stripSlackFormatting(text: string): string {
   return text
     .replace(/<@[A-Z0-9]+>/g, '@user')
@@ -151,6 +176,7 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max) + '…' : s;
 }
 
+/** Slack 타임스탬프(epoch seconds)를 상대 시간 문자열로 변환 (e.g., "3h ago") */
 function formatTimestamp(ts: string): string {
   const date = new Date(parseFloat(ts) * 1000);
   const now = Date.now();

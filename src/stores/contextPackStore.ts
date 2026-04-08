@@ -1,3 +1,13 @@
+/**
+ * Context Pack Store — 작업별 컨텍스트(외부 정보) 수집 및 관리
+ *
+ * GitHub PR/이슈, Slack 메시지, Notion 페이지 등을 수집하여 작업에 연결한다.
+ * 수집 파이프라인: Notion/Slack 먼저 수집 → 키워드 추출 → GitHub 검색 (2-phase).
+ * 벡터 DB(Ollama 임베딩)를 통한 시맨틱 필터링도 지원하며, 실패 시 graceful fallback.
+ *
+ * Snapshot/Delta: 작업 중단 시 스냅샷을 찍고, 재개 시 변경분만 감지하여 표시.
+ * Persistence: 자체 persist() 메서드로 localStorage에 저장.
+ */
 import { create } from 'zustand';
 import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
 import { collectGitHub } from '../services/contextCollectors/github';
@@ -7,6 +17,7 @@ import { collectViaMcp } from '../services/contextCollectors/mcpSearch';
 
 const STORAGE_KEY = 'cortx-context-pack';
 
+/** 개별 소스의 수집 진행 상태 (UI 진행률 표시용) */
 export interface SourceCollectStatus {
   type: string;
   status: 'pending' | 'collecting' | 'done' | 'error';
@@ -15,6 +26,7 @@ export interface SourceCollectStatus {
   tokenUsage?: { input: number; output: number };
 }
 
+/** 수집 이력 기록. 어떤 소스에서 몇 개의 아이템을 몇 초 만에 수집했는지 추적 */
 export interface CollectHistoryEntry {
   id: string;
   taskId: string;
@@ -62,7 +74,7 @@ interface ContextPackState {
   persist: () => void;
 }
 
-/** Extract ticket IDs, branch names, and key terms from collected items */
+/** Notion/Slack에서 수집한 아이템에서 JIRA 티켓 ID, 브랜치명, PR 번호를 정규식으로 추출 */
 function extractKeywordsFromItems(items: ContextItem[]): string[] {
   const keywords = new Set<string>();
   for (const item of items) {
@@ -80,6 +92,7 @@ function extractKeywordsFromItems(items: ContextItem[]): string[] {
   return [...keywords].slice(0, 10); // Limit to avoid too many queries
 }
 
+/** 스냅샷 비교용 해시. title+summary+timestamp로 아이템 변경 여부를 판단 */
 function hashItem(item: ContextItem): string {
   return `${item.title}|${item.summary}|${item.timestamp}`;
 }
@@ -96,6 +109,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   collectHistory: {},
   deltaItems: {},
 
+  // 사용자가 수동으로 고정(pin)한 아이템. clearCollected에서도 삭제되지 않음
   addPin: (taskId, item) => {
     set((s) => {
       const existing = s.items[taskId] || [];
@@ -122,6 +136,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     set({ isCollecting: false, collectAbort: null });
   },
 
+  // 자동 수집된 아이템만 제거하고 pinned 아이템은 보존
   clearCollected: (taskId) => {
     set((s) => ({
       items: {
@@ -161,9 +176,15 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
+  /**
+   * 2-phase 컨텍스트 수집 파이프라인.
+   * Phase 1: Notion/Slack을 병렬 수집 → 티켓 ID, 브랜치명 등 키워드 추출.
+   * Phase 2: 추출된 키워드로 GitHub PR/이슈 검색 (더 정확한 결과).
+   * 수집 후 벡터 DB에 저장하고 시맨틱 필터링으로 관련도 높은 아이템만 유지.
+   */
   collectAll: async (taskId, branchName, slackChannels, taskTitle, overrideSources, model) => {
     const state = get();
-    if (state.isCollecting) return;
+    if (state.isCollecting) return; // 중복 실행 방지
 
     const enabledSources = (overrideSources || state.sources).filter((s) => s.enabled);
     const progress: SourceCollectStatus[] = enabledSources.map((s) => ({
@@ -175,7 +196,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     set({ isCollecting: true, collectAbort: abort, collectProgress: progress.map((p) => ({ ...p, status: 'collecting' })) });
     const kw = state.keywords[taskId] || [];
 
-    // Phase 1: Notion/Slack first (to extract keywords for GitHub)
+    // Phase 1: Notion/Slack을 먼저 수집하여 GitHub 검색용 키워드를 추출
     const nonGithubSources = enabledSources.filter((s) => s.type !== 'github');
     const githubSources = enabledSources.filter((s) => s.type === 'github');
 
@@ -231,12 +252,12 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
     if (abort.signal.aborted) return;
 
-    // Phase 2: Extract keywords from Notion/Slack results, then search GitHub
+    // Phase 2: Phase 1 결과에서 키워드를 추출한 뒤 GitHub 검색
     if (githubSources.length > 0) {
-      // Regex-based extraction (fast, always works)
+      // 정규식 기반 추출 (빠르고 안정적)
       const regexKeywords = extractKeywordsFromItems(collected);
 
-      // Ollama embedding-based extraction (semantic, optional)
+      // Ollama 임베딩 기반 시맨틱 키워드 추출 (선택적, Ollama 미실행 시 skip)
       let semanticKeywords: string[] = [];
       if (collected.length > 0) {
         try {
@@ -249,6 +270,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         }
       }
 
+      // 사용자 키워드 + 정규식 키워드 + 시맨틱 키워드를 합쳐서 중복 제거
       const githubKw = [...new Set([...kw, ...regexKeywords, ...semanticKeywords])];
       console.log('[cortx] GitHub search with keywords:', { original: kw, regex: regexKeywords, semantic: semanticKeywords, final: githubKw });
 
@@ -290,7 +312,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
     if (abort.signal.aborted) return;
 
-    // Sort by keyword relevance: title match first, then the rest
+    // 키워드가 제목에 포함된 아이템을 상위로 정렬 (간단한 relevance ranking)
     const sorted = kw.length > 0
       ? [...collected].sort((a, b) => {
           const aTitle = kw.some((k) => a.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
@@ -299,7 +321,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         })
       : collected;
 
-    // Store in vector DB + semantic filter (optional, fails gracefully)
+    // 벡터 DB 저장 + 시맨틱 필터링 (Ollama/Qdrant 미실행 시 전체 아이템 사용)
     let relevant = sorted;
     try {
       const vs = await import('../services/vectorSearch');
@@ -310,6 +332,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       }));
       await vs.storeContextBatch(vectorItems);
 
+      // 아이템이 10개 이상이면 시맨틱 검색으로 상위 15개만 필터링
       if (taskTitle && collected.length > 10) {
         const searchResults = await vs.searchContext(taskTitle, 15, taskId);
         const relevantIds = new Set(searchResults.map((r) => r.id));
@@ -320,12 +343,13 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       // Vector DB not available — use all collected items
     }
 
-    // Merge: keep pinned items, replace auto/linked
+    // pinned 아이템 보존 + 새로 수집된 아이템 병합
     const existing = state.items[taskId] || [];
     const pinned = existing.filter((i) => i.category === 'pinned');
     const merged = [...pinned, ...relevant];
 
-    // Deduplicate by id
+    // id 기준 중복 제거 (pinned가 먼저이므로 pinned 우선)
+
     const seen = new Set<string>();
     const deduped = merged.filter((item) => {
       if (seen.has(item.id)) return false;
@@ -333,7 +357,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       return true;
     });
 
-    // Build history entry
+    // 수집 이력 기록 (UI에서 과거 수집 결과 조회용, 최대 20건 유지)
     const finalProgress = get().collectProgress;
     const historyEntry: CollectHistoryEntry = {
       id: `ch-${Date.now().toString(36)}`,
@@ -366,6 +390,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
+  // 작업 중단(pause) 시 현재 컨텍스트 상태를 스냅샷으로 저장. 재개 시 delta 비교용
   takeSnapshot: (taskId) => {
     const items = get().items[taskId] || [];
     const snapshot: ContextSnapshot = {
@@ -381,15 +406,19 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
+  /**
+   * 작업 재개 시 delta 감지: 새로 수집한 데이터를 이전 스냅샷과 비교하여
+   * 새로 추가되거나 변경된 아이템에 isNew 플래그를 붙인다.
+   */
   detectDelta: async (taskId, branchName) => {
     const state = get();
     const snapshot = state.snapshots[taskId];
 
-    // First, collect fresh data
+    // 먼저 최신 데이터 수집
     await get().collectAll(taskId, branchName);
 
     if (!snapshot) {
-      // No snapshot = no delta to detect
+      // 스냅샷이 없으면 delta 비교 불가
       return;
     }
 
@@ -399,15 +428,15 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     for (const item of currentItems) {
       const oldHash = snapshot.itemHashes[item.id];
       if (!oldHash) {
-        // New item since snapshot
+        // 스냅샷 이후 새로 추가된 아이템
         delta.push({ ...item, isNew: true });
       } else if (oldHash !== hashItem(item)) {
-        // Changed item since snapshot
+        // 스냅샷 이후 내용이 변경된 아이템
         delta.push({ ...item, isNew: true });
       }
     }
 
-    // Mark new items in the main list
+    // 메인 목록에서 변경된 아이템에 isNew 표시
     set((s) => ({
       items: {
         ...s.items,
@@ -421,6 +450,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
+  // localStorage에서 복원. 각 필드에 기본값을 두어 이전 스키마 데이터와 호환
   loadState: () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -437,10 +467,11 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         });
       }
     } catch {
-      // ignore
+      // corrupt data — start fresh
     }
   },
 
+  // 런타임 전용 필드(isCollecting, collectAbort, collectProgress)는 직렬화에서 제외
   persist: () => {
     const s = get();
     localStorage.setItem(

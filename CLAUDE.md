@@ -1,5 +1,20 @@
 # Cortx — Development Rules
 
+Cortx is a Tauri 2 desktop app (React + TypeScript frontend, Rust backend) for AI-powered developer task management.
+
+## Architecture Overview
+
+```
+Frontend (React/TS)          Backend (Rust/Tauri)
+├── components/              ├── lib.rs    — Tauri commands (git, shell, OAuth, MCP)
+├── stores/ (Zustand)        └── pty.rs    — PTY management (terminal + Claude CLI)
+├── services/ (AI, OAuth)
+├── hooks/
+└── types/
+
+Communication: invoke() for commands, listen()/emit() for streaming events
+```
+
 ## Data Migration (CRITICAL)
 
 When adding new fields to Task or Project types:
@@ -9,7 +24,6 @@ When adding new fields to Task or Project types:
 3. **NEVER assume stored data has all fields** — old data in localStorage may be missing new fields
 4. **Test with cleared storage** after schema changes: `localStorage.clear()` in browser console
 
-Example:
 ```ts
 // In store's load function — enumerate ALL fields with defaults
 loadTasks: (tasks) => {
@@ -48,3 +62,31 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 - ErrorBoundary in main.tsx catches crashes and shows error message instead of black screen
 - No `useRef` for values that affect rendering — use `useState` instead
 - Timer uses `getState()` to avoid re-render dependency
+- Prefer `useCallback` for event handlers passed as props to prevent unnecessary re-renders
+- Keep components under ~300 lines; extract sub-components when exceeding this
+
+## TypeScript
+
+- Strict mode is enabled — do not use `any` or `// @ts-ignore`
+- All types go in `src/types/` — do not define interfaces inline in components
+- Use `type` imports for type-only references: `import type { Task } from '../types/task'`
+
+## Rust / Tauri Backend
+
+- All `#[tauri::command]` functions must have `///` doc comments explaining purpose and parameters
+- Use `map_err(|e| e.to_string())` for error propagation to frontend
+- Shell commands go through `zsh -l -c` for login shell environment
+- Temporary files: set permissions to 0o600, clean up in all code paths (success + error)
+- Avoid `unsafe` blocks — use `nix` crate for signal operations when possible
+
+## Security
+
+- Never store credentials in component state (visible in DevTools)
+- Escape all user inputs before shell execution (branch names, file paths)
+- Validate branch names: `/^[a-zA-Z0-9\/_.-]+$/`
+
+## Pipeline Skills
+
+Pipeline skills live in `.claude/commands/pipeline/*.md` as standard Claude Code slash commands.
+The app resolves `/pipeline:dev-task` → `.claude/commands/pipeline/dev-task.md` at runtime,
+replacing `{TASK_ID}`, `{TASK_NAME}`, `$ARGUMENTS` placeholders with current task context.
