@@ -96,7 +96,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
               {t.label}
             </button>
           ))}
-          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+          <div style={{ marginLeft: 'auto', position: 'relative', alignSelf: 'center' }}>
             <button
               onClick={() => setShowOpenMenu(!showOpenMenu)}
               onBlur={() => setTimeout(() => setShowOpenMenu(false), 150)}
