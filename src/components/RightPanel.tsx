@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -53,6 +53,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
   const [lowerTab, setLowerTab] = useState<LowerTab>('dashboard');
   const [splitRatio, setSplitRatio] = useState(0.35);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showOpenMenu, setShowOpenMenu] = useState(false);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
@@ -95,6 +96,48 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
               {t.label}
             </button>
           ))}
+          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+            <button
+              onClick={() => setShowOpenMenu(!showOpenMenu)}
+              onBlur={() => setTimeout(() => setShowOpenMenu(false), 150)}
+              style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+              title="Open in..."
+            >
+              <ExternalLink size={13} strokeWidth={1.5} />
+            </button>
+            {showOpenMenu && (
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                background: '#1a1f26', border: '1px solid #2a3642', borderRadius: 8,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)', padding: 4, zIndex: 50,
+                width: 180,
+              }}>
+                {[
+                  { label: 'IntelliJ IDEA', cmd: `open -a "IntelliJ IDEA" "${cwd}"` },
+                  { label: 'VS Code', cmd: `code "${cwd}"` },
+                  { label: 'Finder', cmd: `open "${cwd}"` },
+                  { label: 'Terminal', cmd: `open -a Terminal "${cwd}"` },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      invoke('run_shell_command', { cwd: '/', command: item.cmd }).catch(() => {});
+                      setShowOpenMenu(false);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '7px 10px', background: 'none', border: 'none', borderRadius: 5,
+                      color: '#c0c8d4', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.08)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {upperTab === 'projects' && <ProjectFiles cwd={cwd} onOpenFile={onOpenFile} />}
