@@ -8,7 +8,7 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
 import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
-import { CORTX_SKILLS } from '../skills/pipelineSkills';
+
 
 interface ClaudeChatProps {
   taskId: string;
@@ -223,20 +223,8 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       }
     }
 
-    // Check for Cortx-specific pipeline skills first
+    // Resolve skill from .claude/commands/ files
     const skillKey = cmdName.replace(/:/g, '/');
-    if (CORTX_SKILLS[skillKey]) {
-      let prompt = CORTX_SKILLS[skillKey];
-      prompt = prompt.replace(/\$ARGUMENTS/g, args);
-      // Replace task placeholders
-      if (currentTask) {
-        prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
-        prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
-      }
-      return prompt;
-    }
-
-    // Fall back to file-based skill resolution
     const filePath = skillKey + '.md';
     for (const base of ['~/.claude/commands', `${cwd}/.claude/commands`]) {
       try {
@@ -247,6 +235,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         if (result.success && result.output.trim()) {
           let prompt = result.output;
           prompt = prompt.replace(/\$ARGUMENTS/g, args);
+          if (currentTask) {
+            prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
+            prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
+          }
           return prompt;
         }
       } catch { /* continue */ }
