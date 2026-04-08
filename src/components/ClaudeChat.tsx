@@ -508,8 +508,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
           '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
           '',
-          '## CORTX_DASHBOARD',
-          'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
+          '## CORTX_RULES',
+          '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
+          '- NEVER run git commit, git push, or create PR without explicit user approval.',
+          '- When implementation is complete, ask "커밋하시겠습니까?" and wait for user response before committing.',
+          '- After commit+push, ask "PR을 생성할까요?" and wait for user response before creating PR.',
+          '- 한국어로만 대화합니다.',
         ].join('\n');
       }
 
