@@ -502,6 +502,12 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
           'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
           '',
+          '## Phase transition rules:',
+          '- When user approves dev plan ("y"): emit [PIPELINE:dev_plan:done] then [PIPELINE:implement:in_progress]',
+          '- When implementation is complete: emit [PIPELINE:implement:done] then [PIPELINE:commit_pr:in_progress]',
+          '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
+          '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
+          '',
           '## CORTX_DASHBOARD',
           'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
         ].join('\n');
