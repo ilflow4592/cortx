@@ -79,7 +79,14 @@ function serializeContextItems(items: ContextItem[]): string {
 }
 
 export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessagesRaw] = useState<Message[]>([]);
+  const setMessages: typeof setMessagesRaw = (action) => {
+    setMessagesRaw((prev) => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      messagesRef.current = next;
+      return next;
+    });
+  };
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -115,7 +122,6 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    messagesRef.current = messages;
   }, [messages, loading]);
 
   useEffect(() => {
