@@ -467,57 +467,48 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
       let contextSummary = '';
       let contextFiles: string[] = [];
 
-      // Only send context on first message (no existing session)
+      // Pipeline tracking directive — always send for pipeline commands (even on resume)
+      if (isPipeline) {
+        contextSummary = [
+          '## CORTX_PIPELINE_TRACKING',
+          'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
+          'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
+          'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+          'Valid statuses: in_progress, done, skipped',
+          'Examples:',
+          '  [PIPELINE:dev_plan:in_progress]',
+          '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
+          '  [PIPELINE:commit_pr:done:PR #4920]',
+          'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
+          'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
+          'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
+          '',
+          '## CORTX_DASHBOARD',
+          'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
+        ].join('\n');
+      }
+
+      // Only send full context on first message (no existing session)
       if (!hasExistingSession) {
-        // Serialize all context items (non-file items as summary)
         const nonFileItems = contextItems.filter(
           (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
         );
-        contextSummary = serializeContextItems(nonFileItems);
+        const itemsSummary = serializeContextItems(nonFileItems);
 
-        // For pipeline commands: add directives
-        if (isPipeline) {
-          const directives: string[] = [];
-
-          directives.push(
-            '## CORTX_PIPELINE_TRACKING',
-            'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
-            'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-            'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
-            'Valid statuses: in_progress, done, skipped',
-            'Examples:',
-            '  [PIPELINE:dev_plan:in_progress]',
-            '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
-            '  [PIPELINE:commit_pr:done:PR #4920]',
-            'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
-            'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
-            'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
-          );
-
-          if (contextItems.length > 0) {
-            directives.push(
-              '',
-              '## CORTX_CONTEXT_PACK_MODE',
-              'This pipeline was invoked from the Cortx app with Context Pack data.',
-              'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
-              'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
-              'If a dev-plan is needed, generate it from the Context Pack data.',
-            );
-          }
-
-          directives.push(
-            '',
-            '## CORTX_DASHBOARD',
-            'Do NOT update Obsidian _dashboard.md or _pipeline-state.json — the Cortx app manages its own dashboard.',
-          );
-
-          const fullDirective = directives.join('\n');
-          contextSummary = contextSummary
-            ? `${fullDirective}\n\n---\n\n${contextSummary}`
-            : fullDirective;
+        if (isPipeline && contextItems.length > 0) {
+          contextSummary += '\n\n---\n\n## CORTX_CONTEXT_PACK_MODE\n'
+            + 'This pipeline was invoked from the Cortx app with Context Pack data.\n'
+            + 'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.\n'
+            + 'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.\n'
+            + 'If a dev-plan is needed, generate it from the Context Pack data.';
         }
 
-        // Local file paths for --add-dir
+        if (itemsSummary) {
+          contextSummary = contextSummary
+            ? `${contextSummary}\n\n---\n\n${itemsSummary}`
+            : itemsSummary;
+        }
+
         contextFiles = contextItems
           .filter((item) => item.url && !item.url.startsWith('http'))
           .map((item) => item.url);
