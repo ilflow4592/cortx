@@ -168,6 +168,11 @@ git checkout -b feat/{TASK_ID} origin/develop
 
 구현 중간에 컴파일 확인: \`./gradlew compileJava\`
 
+**코드 품질 규칙**:
+- \`List<Object[]>\` 금지 — JPQL 집계 쿼리는 적절한 DTO/Projection 또는 \`Map\`으로 반환.
+- Repository 반환 타입은 엔티티 또는 명시적 타입을 사용. raw Object 배열 사용 금지.
+- 기존 프로젝트의 코드 패턴과 네이밍 컨벤션을 반드시 따를 것.
+
 ### Step 2.5: Quality Gate
 
 | # | 검증 항목 | 검증 방법 |
