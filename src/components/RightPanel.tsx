@@ -250,12 +250,11 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                         {phase === 'dev_plan' && pipeline.devPlan && (
                           <button
                             onClick={async () => {
-                              const fileName = `dev-plan-${task.branchName || 'task'}.md`;
-                              const filePath = `~/Downloads/${fileName}`;
+                              const fileName = 'dev-plan.md';
                               const b64 = btoa(unescape(encodeURIComponent(pipeline.devPlan!)));
                               await invoke('run_shell_command', {
-                                cwd: '/',
-                                command: `echo '${b64}' | base64 -d > ${filePath} && open -R ${filePath}`,
+                                cwd: cwd,
+                                command: `echo '${b64}' | base64 -d > '${fileName}' && open -R '${fileName}'`,
                               }).catch(() => {});
                             }}
                             title="Download dev-plan.md"
