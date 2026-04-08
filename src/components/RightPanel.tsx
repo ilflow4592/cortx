@@ -100,10 +100,10 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
             <button
               onClick={() => setShowOpenMenu(!showOpenMenu)}
               onBlur={() => setTimeout(() => setShowOpenMenu(false), 150)}
-              style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
-              title="Open in..."
+              style={{ background: 'none', border: '1px solid #2a3642', borderRadius: 5, color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', fontSize: 10, fontFamily: 'inherit' }}
             >
-              <ExternalLink size={13} strokeWidth={1.5} />
+              <ExternalLink size={11} strokeWidth={1.5} />
+              Open via
             </button>
             {showOpenMenu && (
               <div style={{
