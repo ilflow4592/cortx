@@ -75,7 +75,6 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
     } catch { /* skip */ }
   }, [taskCwd]);
 
-  if (task) console.log('[cortx:cwd]', { worktreePath: task.worktreePath, repoPath: task.repoPath, projectPath: taskProject?.localPath, taskCwd });
 
   if (!task) {
     return (
