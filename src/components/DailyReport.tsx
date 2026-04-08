@@ -1,3 +1,4 @@
+import { BarChart3 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { formatTime } from '../utils/time';
 
@@ -41,7 +42,7 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: 500 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>📊 Daily Report</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><BarChart3 size={20} strokeWidth={1.5} /> Daily Report</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body" style={{ padding: 0 }}>

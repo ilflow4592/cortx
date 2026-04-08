@@ -22,6 +22,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
   const [claudeResetKey, setClaudeResetKey] = useState(0);
@@ -139,7 +140,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
           <button
             className="mh-btn"
             style={{ background: 'none', color: '#3d4856', border: '1px solid #1e2530' }}
-            onClick={() => { if (window.confirm(`Delete task "${task.title}"?`)) removeTask(task.id); }}
+            onClick={() => setShowDeleteConfirm(true)}
             title="Delete task"
           ><Trash2 size={14} strokeWidth={1.5} /></button>
           {onToggleRightPanel && (
@@ -239,6 +240,40 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       </div>
 
       {showPause && <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />}
+
+      {/* Delete task confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trash2 size={18} strokeWidth={1.5} color="#ef4444" /> Delete Task
+              </h2>
+              <button className="modal-close" onClick={() => setShowDeleteConfirm(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: '#c0c8d4', marginBottom: 8 }}>
+                <strong style={{ color: '#e8eef5' }}>"{task.title}"</strong>
+              </p>
+              <p style={{ fontSize: 13, color: '#6b7585' }}>
+                Are you sure you want to delete this task? This action cannot be undone.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>
+                <button className="btn btn-ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+                <button
+                  className="btn"
+                  style={{ background: '#ef4444', color: '#fff' }}
+                  onClick={() => { removeTask(task.id); setShowDeleteConfirm(false); }}
+                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

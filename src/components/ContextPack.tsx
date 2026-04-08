@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
+import { RefreshCw, Pin, Paperclip } from 'lucide-react';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem } from '../types/contextPack';
 import { GitHubIcon, SlackIcon, NotionIcon, McpIcon, PinIcon } from './SourceIcons';
+
+const MODEL_OPTIONS = [
+  { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
+  { value: 'claude-sonnet-4-6', label: 'Sonnet' },
+  { value: 'claude-opus-4-6', label: 'Opus' },
+];
 
 export function ContextPack({ taskId }: { taskId: string }) {
   const isCollecting = useContextPackStore((s) => s.isCollecting);
@@ -23,6 +30,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const [keywordDraft, setKeywordDraft] = useState('');
   const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
   const [collectModel, setCollectModel] = useState('claude-haiku-4-5-20251001');
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const [pinUrl, setPinUrl] = useState('');
   const [pinTitle, setPinTitle] = useState('');
   const [preview, setPreview] = useState<{ url: string; title: string; description: string } | null>(null);
@@ -278,7 +286,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
           borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{ textAlign: 'center', color: '#7dbdbd' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📎</div>
+            <div style={{ marginBottom: 8 }}><Paperclip size={32} strokeWidth={1.5} /></div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
             <div style={{ fontSize: 11, color: '#6b6b78', marginTop: 4 }}>They'll be pinned to this task's context</div>
           </div>
@@ -313,9 +321,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
             <button
               onClick={loadMcpServers}
               disabled={mcpLoading}
+              className="icon-btn-subtle"
               style={{
                 background: 'none', border: 'none', fontSize: 10, color: '#4d5868',
-                cursor: 'pointer', fontFamily: 'inherit', padding: '2px 4px',
+                cursor: 'pointer', fontFamily: 'inherit', padding: '2px 6px', borderRadius: 4,
               }}
               title="Reload MCP servers from config"
             >{mcpLoading ? '...' : '↻ Reload'}</button>
@@ -355,49 +364,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
           )}
         </div>
 
-        {/* Vector DB status */}
-        {(vectorStatus.ollama || vectorStatus.qdrant) && (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '3px 8px', borderRadius: 4, fontSize: 10,
-              background: vectorStatus.ollama && vectorStatus.qdrant ? 'rgba(52,211,153,0.06)' : 'rgba(234,179,8,0.06)',
-              color: vectorStatus.ollama && vectorStatus.qdrant ? '#34d399' : '#eab308',
-            }}>
-              <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
-              Semantic search {vectorStatus.ollama && vectorStatus.qdrant ? 'active' : 'partial'}
-            </span>
-            <button
-              onClick={handleSearchRelated}
-              disabled={searchingRelated || !(vectorStatus.ollama && vectorStatus.qdrant)}
-              style={{
-                padding: '3px 8px', borderRadius: 4, fontSize: 10,
-                background: 'rgba(125,189,189,0.06)', border: '1px solid rgba(125,189,189,0.15)',
-                color: '#7dbdbd', cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              {searchingRelated ? '...' : '🔍 Find related'}
-            </button>
-          </div>
-        )}
+        {/* Vector DB status + Find related — hidden until enough cross-task data exists */}
 
-        {/* Related items from other tasks */}
-        {relatedItems.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>Related from other tasks</div>
-            {relatedItems.map((item) => (
-              <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: 12 }}>
-                <span style={{ fontSize: 11, marginTop: 2 }}>
-                  {item.sourceType === 'github' ? <GitHubIcon size={12} color="#888895" /> : item.sourceType === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#888895" />}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: '#a1a1aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
-                  <div style={{ fontSize: 10, color: '#4d5868', marginTop: 1 }}>{item.content?.slice(0, 80)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Related items from other tasks — hidden until semantic search is needed */}
 
         {/* Connected Sources */}
         {sources.filter(s => s.enabled && s.token).length > 0 && (
@@ -543,29 +512,58 @@ export function ContextPack({ taskId }: { taskId: string }) {
               ✕ Cancel
             </button>
           ) : (
-            <button className="ctx-btn ctx-btn-collect" onClick={handleCollect}>
-              🔄 Collect Now
+            <button className="ctx-btn ctx-btn-collect" onClick={handleCollect} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <RefreshCw size={13} /> Collect Now
             </button>
           )}
-          <button className="ctx-btn ctx-btn-pin" onClick={() => setShowPin(!showPin)}>📌 Pin</button>
+          <button className="ctx-btn ctx-btn-pin" onClick={() => setShowPin(!showPin)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <Pin size={13} /> Pin
+          </button>
+          {/* Custom model dropdown */}
           <div style={{ position: 'relative' }}>
-            <select
-              value={collectModel}
-              onChange={(e) => setCollectModel(e.target.value)}
-              title="Model for MCP search (Notion/Slack)"
+            <button
+              onClick={() => setShowModelMenu(!showModelMenu)}
+              className="icon-btn-subtle"
               style={{
-                appearance: 'none', WebkitAppearance: 'none',
                 background: '#1a1f26', border: '1px solid #242d38', borderRadius: 6,
                 padding: '6px 24px 6px 10px', fontSize: 11, color: '#6b6b78',
-                fontFamily: "'Fira Code', 'JetBrains Mono', monospace", outline: 'none', cursor: 'pointer',
-                height: '100%',
+                fontFamily: "'Fira Code', 'JetBrains Mono', monospace", cursor: 'pointer',
+                height: '100%', display: 'flex', alignItems: 'center', gap: 4,
               }}
+              title="Model for MCP search (Notion/Slack)"
             >
-              <option value="claude-haiku-4-5-20251001">Haiku</option>
-              <option value="claude-sonnet-4-6">Sonnet</option>
-              <option value="claude-opus-4-6">Opus</option>
-            </select>
-            <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: '#4d5868', pointerEvents: 'none' }}>▼</span>
+              {MODEL_OPTIONS.find(m => m.value === collectModel)?.label ?? 'Haiku'}
+              <span style={{ fontSize: 8, color: '#4d5868', marginLeft: 4 }}>▼</span>
+            </button>
+            {showModelMenu && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowModelMenu(false)} />
+                <div style={{
+                  position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
+                  background: '#1e2430', border: '1px solid #2d3748', borderRadius: 8,
+                  padding: '4px 0', minWidth: 110, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                }}>
+                  {MODEL_OPTIONS.map(m => (
+                    <button
+                      key={m.value}
+                      onClick={() => { setCollectModel(m.value); setShowModelMenu(false); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                        padding: '6px 12px', fontSize: 12, border: 'none', background: 'none',
+                        color: collectModel === m.value ? '#e879a8' : '#a1a1aa',
+                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", cursor: 'pointer',
+                        fontWeight: collectModel === m.value ? 600 : 400,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      <span style={{ width: 14, textAlign: 'center' }}>{collectModel === m.value ? '✓' : ''}</span>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -712,8 +710,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 <div style={{ fontSize: 11, color: '#4d5868' }}>This may take a few seconds</div>
               </div>
             ) : (
-              <div>
-                <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.3 }}>📎</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ marginBottom: 12, opacity: 0.3 }}><Paperclip size={28} strokeWidth={1.5} /></div>
                 <div style={{ marginBottom: 6 }}>Drop files or URLs here to pin them</div>
                 <div style={{ color: '#4d5868', fontSize: 11 }}>or click "Collect Now" to gather from connected sources</div>
               </div>

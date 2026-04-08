@@ -1,3 +1,4 @@
+import { Folder } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 
@@ -54,8 +55,8 @@ export function Dock({ onAddTask, onAddProject, onOpenSettings, onToggleSidebar,
       ))}
 
       {/* Add project */}
-      <button className="dock-icon" onClick={onAddProject} title="New Project" style={{ color: '#27272a' }}>
-        📁
+      <button className="dock-icon" onClick={onAddProject} title="New Project">
+        <Folder size={18} strokeWidth={1.5} />
       </button>
 
       <div className="dock-sep" />

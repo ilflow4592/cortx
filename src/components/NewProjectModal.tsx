@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { FolderOpen, Globe } from 'lucide-react';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -81,14 +82,14 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
         <button className="modal-close" onClick={onClose}>×</button>
       </div>
       <div style={{ padding: 8 }}>
-        <OptionButton icon="📂" label="Open project" desc="Select an existing local folder" onClick={handleOpen} />
-        <OptionButton icon="🌐" label="Clone from URL" desc="Clone a Git repository" onClick={() => onSelect('clone')} />
+        <OptionButton icon={<FolderOpen size={22} strokeWidth={1.5} color="#5aa5a5" />} label="Open project" desc="Select an existing local folder" onClick={handleOpen} />
+        <OptionButton icon={<Globe size={22} strokeWidth={1.5} color="#5aa5a5" />} label="Clone from URL" desc="Clone a Git repository" onClick={() => onSelect('clone')} />
       </div>
     </>
   );
 }
 
-function OptionButton({ icon, label, desc, onClick }: { icon: string; label: string; desc: string; onClick: () => void }) {
+function OptionButton({ icon, label, desc, onClick }: { icon: ReactNode; label: string; desc: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -101,7 +102,7 @@ function OptionButton({ icon, label, desc, onClick }: { icon: string; label: str
       onMouseEnter={(e) => (e.currentTarget.style.background = '#12121a')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
     >
-      <span style={{ fontSize: 20, width: 32, textAlign: 'center' }}>{icon}</span>
+      <span style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <div>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
         <div style={{ fontSize: 11, color: '#52525b', marginTop: 2 }}>{desc}</div>

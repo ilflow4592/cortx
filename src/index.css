@@ -153,11 +153,14 @@ body {
 .slash-item-source { font-size:9px; color:#6b7585; background:#242d38; padding:1px 6px; border-radius:3px; font-family:inherit; text-transform:uppercase; letter-spacing:0.5px }
 .slash-item-desc { font-size:11px; color:#8b95a5; margin-top:2px }
 
-.model-select { padding:6px 10px; background:#242d38; border:1px solid #3d4856; border-radius:8px; font-size:11px; color:#c0c8d4; font-family:inherit; display:flex; align-items:center; gap:4px; cursor:pointer; flex-shrink:0 }
+.model-select { padding:6px 10px; background:#242d38; border:1px solid #3d4856; border-radius:8px; font-size:11px; color:#c0c8d4; font-family:inherit; display:flex; align-items:center; gap:4px; cursor:pointer; flex-shrink:0; transition: background 200ms ease, border-color 200ms ease }
+.model-select:hover { background:#2a3642; border-color:#4d5868 }
 .model-select .m-dot { width:8px; height:8px; border-radius:3px; background:linear-gradient(135deg,#d4a574,#c4956a) }
 .send-btn { width:36px; height:36px; background:#5aa5a5; border:none; border-radius:8px; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0 }
 .send-btn:disabled { opacity:0.3 }
 .send-btn:hover:not(:disabled) { filter:brightness(1.1) }
+.attach-btn { transition: color 200ms ease, background 200ms ease }
+.attach-btn:hover { color:#c0c8d4; background:rgba(255,255,255,0.05) }
 
 /* ── Right panel ── */
 .right-panel { display:flex; flex-direction:column; overflow:hidden; background:#0f1419; height:100% }
@@ -200,10 +203,10 @@ body {
 .modal { background:#131a21; border:1px solid #1e2530; border-radius:14px; width:520px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 25px 50px rgba(0,0,0,0.5) }
 .modal-header { padding:20px 24px; border-bottom:1px solid #2a3642; display:flex; justify-content:space-between; align-items:center; flex-shrink:0 }
 .modal-header h2 { font-size:16px; font-weight:700; color:#f0f4f8 }
-.modal-close { background:none; border:none; color:#6b7585; font-size:20px; cursor:pointer; padding:4px }
-.modal-close:hover { color:#c0c8d4 }
+.modal-close { background:none; border:none; color:#6b7585; font-size:20px; cursor:pointer; padding:4px; border-radius:6px; transition: color 200ms ease, background 200ms ease }
+.modal-close:hover { color:#c0c8d4; background:rgba(255,255,255,0.05) }
 .modal-tabs { display:flex; gap:4px; padding:0 24px; border-bottom:1px solid #2a3642; flex-shrink:0 }
-.modal-tab { padding:10px 16px; font-size:12px; font-weight:500; color:#6b7585; cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; font-family:inherit }
+.modal-tab { padding:10px 16px; font-size:12px; font-weight:500; color:#6b7585; cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; font-family:inherit; transition: color 200ms ease, border-color 200ms ease }
 .modal-tab:hover { color:#c0c8d4 }
 .modal-tab.active { color:#e8eef5; border-bottom-color:#5aa5a5 }
 .modal-body { padding:24px; overflow-y:auto; flex:1 }
@@ -215,23 +218,26 @@ body {
 .field-input::placeholder { color:#6b7585 }
 .field-input:focus { border-color:#5aa5a5 }
 .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px }
-.btn { padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:inherit }
+.btn { padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; border:none; cursor:pointer; font-family:inherit; transition: background 200ms ease, filter 200ms ease, color 200ms ease }
 .btn-ghost { background:none; color:#c0c8d4 }
 .btn-ghost:hover { background:#242d38 }
 .btn-primary { background:#5aa5a5; color:#fff }
 .btn-primary:hover { filter:brightness(1.1) }
 .btn-primary:disabled { opacity:0.4 }
 .provider-grid { display:flex; gap:8px; margin-bottom:8px }
-.provider-btn { flex:1; padding:10px 12px; border-radius:8px; font-size:12px; font-weight:500; border:1px solid #2a3642; background:#0f1419; color:#c0c8d4; cursor:pointer; font-family:inherit; text-align:center }
-.provider-btn:hover { color:#c0c8d4; border-color:#4d5868 }
+.provider-btn { flex:1; padding:10px 12px; border-radius:8px; font-size:12px; font-weight:500; border:1px solid #2a3642; background:#0f1419; color:#c0c8d4; cursor:pointer; font-family:inherit; text-align:center; transition: background 200ms ease, border-color 200ms ease, color 200ms ease }
+.provider-btn:hover { color:#e8eef5; border-color:#4d5868; background:#1a1f26 }
 .provider-btn.active { border-color:rgba(90,165,165,0.3); background:rgba(90,165,165,0.06); color:#7dbdbd }
 .source-card { padding:16px; background:#0f1419; border:1px solid #2a3642; border-radius:10px; margin-bottom:12px }
 .source-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px }
 .source-card-title { font-size:13px; font-weight:600; color:#e8eef5 }
 .source-toggle { padding:2px 8px; border-radius:4px; font-size:9px; font-weight:600; border:none; cursor:pointer }
+.source-toggle { transition: background 200ms ease, color 200ms ease }
 .source-toggle.on { background:rgba(52,211,153,0.08); color:#34d399 }
+.source-toggle.on:hover { background:rgba(52,211,153,0.15) }
 .source-toggle.off { background:#242d38; color:#6b7585 }
-.source-remove { background:none; border:none; color:#6b7585; font-size:11px; cursor:pointer }
+.source-toggle.off:hover { background:#2a3642; color:#8b95a5 }
+.source-remove { background:none; border:none; color:#6b7585; font-size:11px; cursor:pointer; transition: color 200ms ease }
 .source-remove:hover { color:#ef4444 }
 .source-row { display:flex; gap:8px; margin-bottom:8px }
 
@@ -264,25 +270,25 @@ body {
 .ctx-section-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; color:#6b7585; margin-bottom:8px }
 .ctx-keywords { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px }
 .ctx-kw { padding:4px 10px; background:#1e2530; border:1px solid #2a3642; border-radius:6px; font-size:11px; color:#c0c8d4; display:flex; align-items:center; gap:6px }
-.ctx-kw button { background:none; border:none; color:#6b7585; cursor:pointer; font-size:12px; padding:0 }
-.ctx-kw button:hover { color:#c0c8d4 }
+.ctx-kw button { background:none; border:none; color:#6b7585; cursor:pointer; font-size:12px; padding:0; transition: color 200ms ease }
+.ctx-kw button:hover { color:#ef4444 }
 .ctx-kw-input { display:flex; gap:6px; margin-bottom:12px }
 .ctx-kw-input input { flex:1; background:#1a1f26; border:1px solid #2a3642; border-radius:8px; padding:8px 12px; font-size:11px; color:#e8eef5; font-family:inherit; outline:none }
 .ctx-kw-input input::placeholder { color:#6b7585 }
 .ctx-kw-input input:focus { border-color:rgba(90,165,165,0.3) }
-.ctx-kw-input button { padding:8px 12px; background:#1e2530; border:1px solid #2a3642; border-radius:8px; color:#8b95a5; font-size:14px; cursor:pointer; font-family:inherit }
-.ctx-kw-input button:hover { color:#c0c8d4; border-color:#4d5868 }
+.ctx-kw-input button { padding:8px 12px; background:#1e2530; border:1px solid #2a3642; border-radius:8px; color:#8b95a5; font-size:14px; cursor:pointer; font-family:inherit; transition: background 200ms ease, color 200ms ease, border-color 200ms ease }
+.ctx-kw-input button:hover { color:#c0c8d4; border-color:#4d5868; background:#242d38 }
 .ctx-actions { display:flex; gap:8px; margin-bottom:8px }
-.ctx-btn { flex:1; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:500; cursor:pointer; border:none; font-family:inherit; text-align:center }
+.ctx-btn { flex:1; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:500; cursor:pointer; border:none; font-family:inherit; text-align:center; transition: background 200ms ease, border-color 200ms ease, color 200ms ease }
 .ctx-btn-collect { background:rgba(90,165,165,0.08); color:#7dbdbd }
-.ctx-btn-collect:hover { background:rgba(90,165,165,0.12) }
+.ctx-btn-collect:hover { background:rgba(90,165,165,0.15) }
 .ctx-btn-collect:disabled { opacity:0.4 }
 .ctx-btn-pin { background:#1e2530; border:1px solid #2a3642; color:#c0c8d4 }
-.ctx-btn-pin:hover { color:#c0c8d4; border-color:#4d5868 }
+.ctx-btn-pin:hover { background:#242d38; border-color:#4d5868 }
 .ctx-collected-at { font-size:10px; color:#6b7585; margin-bottom:4px }
 .ctx-filters { display:flex; gap:4px; padding:8px 20px; border-bottom:1px solid #2a3642; flex-shrink:0 }
-.ctx-filter { padding:4px 10px; border-radius:6px; font-size:10px; font-weight:500; color:#6b7585; cursor:pointer; background:none; border:none; font-family:inherit }
-.ctx-filter:hover { color:#c0c8d4 }
+.ctx-filter { padding:4px 10px; border-radius:6px; font-size:10px; font-weight:500; color:#6b7585; cursor:pointer; background:none; border:none; font-family:inherit; transition: background 200ms ease, color 200ms ease }
+.ctx-filter:hover { color:#c0c8d4; background:rgba(255,255,255,0.03) }
 .ctx-filter.active { background:rgba(90,165,165,0.08); color:#7dbdbd }
 .ctx-filter .count { margin-left:4px; opacity:0.5 }
 .ctx-new-count { margin-left:auto; padding:2px 6px; background:rgba(234,179,8,0.06); color:#eab308; border-radius:4px; font-size:9px; font-weight:600 }
@@ -292,7 +298,8 @@ body {
 .ctx-pin-form input { background:#1a1f26; border:1px solid #2a3642; border-radius:6px; padding:8px 10px; font-size:11px; color:#e8eef5; outline:none; font-family:inherit }
 .ctx-pin-form input::placeholder { color:#6b7585 }
 .ctx-pin-actions { display:flex; justify-content:flex-end; gap:6px }
-.ctx-pin-actions button { padding:6px 12px; border-radius:6px; font-size:10px; font-weight:500; cursor:pointer; border:none; font-family:inherit }
+.ctx-pin-actions button { padding:6px 12px; border-radius:6px; font-size:10px; font-weight:500; cursor:pointer; border:none; font-family:inherit; transition: background 200ms ease, color 200ms ease }
+.ctx-pin-actions button:hover { filter:brightness(1.2) }
 
 /* ── Animations ── */
 @keyframes fadeIn { from { opacity:0; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
@@ -310,11 +317,16 @@ body {
 .dock-task:hover { transform: scale(1.05) }
 .dock-task:active { transform: scale(0.95) }
 .dock-icon { transition: background 200ms ease, color 200ms ease }
-.mh-btn { transition: background 200ms ease, filter 200ms ease }
+.mh-btn { transition: background 200ms ease, filter 200ms ease, color 200ms ease, border-color 200ms ease }
+.mh-btn:hover { color:#c0c8d4 !important; border-color:#4d5868 !important }
 .sb-dot.running { animation: pulse-glow 2s ease-in-out infinite }
 .delta-banner { animation: slideInUp 0.2s ease-out }
 .cp-item { animation: fadeIn 0.15s ease-out }
 .rp-tab { transition: color 200ms ease, border-color 200ms ease }
+
+/* ── Inline icon buttons (Open via, Reset, etc.) ── */
+.icon-btn-subtle { transition: color 200ms ease, background 200ms ease, border-color 200ms ease }
+.icon-btn-subtle:hover { color:#c0c8d4 !important; background:rgba(255,255,255,0.04) !important; border-color:#4d5868 !important }
 
 /* ── Onboarding ── */
 .onboarding-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:100 }

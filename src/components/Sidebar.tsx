@@ -112,7 +112,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               {!isCollapsed && (
                 <>
                   {projTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent />
+                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} />
                   ))}
                   {projTasks.length === 0 && (
                     <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
@@ -170,11 +170,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       </div>
 
       {/* Today summary */}
-      <div style={{ borderTop: '1px solid #141418' }}>
+      <div style={{ borderTop: '1px solid #141418', paddingBottom: 12 }}>
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
           {onShowReport && (
-            <button onClick={onShowReport} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={onShowReport} className="icon-btn-subtle" style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 4, padding: '2px 6px' }}>
               <BarChart3 size={14} strokeWidth={1.5} /> Report
             </button>
           )}
@@ -187,9 +187,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   );
 }
 
-function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
+function TaskRow({ task, isActive, onSelect, onDelete, indent, color }: {
   task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number; pipeline?: { enabled: boolean; phases: Record<string, { status: string }> } };
-  isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean;
+  isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean; color?: string;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -204,10 +204,13 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent }: {
 
   return (
     <div className="task-row-wrap" style={{ position: 'relative' }}>
-      <button className={cls} onClick={onSelect} style={indent ? { paddingLeft: 24 } : undefined}>
+      <button className={cls} onClick={onSelect} style={{
+        ...(indent ? { paddingLeft: 24 } : {}),
+        ...(isActive && color ? { borderLeftColor: color, boxShadow: `inset 3px 0 8px -3px ${color}50` } : {}),
+      }}>
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <div className={`sb-dot ${dotCls}`} />
+            <div className={`sb-dot ${dotCls}`} style={color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : undefined} />
             <span className="sb-task-name" title={task.title}>{task.title}</span>
           </div>
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>

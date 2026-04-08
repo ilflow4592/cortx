@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
+import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink, Braces, Code2, FolderOpen, TerminalSquare, Zap } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
@@ -100,6 +100,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
             <button
               onClick={() => setShowOpenMenu(!showOpenMenu)}
               onBlur={() => setTimeout(() => setShowOpenMenu(false), 150)}
+              className="icon-btn-subtle"
               style={{ background: 'none', border: '1px solid #2a3642', borderRadius: 5, color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', fontSize: 10, fontFamily: 'inherit' }}
             >
               <ExternalLink size={11} strokeWidth={1.5} />
@@ -183,8 +184,8 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
         {lowerTab === 'dashboard' && (
           <>
             {!pipeline?.enabled ? (
-              <div style={{ padding: '32px 0', textAlign: 'center' }}>
-                <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>⚡</div>
+              <div style={{ padding: '32px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ marginBottom: 8, opacity: 0.3 }}><Zap size={24} strokeWidth={1.5} /></div>
                 <div style={{ fontSize: 12, color: '#4d5868', marginBottom: 16 }}>No pipeline active</div>
                 <div style={{ fontSize: 10, color: '#3d4856', lineHeight: 1.6 }}>
                   Run <code style={{ background: '#242d38', padding: '1px 5px', borderRadius: 3 }}>/pipeline:dev-task</code> to start
@@ -198,7 +199,8 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                   <button
                     onClick={() => setShowResetModal(true)}
                     title="Reset session"
-                    style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}
+                    className="icon-btn-subtle"
+                    style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, textTransform: 'none', letterSpacing: 0, fontWeight: 400, borderRadius: 4, padding: '2px 6px' }}
                   >
                     <RotateCcw size={10} strokeWidth={1.5} /> Reset
                   </button>
