@@ -200,6 +200,23 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                             {entry.memo}
                           </span>
                         )}
+                        {phase === 'dev_plan' && pipeline.devPlan && (
+                          <button
+                            onClick={() => {
+                              const blob = new Blob([pipeline.devPlan!], { type: 'text/markdown' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `dev-plan-${task.branchName || 'task'}.md`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            title="Download dev-plan.md"
+                            style={{ background: 'none', border: 'none', color: '#5aa5a5', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
+                          >
+                            <Download size={12} strokeWidth={1.5} />
+                          </button>
+                        )}
                         {(entry.inputTokens || entry.outputTokens) && (
                           <span style={{ fontSize: 9, color: '#4d5868', whiteSpace: 'nowrap', fontFamily: "'Fira Code', monospace" }}>
                             {formatTokens((entry.inputTokens || 0) + (entry.outputTokens || 0))}
@@ -228,34 +245,6 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                   );
                 })()}
 
-                {/* Dev Plan artifact */}
-                {pipeline.devPlan && (
-                  <>
-                    <div className="rp-section" style={{ marginTop: 14 }}>Artifacts</div>
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([pipeline.devPlan!], { type: 'text/markdown' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `dev-plan-${task.branchName || 'task'}.md`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                        padding: '8px 12px', background: '#1a1f26', border: '1px solid #2a3642',
-                        borderRadius: 6, color: '#c0c8d4', cursor: 'pointer', fontSize: 11,
-                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", textAlign: 'left',
-                        marginBottom: 12,
-                      }}
-                    >
-                      <Download size={14} color="#5aa5a5" strokeWidth={1.5} />
-                      <span style={{ flex: 1 }}>dev-plan.md</span>
-                      <span style={{ fontSize: 9, color: '#6b7585' }}>{Math.ceil(pipeline.devPlan.length / 1024)}KB</span>
-                    </button>
-                  </>
-                )}
 
                 {/* Metadata */}
                 {(pipeline.complexity || pipeline.prUrl || pipeline.reviewRounds !== undefined) && (
