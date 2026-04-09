@@ -147,6 +147,17 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     selected.forEach((id) => runPipelineForTask(id, '/pipeline:dev-task'));
     setSelectedTasks(new Set());
   };
+  // Clear running indicator when pipeline is reset
+  if (runningPipelines.size > 0) {
+    const toRemove = [...runningPipelines].filter((id) => {
+      const t = tasks.find((task) => task.id === id);
+      return !t || !t.pipeline?.enabled || t.status === 'waiting';
+    });
+    if (toRemove.length > 0) {
+      setRunningPipelines((prev) => { const n = new Set(prev); toRemove.forEach((id) => n.delete(id)); return n; });
+    }
+  }
+
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');
   const totalFocus = tasks.reduce((s, t) => s + t.elapsedSeconds, 0);
