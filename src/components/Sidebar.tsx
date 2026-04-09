@@ -144,6 +144,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
   const runSelectedPipelines = () => {
     const selected = [...selectedTasks].filter((id) => tasks.some((t) => t.id === id && t.status !== 'done'));
+    // Reset all timers to 0 simultaneously before starting
+    selected.forEach((id) => useTaskStore.getState().updateTask(id, { elapsedSeconds: 0 }));
+    // Start all pipelines in parallel
     selected.forEach((id) => runPipelineForTask(id, '/pipeline:dev-task'));
     setSelectedTasks(new Set());
   };
