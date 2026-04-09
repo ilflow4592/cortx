@@ -365,7 +365,7 @@ export function Sidebar({
                 <button
                   onClick={async () => {
                     setShowResetConfirm(false);
-                    const { messageCache, sessionCache } = await import('../../utils/chatState');
+                    const { messageCache, sessionCache, loadingCache } = await import('../../utils/chatState');
                     for (const id of selectedTasks) {
                       const t = tasks.find((task) => task.id === id);
                       if (!t) continue;
@@ -395,6 +395,7 @@ export function Sidebar({
                       useTaskStore.getState().setTaskStatus(id, 'waiting');
                       messageCache.delete(id);
                       sessionCache.delete(id);
+                      loadingCache.delete(id);
                     }
                     setSelectedTasks(new Set());
                   }}

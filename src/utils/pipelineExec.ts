@@ -8,7 +8,7 @@ import { listen } from '@tauri-apps/api/event';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
-import { messageCache, sessionCache } from './chatState';
+import { messageCache, sessionCache, loadingCache } from './chatState';
 import type { PipelinePhase, PipelinePhaseEntry } from '../types/task';
 
 interface PipelineCallbacks {
@@ -59,12 +59,11 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     });
   }
 
-  // Add user message + initial thinking indicator immediately
-  const thinkingId = `${reqId}-thinking`;
+  // Add user message + show loading indicator (green dot "Claude is thinking...")
   const msgs: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[] = [];
   msgs.push({ id: `${reqId}-user`, role: 'user', content: command });
-  msgs.push({ id: thinkingId, role: 'activity', content: 'Claude is thinking...' });
   messageCache.set(taskId, [...msgs]);
+  loadingCache.set(taskId, true);
 
   // Resolve slash command from .claude/commands/ files
   let resolvedPrompt = `${command} ${args}`;
@@ -184,11 +183,15 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const activityId = `${reqId}-activity`;
 
   type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
+  let loadingCleared = false;
   const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
+    // Turn off loading indicator once real content starts arriving
+    if (!loadingCleared) {
+      loadingCleared = true;
+      loadingCache.set(taskId, false);
+    }
     const cached = messageCache.get(taskId) || [];
-    // Remove initial thinking indicator once real content arrives
-    const withoutThinking = cached.filter((m) => m.id !== thinkingId);
-    messageCache.set(taskId, updater(withoutThinking));
+    messageCache.set(taskId, updater(cached));
   };
 
   const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
@@ -382,6 +385,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     callbacks?.onAsking?.();
   }
 
+  loadingCache.set(taskId, false);
   callbacks?.onDone?.();
 }
 

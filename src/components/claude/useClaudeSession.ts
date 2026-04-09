@@ -137,8 +137,7 @@ export function useClaudeSession(
     };
   }, []);
 
-  // Sync from messageCache for background-running pipelines
-  // Only sync if cache has more messages AND this component hasn't been manually cleared
+  // Sync from messageCache + loadingCache for background-running pipelines
   useEffect(() => {
     const interval = setInterval(() => {
       const cached = messageCache.get(taskId);
@@ -147,9 +146,19 @@ export function useClaudeSession(
         setMessagesRaw(filtered);
         messagesRef.current = filtered;
       }
+      // Sync loading state from loadingCache (set by pipelineExec)
+      const cachedLoading = loadingCache.get(taskId) || false;
+      if (cachedLoading !== loading) {
+        setLoadingRaw(cachedLoading);
+      }
+      // Also clear messages if cache was emptied (e.g. by Reset Selected)
+      if ((!cached || cached.length === 0) && messages.length > 0) {
+        setMessagesRaw([]);
+        messagesRef.current = [];
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [taskId, messages.length]);
+  }, [taskId, messages.length, loading]);
 
   // Parse pipeline markers from Claude's text output and update task state
   const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z_]+)(?::([^\]]*))?\]/g;
