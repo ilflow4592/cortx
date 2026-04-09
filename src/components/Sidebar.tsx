@@ -45,7 +45,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
     // Clear previous messages and session — fresh start
-    const { messageCache, sessionCache } = await import('./ClaudeChat');
+    const { messageCache, sessionCache } = await import('../utils/chatState');
     messageCache.delete(taskId);
     sessionCache.delete(taskId);
 
@@ -286,7 +286,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     };
     if (lastAssistant && isQuestion(lastAssistant.content)) {
       setAskingTasks((prev) => new Set(prev).add(taskId));
-      try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` }); } catch {}
+      try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` }); } catch { /* ignore */ }
     }
 
     setRunningPipelines((prev) => { const n = new Set(prev); n.delete(taskId); return n; });
@@ -381,7 +381,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
   return (
     <div className="sidebar">
-      <div className="sb-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
+      <div className="sb-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch { /* ignore */ } } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch { /* ignore */ } }}>
         <span style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
@@ -522,7 +522,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={async () => {
                   setShowResetConfirm(false);
-                  const { messageCache, sessionCache } = await import('./ClaudeChat');
+                  const { messageCache, sessionCache } = await import('../utils/chatState');
                   for (const id of selectedTasks) {
                     const t = tasks.find((task) => task.id === id);
                     if (!t) continue;

@@ -30,6 +30,8 @@ export function Chat({ taskId }: { taskId: string }) {
   const [showModelPicker, setShowModelPicker] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
+  const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [task?.chatHistory.length]);
 
   if (!task) return null;
@@ -42,7 +44,6 @@ export function Chat({ taskId }: { taskId: string }) {
   const resolvedApiKey = resolvedAuthMethod === 'oauth' ? oauthAccessToken : apiKey;
 
   // Build context-aware system prompt
-  const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
   const contextItems = contextItemsRaw || [];
   const buildSystemContext = (): string => {
     const parts: string[] = [];

@@ -117,7 +117,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
 
   return (
     <div className="main">
-      <div className="main-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch {} } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).closest('.mh-right')) return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {} }}>
+      <div className="main-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch { /* ignore */ } } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).closest('.mh-right')) return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch { /* ignore */ } }}>
         <div className="mh-left">
           <span className="mh-title" title={task.title}>{task.title}</span>
           <span className={`mh-badge ${badgeCls}`}><span className="dot" />{statusLabel}</span>

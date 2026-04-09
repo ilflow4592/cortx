@@ -1,5 +1,4 @@
 import { useTaskStore } from '../stores/taskStore';
-import { formatTime } from '../utils/time';
 
 export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onToggleRightPanel }: {
   showSidebar?: boolean;
@@ -9,8 +8,6 @@ export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onTogg
 }) {
   const { tasks, activeTaskId } = useTaskStore();
   const activeTask = tasks.find((t) => t.id === activeTaskId);
-  const totalFocus = tasks.reduce((s, t) => s + t.elapsedSeconds, 0);
-  const doneCount = tasks.filter((t) => t.status === 'done').length;
 
   return (
     <div className="statusbar">

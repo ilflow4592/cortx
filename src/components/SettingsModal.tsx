@@ -397,6 +397,7 @@ function SourceCard({ source, onUpdate, onRemove }: { source: ContextSourceConfi
         }
       }).catch(() => {});
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onUpdate is a prop callback; adding it causes infinite re-renders
   }, [source.type, source.token]);
 
   const isConnected = source.enabled && (!!source.token || (source.type === 'github' && ghCliAuth));

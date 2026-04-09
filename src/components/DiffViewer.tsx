@@ -34,6 +34,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
   useEffect(() => {
     if (!repoPath) return;
     loadDiff();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only on repoPath/mode change
   }, [repoPath, mode]);
 
   const loadDiff = async () => {

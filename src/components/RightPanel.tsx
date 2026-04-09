@@ -2,38 +2,17 @@ import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink, Braces, Code2, FolderOpen, TerminalSquare, Zap } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
-import { messageCache, sessionCache } from './ClaudeChat';
+import { messageCache, sessionCache } from '../utils/chatState';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from './SourceIcons';
 import { ProjectFiles } from './ProjectFiles';
 import { ChangesView } from './ChangesView';
-import type { PipelinePhase, PhaseStatus } from '../types/task';
+import type { PhaseStatus } from '../types/task';
+import { PHASE_ORDER, PHASE_NAMES, PHASE_MODELS } from '../constants/pipeline';
 
 type UpperTab = 'projects' | 'changes';
 type LowerTab = 'dashboard' | 'worktree' | 'context' | 'history';
-
-const PHASE_MODELS: Record<PipelinePhase, string> = {
-  grill_me: 'Opus',
-  obsidian_save: 'Opus',
-  dev_plan: 'Opus',
-  implement: 'Sonnet',
-  commit_pr: 'Sonnet',
-  review_loop: 'Opus',
-  done: '-',
-};
-
-const PHASE_LABELS: Record<PipelinePhase, string> = {
-  grill_me: 'Grill-me',
-  obsidian_save: 'Save',
-  dev_plan: 'Dev Plan',
-  implement: 'Implement',
-  commit_pr: 'PR',
-  review_loop: 'Review',
-  done: 'Done',
-};
-
-const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 
 function formatTokens(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -238,7 +217,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                         <span style={{
                           fontSize: 9, color: phaseColor(entry.status),
                           fontWeight: entry.status === 'in_progress' ? 600 : 400,
-                        }}>{PHASE_LABELS[phase]}</span>
+                        }}>{PHASE_NAMES[phase]}</span>
                         {i < PHASE_ORDER.length - 1 && (
                           <span style={{ color: '#2a3642', fontSize: 9, margin: '0 1px' }}>→</span>
                         )}
@@ -264,7 +243,7 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                         <span style={{
                           fontSize: 11, color: phaseColor(entry.status),
                           fontWeight: isActive ? 600 : 400,
-                        }}>{PHASE_LABELS[phase]}</span>
+                        }}>{PHASE_NAMES[phase]}</span>
                         {PHASE_MODELS[phase] !== '-' && (
                           <span style={{
                             fontSize: 8, color: PHASE_MODELS[phase] === 'Opus' ? '#ab98c7' : '#5aa5a5',

@@ -8,7 +8,8 @@ import { useContextPackStore } from '../stores/contextPackStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { ContextItem } from '../types/contextPack';
 import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
-import { isClaudeActiveInTerminal } from './TerminalView';
+import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../constants/pipeline';
+import { isClaudeActiveInTerminal } from '../utils/terminalState';
 
 
 interface ClaudeChatProps {
@@ -32,16 +33,7 @@ interface SlashCommand {
 
 const EMPTY_ARR: never[] = [];
 
-// Module-level cache — survives component unmount/remount on task switch
-export const messageCache = new Map<string, Message[]>();
-export const sessionCache = new Map<string, string>();
-const loadingCache = new Map<string, boolean>();
-const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
-const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
-const PHASE_NAMES: Record<PipelinePhase, string> = {
-  grill_me: 'Grill-me', obsidian_save: 'Save', dev_plan: 'Dev Plan',
-  implement: 'Implement', commit_pr: 'PR', review_loop: 'Review', done: 'Done',
-};
+import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 
 function sendNotification(title: string, body: string) {
   try {
@@ -50,6 +42,12 @@ function sendNotification(title: string, body: string) {
     }
   } catch { /* ignore */ }
 }
+
+const CORTX_DESCRIPTIONS: Record<string, string> = {
+  'pipeline:dev-task': 'Grill-me + 개발 계획서 작성',
+  'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
+  'pipeline:dev-resume': '중단된 파이프라인 재개',
+};
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -118,12 +116,6 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
   const [slashIndex, setSlashIndex] = useState(0);
   const slashMenuRef = useRef<HTMLDivElement>(null);
 
-  // Load slash commands on mount — override descriptions for Cortx pipeline commands
-  const CORTX_DESCRIPTIONS: Record<string, string> = {
-    'pipeline:dev-task': 'Grill-me + 개발 계획서 작성',
-    'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
-    'pipeline:dev-resume': '중단된 파이프라인 재개',
-  };
   useEffect(() => {
     invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd || null })
       .then((cmds) => setSlashCommands(cmds.map((cmd) =>

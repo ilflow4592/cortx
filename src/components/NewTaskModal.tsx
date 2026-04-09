@@ -33,6 +33,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
 
   // Fetch branches when project changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- guard reset, not cascading
     if (!selectedProject?.localPath) { setBranches([]); return; }
     invoke<{ success: boolean; output: string }>('run_shell_command', {
       cwd: selectedProject.localPath,

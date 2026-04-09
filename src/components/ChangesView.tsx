@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, RotateCw, Undo2, Trash2 } from 'lucide-react';
-import { CodeEditor } from './CodeEditor';
 
 const EXT_LANG: Record<string, string> = {
   java: 'java', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
@@ -37,17 +36,14 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (cwd) loadChanges(true);
-    // Auto-refresh every 5 seconds to pick up changes from Claude
-    pollRef.current = setInterval(() => { if (cwd) loadChanges(false); }, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [cwd, branchName]);
+  const run = useCallback(async (command: string): Promise<string> => {
+    const result = await invoke<{ success: boolean; output: string }>('run_shell_command', { cwd, command });
+    return result.success ? result.output : '';
+  }, [cwd]);
 
-  const loadChanges = async (showLoading = false) => {
+  const loadChanges = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      // Get changed files (branch diff + staged + unstaged)
       const branchDiff = await run(`git diff --name-status origin/develop...HEAD 2>/dev/null || git diff --name-status HEAD~5 2>/dev/null`);
       const staged = await run(`git diff --cached --name-status 2>/dev/null`);
       const unstaged = await run(`git diff --name-status 2>/dev/null`);
@@ -60,12 +56,14 @@ export function ChangesView({ cwd, branchName, onOpenFile }: { cwd: string; bran
       setChangedFiles([...fileMap.entries()].map(([path, status]) => ({ path, status })));
     } catch { /* skip */ }
     setLoading(false);
-  };
+  }, [run]);
 
-  const run = async (command: string): Promise<string> => {
-    const result = await invoke<{ success: boolean; output: string }>('run_shell_command', { cwd, command });
-    return result.success ? result.output : '';
-  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load, not cascading
+    if (cwd) loadChanges(true);
+    pollRef.current = setInterval(() => { if (cwd) loadChanges(false); }, 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [cwd, branchName, loadChanges]);
 
   const requestDiscardFile = (filePath: string, e: React.MouseEvent) => {
     e.stopPropagation();

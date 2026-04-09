@@ -33,7 +33,7 @@ export default function App() {
         const data = JSON.parse(raw);
         if (data?.tasks?.length) useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
       }
-    } catch {}
+    } catch { /* ignore */ }
     try {
       const raw = localStorage.getItem('cortx-projects');
       if (raw) {
@@ -41,7 +41,7 @@ export default function App() {
         const projects = Array.isArray(data) ? data : data?.projects || [];
         if (projects.length) useProjectStore.getState().loadProjects(projects);
       }
-    } catch {}
+    } catch { /* ignore */ }
     import('./stores/settingsStore').then(({ useSettingsStore }) => useSettingsStore.getState().loadSettings()).catch(() => {});
     import('./stores/contextPackStore').then(({ useContextPackStore }) => {
       useContextPackStore.getState().loadState();
@@ -88,11 +88,6 @@ export default function App() {
 
   // Global shortcuts (Tauri)
   useEffect(() => { import('./hooks/useGlobalShortcuts').then(({ registerShortcuts }) => registerShortcuts().catch(() => {})).catch(() => {}); }, []);
-
-  // Header double-click fullscreen
-  const handleHeaderDoubleClick = useCallback(async () => {
-    try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch {}
-  }, []);
 
   // Sidebar resize
   const handleResizeStart = useCallback((e: React.MouseEvent) => {

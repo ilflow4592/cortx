@@ -15,9 +15,7 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string>('');
 
-  useEffect(() => { if (cwd) loadChildren(cwd).then(setRoot); }, [cwd]);
-
-  const loadChildren = async (dir: string): Promise<TreeNode[]> => {
+  const loadChildren = useCallback(async (dir: string): Promise<TreeNode[]> => {
     try {
       const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
         cwd: dir,
@@ -38,7 +36,9 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
       });
       return items;
     } catch { return []; }
-  };
+  }, []);
+
+  useEffect(() => { if (cwd) loadChildren(cwd).then(setRoot); }, [cwd, loadChildren]);
 
   const toggleDir = useCallback(async (node: TreeNode) => {
     setSelected(node.path);
@@ -55,6 +55,7 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
       }
     }
     setExpanded(newExpanded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadChildren is stable (empty deps)
   }, [expanded, root]);
 
   const openFile = (path: string) => {

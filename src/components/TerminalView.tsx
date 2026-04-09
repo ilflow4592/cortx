@@ -4,31 +4,14 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event';
 
 interface TerminalViewProps {
   taskId: string;
   worktreePath: string;
 }
 
-// Cache terminal instances + their DOM wrapper per task
-interface TerminalCache {
-  term: Terminal;
-  fit: FitAddon;
-  wrapper: HTMLDivElement;
-  cwd: string;
-  unlistenData: UnlistenFn | null;
-  unlistenExit: UnlistenFn | null;
-  spawned: boolean;
-  claudeActive: boolean;
-}
-
-const terminalCache = new Map<string, TerminalCache>();
-
-/** Check if Claude CLI is active in the terminal for a given task */
-export function isClaudeActiveInTerminal(taskId: string): boolean {
-  return terminalCache.get(taskId)?.claudeActive ?? false;
-}
+import { terminalCache } from '../utils/terminalState';
 
 export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);

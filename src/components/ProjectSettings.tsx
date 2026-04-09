@@ -45,7 +45,7 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
                 try {
                   const selected = await open({ directory: true, multiple: false, title: 'Select root path' });
                   if (selected && typeof selected === 'string') update({ localPath: selected });
-                } catch {}
+                } catch { /* ignore */ }
               }} style={{ padding: '0 14px', background: '#18181b', border: '1px solid #27272a', borderRadius: 8, color: '#a1a1aa', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Browse...</button>
             </div>
           </div>

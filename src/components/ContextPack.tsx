@@ -91,16 +91,12 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const mcpServers = useContextPackStore((s) => s.mcpServers);
   const mcpLoading = useContextPackStore((s) => s.mcpLoading);
   const [searchResources, setSearchResources] = useState<Set<ServiceType>>(new Set(['github']));
-  const [vectorStatus, setVectorStatus] = useState<{ ollama: boolean; qdrant: boolean }>({ ollama: false, qdrant: false });
-  const [relatedItems, setRelatedItems] = useState<{ id: string; taskId: string; sourceType: string; title: string; content: string; url: string; timestamp: string }[]>([]);
-  const [searchingRelated, setSearchingRelated] = useState(false);
 
   useEffect(() => {
-    import('../services/vectorSearch').then((vs) => vs.checkVectorServices().then(setVectorStatus)).catch(() => {});
     // Clear this task's progress on mount
     const store = useContextPackStore.getState();
     useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
-  }, []);
+  }, [taskId]);
 
   // Auto-enable search resources when mcpServers change
   useEffect(() => {
@@ -111,18 +107,6 @@ export function ContextPack({ taskId }: { taskId: string }) {
     );
     if (readyServices.size > 0) setSearchResources(readyServices);
   }, [mcpServers]);
-
-  // Search for related context from other tasks
-  const handleSearchRelated = async () => {
-    if (!task?.title) return;
-    setSearchingRelated(true);
-    try {
-      const vs = await import('../services/vectorSearch');
-      const results = await vs.searchGlobalContext(task.title, 5);
-      setRelatedItems(results.filter((r) => r.taskId !== taskId));
-    } catch { /* vector search unavailable */ }
-    setSearchingRelated(false);
-  };
 
   const icon = (t: string) => t === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : t === 'slack' ? <SlackIcon size={14} /> : t === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
 
@@ -277,7 +261,6 @@ export function ContextPack({ taskId }: { taskId: string }) {
           {mcpServers.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {mcpServers.map((server) => {
-                const isReady = server.status === 'ready' || server.status === 'unknown';
                 const needsAuth = server.status === 'auth-needed';
                 return (
                   <span

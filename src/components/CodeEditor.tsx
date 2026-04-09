@@ -46,6 +46,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
     });
   };
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- editorRef.current is a ref, not a dependency
   const saveFile = useCallback(async () => {
     if (!editorRef.current || readOnly) return;
     const value = editorRef.current.getValue();
