@@ -20,9 +20,15 @@ interface TerminalCache {
   unlistenData: UnlistenFn | null;
   unlistenExit: UnlistenFn | null;
   spawned: boolean;
+  claudeActive: boolean;
 }
 
 const terminalCache = new Map<string, TerminalCache>();
+
+/** Check if Claude CLI is active in the terminal for a given task */
+export function isClaudeActiveInTerminal(taskId: string): boolean {
+  return terminalCache.get(taskId)?.claudeActive ?? false;
+}
 
 export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,7 +86,7 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
       term.loadAddon(new WebLinksAddon());
       term.open(wrapper);
 
-      cache = { term, fit, wrapper, cwd, unlistenData: null, unlistenExit: null, spawned: false };
+      cache = { term, fit, wrapper, cwd, unlistenData: null, unlistenExit: null, spawned: false, claudeActive: false };
       terminalCache.set(taskId, cache);
 
       setTimeout(() => fit.fit(), 50);
@@ -98,10 +104,20 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
         try {
           currentCache.unlistenData = await listen<string>(`pty-data-${ptyId}`, (event) => {
             currentCache.term.write(event.payload);
+            // Detect Claude CLI activity: look for Claude prompt marker (❯) or banner
+            const data = event.payload;
+            if (data.includes('Claude Code') || data.includes('❯')) {
+              currentCache.claudeActive = true;
+            }
+            // Detect Claude exit (back to shell prompt)
+            if (data.includes('[Process exited]') || data.includes('$ ') || data.includes('% ')) {
+              currentCache.claudeActive = false;
+            }
           });
           currentCache.unlistenExit = await listen(`pty-exit-${ptyId}`, () => {
             currentCache.term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
             currentCache.spawned = false;
+            currentCache.claudeActive = false;
           });
 
           if (!currentCache.spawned) {

@@ -185,7 +185,7 @@ export function MainPanel({ showRightPanel = true, onToggleRightPanel }: {
       <div className="content-split" style={{ gridTemplateColumns: showRightPanel ? `1fr ${rightPanelWidth}px` : '1fr' }}>
         <div className="chat">
           <div style={{ display: activeTab === 'claude' ? 'contents' : 'none' }}>
-            <ClaudeChat key={`${task.id}-${claudeResetKey}`} taskId={task.id} cwd={taskCwd} />
+            <ClaudeChat key={`${task.id}-${claudeResetKey}`} taskId={task.id} cwd={taskCwd} onSwitchTab={(tab) => setActiveTab(tab as Tab)} />
           </div>
           <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
             <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />
