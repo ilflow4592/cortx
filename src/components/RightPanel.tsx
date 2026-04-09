@@ -564,6 +564,9 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                     await invoke('run_shell_command', { cwd, command: 'git reset origin/develop 2>/dev/null || git reset HEAD~1 2>/dev/null' }).catch(() => {});
                     await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
                   }
+                  // Kill running Claude CLI processes for this task
+                  await invoke('run_shell_command', { cwd: '/', command: `ps aux | grep "cortx-msg-claude-${task.id}" | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null` }).catch(() => {});
+
                   // Reset pipeline, timer, status
                   updateTask(task.id, {
                     pipeline: undefined,
