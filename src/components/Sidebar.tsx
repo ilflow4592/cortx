@@ -18,6 +18,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
   const [askingTasks, setAskingTasks] = useState<Set<string>>(new Set());
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedTasks((prev) => {
@@ -83,6 +84,10 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const assistantId = () => `${reqId}-turn-${turnCounter}`;
 
     const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
+      // Stop processing if task was reset
+      const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      if (!currentTask?.pipeline?.enabled) return;
+
       try {
         const evt = JSON.parse(event.payload);
 
@@ -372,32 +377,39 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           >
             <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
           </button>
-          <button
-            onClick={async () => {
-              if (!window.confirm(`Reset all ${selectedTasks.size} selected tasks? Pipeline, timer, Claude session, git changes will be cleared.`)) return;
-              const { messageCache, sessionCache } = await import('./ClaudeChat');
-              for (const id of selectedTasks) {
-                const t = tasks.find((task) => task.id === id);
-                if (!t) continue;
-                // Kill Claude processes
-                await invoke('claude_stop_task', { taskId: id }).catch(() => {});
-                // Discard git changes
-                const project = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
-                const cwd = t.worktreePath || t.repoPath || project?.localPath || '';
-                if (cwd) {
-                  await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
-                  await invoke('run_shell_command', { cwd, command: 'git clean -fd 2>/dev/null' }).catch(() => {});
-                  await invoke('run_shell_command', { cwd, command: 'git reset origin/develop 2>/dev/null' }).catch(() => {});
-                  await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
-                }
-                // Reset task state
-                useTaskStore.getState().updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
-                useTaskStore.getState().setTaskStatus(id, 'waiting');
-                messageCache.delete(id);
-                sessionCache.delete(id);
-              }
-              setSelectedTasks(new Set());
-            }}
+          {showResetConfirm && (
+            <div style={{ padding: '8px 0', marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: '#c0c8d4', marginBottom: 6 }}>Reset {selectedTasks.size} tasks?</div>
+              <div style={{ fontSize: 10, color: '#6b7585', marginBottom: 8 }}>Pipeline, timer, Claude session, git changes will be cleared.</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={async () => {
+                  setShowResetConfirm(false);
+                  const { messageCache, sessionCache } = await import('./ClaudeChat');
+                  for (const id of selectedTasks) {
+                    const t = tasks.find((task) => task.id === id);
+                    if (!t) continue;
+                    await invoke('claude_stop_task', { taskId: id }).catch(() => {});
+                    const proj = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
+                    const taskCwd = t.worktreePath || t.repoPath || proj?.localPath || '';
+                    if (taskCwd) {
+                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git clean -fd 2>/dev/null' }).catch(() => {});
+                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git reset origin/develop 2>/dev/null' }).catch(() => {});
+                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                    }
+                    useTaskStore.getState().updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
+                    useTaskStore.getState().setTaskStatus(id, 'waiting');
+                    messageCache.delete(id);
+                    sessionCache.delete(id);
+                  }
+                  setSelectedTasks(new Set());
+                }} style={{ padding: '4px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>Reset</button>
+                <button onClick={() => setShowResetConfirm(false)} style={{ padding: '4px 12px', borderRadius: 5, fontSize: 10, background: 'none', border: '1px solid #3d4856', color: '#8b95a5', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+          {!showResetConfirm && <button
+            onClick={() => setShowResetConfirm(true)}
             style={{
               width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500,
               background: 'none', border: '1px solid rgba(239,68,68,0.2)',

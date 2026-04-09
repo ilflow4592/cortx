@@ -137,10 +137,11 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   }, []);
 
   // Sync from messageCache for background-running pipelines
+  // Only sync if cache has more messages AND this component hasn't been manually cleared
   useEffect(() => {
     const interval = setInterval(() => {
       const cached = messageCache.get(taskId);
-      if (cached && cached.length > messages.length) {
+      if (cached && cached.length > 0 && cached.length > messages.length) {
         setMessagesRaw(cached);
         messagesRef.current = cached;
       }
