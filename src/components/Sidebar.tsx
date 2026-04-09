@@ -43,9 +43,26 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
-    // Start task timer
+    // Start task timer + initialize pipeline
     if (task.status === 'waiting' || task.status === 'paused') {
       useTaskStore.getState().startTask(taskId);
+    }
+    // Initialize pipeline state
+    if (!task.pipeline?.enabled) {
+      useTaskStore.getState().updateTask(taskId, {
+        pipeline: {
+          enabled: true,
+          phases: {
+            grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
+            obsidian_save: { status: 'pending' },
+            dev_plan: { status: 'pending' },
+            implement: { status: 'pending' },
+            commit_pr: { status: 'pending' },
+            review_loop: { status: 'pending' },
+            done: { status: 'pending' },
+          },
+        },
+      });
     }
 
     // Import caches
@@ -350,20 +367,23 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
   const dotCls = task.status === 'active' ? 'running' : task.status === 'paused' ? 'paused' : 'waiting';
 
   return (
-    <div className="task-row-wrap" style={{ position: 'relative' }}>
-      <button className={cls} onClick={() => { onToggleSelect?.(); onSelect(); }} style={{
+    <div className="task-row-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      {onToggleSelect && task.status !== 'done' && (
+        <span
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+          style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+        >
+          {selected
+            ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
+            : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+        </span>
+      )}
+      <button className={cls} onClick={onSelect} style={{
         ...(indent ? { paddingLeft: 24 } : {}),
         ...(isActive && color ? { borderLeftColor: color, boxShadow: `inset 3px 0 8px -3px ${color}50` } : {}),
       }}>
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            {onToggleSelect && task.status !== 'done' && (
-              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                {selected
-                  ? <CheckSquare size={15} color="#5aa5a5" strokeWidth={1.5} />
-                  : <Square size={15} color="#3d4856" strokeWidth={1.5} />}
-              </span>
-            )}
             <div className={`sb-dot ${dotCls}`} style={{
               ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
               ...(isRunning ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)', animation: 'pulse-glow 1.5s infinite' } : {}),
