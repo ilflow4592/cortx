@@ -233,11 +233,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                       setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.add(t.id)); return n; });
                     }
                   }}
-                  style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
                 >
                   {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id))
-                    ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
-                    : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+                    ? <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+                    : <Square size={18} color="#3d4856" strokeWidth={1.5} />}
                 </span>
                 <button
                   onClick={() => toggleCollapse(project.id)}
@@ -374,11 +374,11 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
       {onToggleSelect && task.status !== 'done' && (
         <span
           onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-          style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+          style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
         >
           {selected
-            ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
-            : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+            ? <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+            : <Square size={18} color="#3d4856" strokeWidth={1.5} />}
         </span>
       )}
       <button className={cls} onClick={onSelect} style={{
