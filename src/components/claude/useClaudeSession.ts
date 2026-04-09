@@ -420,13 +420,10 @@ export function useClaudeSession(
     }
 
     // Pipeline commands → delegate to shared pipelineExec (same path as Run Pipeline button)
+    // Do NOT set loading — pipelineExec manages its own activity messages via messageCache.
+    // The messageCache sync interval will pick up messages and render them.
     if (text.startsWith('/pipeline:')) {
-      setLoading(true);
-      const userMsg: Message = { id: Date.now().toString(36), role: 'user', content: text };
-      setMessages([userMsg]);
-      runPipeline(taskId, text, {
-        onDone: () => setLoading(false),
-      });
+      runPipeline(taskId, text);
       return;
     }
 
