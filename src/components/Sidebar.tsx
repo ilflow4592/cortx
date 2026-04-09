@@ -17,6 +17,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
+  const [askingTasks, setAskingTasks] = useState<Set<string>>(new Set());
 
   const toggleSelect = (id: string) => {
     setSelectedTasks((prev) => {
@@ -139,6 +140,14 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     await donePromise;
     unData();
 
+    // Check if Claude is asking a question (last message ends with ?)
+    const finalMsgs = messageCache.get(taskId) || [];
+    const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
+    if (lastAssistant && lastAssistant.content.trim().endsWith('?')) {
+      setAskingTasks((prev) => new Set(prev).add(taskId));
+      try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` }); } catch {}
+    }
+
     setRunningPipelines((prev) => { const n = new Set(prev); n.delete(taskId); return n; });
   };
 
@@ -150,6 +159,20 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     selected.forEach((id) => runPipelineForTask(id, '/pipeline:dev-task'));
     setSelectedTasks(new Set());
   };
+  // Clear asking state when user has responded (last message is from 'user')
+  if (askingTasks.size > 0) {
+    import('./ClaudeChat').then(({ messageCache: mc }) => {
+      const toRemove = [...askingTasks].filter((id) => {
+        const msgs = mc.get(id);
+        if (!msgs || msgs.length === 0) return true;
+        return msgs[msgs.length - 1].role === 'user';
+      });
+      if (toRemove.length > 0) {
+        setAskingTasks((prev) => { const n = new Set(prev); toRemove.forEach((id) => n.delete(id)); return n; });
+      }
+    });
+  }
+
   // Clear running indicator when pipeline is reset
   if (runningPipelines.size > 0) {
     const toRemove = [...runningPipelines].filter((id) => {
@@ -275,7 +298,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               {!isCollapsed && (
                 <>
                   {projTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} />
+                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} isAsking={askingTasks.has(task.id)} />
                   ))}
                   {projTasks.length === 0 && (
                     <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
@@ -295,7 +318,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <div className="sb-section" style={{ color: '#2a3642' }}>No project</div>
             )}
             {unassigned.map((task) => (
-              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} />
+              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} isAsking={askingTasks.has(task.id)} />
             ))}
           </>
         )}
@@ -408,10 +431,10 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   );
 }
 
-function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, onToggleSelect, isRunning }: {
+function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, onToggleSelect, isRunning, isAsking }: {
   task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number; pipeline?: { enabled: boolean; phases: Record<string, { status: string }> } };
   isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean; color?: string;
-  selected?: boolean; onToggleSelect?: () => void; isRunning?: boolean;
+  selected?: boolean; onToggleSelect?: () => void; isRunning?: boolean; isAsking?: boolean;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -444,7 +467,8 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <div className={`sb-dot ${dotCls}`} style={{
               ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
-              ...(isRunning ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)', animation: 'pulse-glow 1.5s infinite' } : {}),
+              ...(isAsking ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)' } : {}),
+              ...(isRunning && !isAsking ? { background: '#5aa5a5', boxShadow: '0 0 6px rgba(90,165,165,0.6)', animation: 'pulse-glow 1.5s infinite' } : {}),
             }} />
             <span className="sb-task-name" title={task.title}>{task.title}</span>
           </div>
@@ -454,6 +478,12 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
         {task.pipeline?.enabled && (() => {
           const phases = task.pipeline.phases;
           const activePhase = Object.entries(phases).find(([, v]) => v.status === 'in_progress');
+          if (isAsking) {
+            return <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
+              Asking
+            </div>;
+          }
           if (activePhase) {
             return <div style={{ fontSize: 9, color: '#5aa5a5', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#5aa5a5', animation: 'pulse 1.2s infinite' }} />
