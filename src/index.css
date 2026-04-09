@@ -55,7 +55,7 @@ body {
 .sidebar { background:#131a21; border-right:1px solid #2a3642; display:flex; flex-direction:column; overflow:hidden; height:100% }
 .sb-header { padding:10px 16px 10px; display:flex; justify-content:space-between; align-items:center; height:44px }
 .sb-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; color:#6b7585 }
-.sb-task { padding:12px 16px; cursor:pointer; border-left:3px solid transparent; transition:all 200ms ease; display:block; width:100%; text-align:left; background:none; border-right:0; border-top:0; border-bottom:0; color:inherit; font-family:inherit; min-height:64px; }
+.sb-task { padding:10px 16px; cursor:pointer; border-left:3px solid transparent; transition:all 200ms ease; display:flex; flex-direction:column; justify-content:center; width:100%; text-align:left; background:none; border-right:0; border-top:0; border-bottom:0; color:inherit; font-family:inherit; height:64px; box-sizing:border-box; }
 .sb-task:hover { background:#1e2530 }
 .task-row-wrap:hover .task-delete-btn { opacity:1 !important }
 .task-row-wrap:hover .sb-timer { opacity:0 !important }
