@@ -101,10 +101,16 @@ export function usePipelineRunner() {
     const stripMarkers = (text: string) => text.replace(/\[PIPELINE:[^\]]*\]/g, '').trimStart();
 
     // Listen for data — update messageCache in real-time
+    // Uses same streaming logic as useClaudeSession to ensure identical message structure
     let turnCounter = 0;
     let currentResponse = '';
-    const assistantId = () => `${reqId}-turn-${turnCounter}`;
+    let currentMsgId = '';
     const activityId = `${reqId}-activity`;
+
+    const updateCache = (updater: (cached: typeof msgs) => typeof msgs) => {
+      const cached = messageCache.get(taskId) || [];
+      messageCache.set(taskId, updater(cached));
+    };
 
     const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
       // Stop processing if task was reset
@@ -127,41 +133,55 @@ export function usePipelineRunner() {
           );
 
           if (textBlocks.length > 0) {
-            turnCounter++;
-            currentResponse = stripMarkers(textBlocks.join(''));
+            const newText = textBlocks.join('');
+            // Only start a new turn if no current message (first text or after tool use)
+            if (!currentMsgId) {
+              turnCounter++;
+              currentMsgId = `${reqId}-turn-${turnCounter}`;
+              currentResponse = stripMarkers(newText);
+            } else {
+              currentResponse = stripMarkers(currentResponse + newText);
+            }
             if (currentResponse.trim()) {
-              const cached = messageCache.get(taskId) || [];
-              // Remove previous activity message
-              const filtered = cached.filter((m) => m.id !== activityId);
-              const existing = filtered.findIndex((m) => m.id === assistantId());
-              if (existing >= 0) {
-                filtered[existing] = { ...filtered[existing], content: currentResponse };
-              } else {
-                filtered.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
-              }
-              messageCache.set(taskId, [...filtered]);
+              const msgId = currentMsgId;
+              updateCache((cached) => {
+                const filtered = cached.filter((m) => m.id !== activityId);
+                const idx = filtered.findIndex((m) => m.id === msgId);
+                if (idx >= 0) {
+                  filtered[idx] = { ...filtered[idx], content: currentResponse };
+                  return [...filtered];
+                }
+                return [...filtered, { id: msgId, role: 'assistant' as const, content: currentResponse }];
+              });
             }
           }
 
           if (toolBlocks.length > 0) {
+            // Reset current message so next text block starts a new turn
+            currentMsgId = '';
             const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
-            const cached = messageCache.get(taskId) || [];
-            const filtered = cached.filter((m) => m.id !== activityId);
-            filtered.push({ id: activityId, role: 'activity' as const, content: `Using ${toolLabel}...` });
-            messageCache.set(taskId, [...filtered]);
+            updateCache((cached) => {
+              const filtered = cached.filter((m) => m.id !== activityId);
+              return [...filtered, { id: activityId, role: 'activity' as const, content: `Using ${toolLabel}...` }];
+            });
           }
         } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
           currentResponse = stripMarkers(currentResponse + evt.delta.text);
+          if (!currentMsgId) {
+            turnCounter++;
+            currentMsgId = `${reqId}-turn-${turnCounter}`;
+          }
           if (currentResponse.trim()) {
-            const cached = messageCache.get(taskId) || [];
-            const filtered = cached.filter((m) => m.id !== activityId);
-            const existing = filtered.findIndex((m) => m.id === assistantId());
-            if (existing >= 0) {
-              filtered[existing] = { ...filtered[existing], content: currentResponse };
-            } else {
-              filtered.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
-            }
-            messageCache.set(taskId, [...filtered]);
+            const msgId = currentMsgId;
+            updateCache((cached) => {
+              const filtered = cached.filter((m) => m.id !== activityId);
+              const idx = filtered.findIndex((m) => m.id === msgId);
+              if (idx >= 0) {
+                filtered[idx] = { ...filtered[idx], content: currentResponse };
+                return [...filtered];
+              }
+              return [...filtered, { id: msgId, role: 'assistant' as const, content: currentResponse }];
+            });
           }
         }
 
