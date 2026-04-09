@@ -43,7 +43,10 @@ export default function App() {
       }
     } catch {}
     import('./stores/settingsStore').then(({ useSettingsStore }) => useSettingsStore.getState().loadSettings()).catch(() => {});
-    import('./stores/contextPackStore').then(({ useContextPackStore }) => useContextPackStore.getState().loadState()).catch(() => {});
+    import('./stores/contextPackStore').then(({ useContextPackStore }) => {
+      useContextPackStore.getState().loadState();
+      useContextPackStore.getState().loadMcpServers();
+    }).catch(() => {});
   }, []);
 
   // Persist on unload + periodic save every 5s

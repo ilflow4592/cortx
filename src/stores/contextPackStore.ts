@@ -9,6 +9,7 @@
  * Persistence: 자체 persist() 메서드로 localStorage에 저장.
  */
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
 import { collectGitHub } from '../services/contextCollectors/github';
 import { collectSlack } from '../services/contextCollectors/slack';
@@ -16,6 +17,31 @@ import { collectNotion } from '../services/contextCollectors/notion';
 import { collectViaMcp } from '../services/contextCollectors/mcpSearch';
 
 const STORAGE_KEY = 'cortx-context-pack';
+
+type ServiceType = 'github' | 'notion' | 'slack' | 'other';
+
+export interface McpServerStatus {
+  name: string;
+  command: string;
+  status: 'ready' | 'auth-needed' | 'unknown';
+  authUrl?: string;
+  serviceType: ServiceType;
+  env: Record<string, string>;
+}
+
+const AUTH_CHECKS: Record<string, { cmd: string; authUrl: string }> = {
+  github: { cmd: 'gh auth status 2>&1', authUrl: 'https://github.com/settings/tokens' },
+  notion: { cmd: 'echo ok', authUrl: 'https://www.notion.so/my-integrations' },
+  slack: { cmd: 'echo ok', authUrl: 'https://api.slack.com/apps' },
+};
+
+function detectServiceType(name: string): ServiceType {
+  const n = name.toLowerCase();
+  if (n.includes('github')) return 'github';
+  if (n.includes('notion')) return 'notion';
+  if (n.includes('slack')) return 'slack';
+  return 'other';
+}
 
 /** 개별 소스의 수집 진행 상태 (UI 진행률 표시용) */
 export interface SourceCollectStatus {
@@ -51,6 +77,11 @@ interface ContextPackState {
   lastCollectedAt: Record<string, string>;
   collectHistory: Record<string, CollectHistoryEntry[]>; // taskId -> history
   deltaItems: Record<string, ContextItem[]>; // items changed since pause
+
+  // MCP servers (loaded once at app start)
+  mcpServers: McpServerStatus[];
+  mcpLoading: boolean;
+  loadMcpServers: () => Promise<void>;
 
   // Actions
   addPin: (taskId: string, item: ContextItem) => void;
@@ -108,6 +139,37 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   lastCollectedAt: {},
   collectHistory: {},
   deltaItems: {},
+  mcpServers: [],
+  mcpLoading: false,
+
+  loadMcpServers: async () => {
+    set({ mcpLoading: true });
+    try {
+      const servers = await invoke<{ name: string; command: string; args: string[]; env: Record<string, string>; server_type: string; url: string }[]>('list_mcp_servers');
+      const statuses: McpServerStatus[] = [];
+      for (const server of servers) {
+        const serviceType = detectServiceType(server.name);
+        const matchKey = Object.keys(AUTH_CHECKS).find((k) => server.name.toLowerCase().includes(k));
+        if (matchKey) {
+          const check = AUTH_CHECKS[matchKey];
+          try {
+            const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+              cwd: '/', command: check.cmd,
+            });
+            const authed = result.success || result.output.includes('Logged in') || result.output.includes('ok');
+            statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: authed ? 'ready' : 'auth-needed', authUrl: check.authUrl, serviceType });
+          } catch {
+            statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'auth-needed', authUrl: check.authUrl, serviceType });
+          }
+        } else {
+          statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'unknown', serviceType });
+        }
+      }
+      set({ mcpServers: statuses, mcpLoading: false });
+    } catch {
+      set({ mcpLoading: false });
+    }
+  },
 
   // 사용자가 수동으로 고정(pin)한 아이템. clearCollected에서도 삭제되지 않음
   addPin: (taskId, item) => {

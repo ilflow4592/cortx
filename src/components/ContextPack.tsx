@@ -88,85 +88,29 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const newCount = taskItems.filter((i) => i.isNew).length;
   type ServiceType = 'github' | 'notion' | 'slack' | 'other';
 
-  interface McpServerStatus {
-    name: string;
-    command: string;
-    status: 'ready' | 'auth-needed' | 'unknown';
-    authUrl?: string;
-    serviceType: ServiceType;
-    env: Record<string, string>;
-  }
-
-  const [mcpServers, setMcpServers] = useState<McpServerStatus[]>([]);
+  const mcpServers = useContextPackStore((s) => s.mcpServers);
+  const mcpLoading = useContextPackStore((s) => s.mcpLoading);
   const [searchResources, setSearchResources] = useState<Set<ServiceType>>(new Set(['github']));
-  const [mcpLoading, setMcpLoading] = useState(false);
   const [vectorStatus, setVectorStatus] = useState<{ ollama: boolean; qdrant: boolean }>({ ollama: false, qdrant: false });
   const [relatedItems, setRelatedItems] = useState<{ id: string; taskId: string; sourceType: string; title: string; content: string; url: string; timestamp: string }[]>([]);
   const [searchingRelated, setSearchingRelated] = useState(false);
 
-  const AUTH_CHECKS: Record<string, { cmd: string; authUrl: string }> = {
-    github: { cmd: 'gh auth status 2>&1', authUrl: 'https://github.com/settings/tokens' },
-    notion: { cmd: 'echo ok', authUrl: 'https://www.notion.so/my-integrations' },
-    slack: { cmd: 'echo ok', authUrl: 'https://api.slack.com/apps' },
-  };
-
-  const detectServiceType = (name: string): ServiceType => {
-    const n = name.toLowerCase();
-    if (n.includes('github')) return 'github';
-    if (n.includes('notion')) return 'notion';
-    if (n.includes('slack')) return 'slack';
-    return 'other';
-  };
-
-  const loadMcpServers = async () => {
-    setMcpLoading(true);
-    try {
-      const servers = await invoke<{ name: string; command: string; args: string[]; env: Record<string, string>; server_type: string; url: string }[]>('list_mcp_servers');
-      const statuses: McpServerStatus[] = [];
-
-      for (const server of servers) {
-        const serviceType = detectServiceType(server.name);
-        const matchKey = Object.keys(AUTH_CHECKS).find((k) => server.name.toLowerCase().includes(k));
-        if (matchKey) {
-          const check = AUTH_CHECKS[matchKey];
-          try {
-            const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-              cwd: '/', command: check.cmd,
-            });
-            const authed = result.success || result.output.includes('Logged in') || result.output.includes('ok');
-            statuses.push({
-              name: server.name, command: server.command, env: server.env || {},
-              status: authed ? 'ready' : 'auth-needed',
-              authUrl: check.authUrl, serviceType,
-            });
-          } catch {
-            statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'auth-needed', authUrl: check.authUrl, serviceType });
-          }
-        } else {
-          statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'unknown', serviceType });
-        }
-      }
-
-      setMcpServers(statuses);
-
-      // Auto-enable search resources for ready services
-      const readyServices = new Set<ServiceType>(
-        statuses
-          .filter((s) => s.status === 'ready' && s.serviceType !== 'other')
-          .map((s) => s.serviceType)
-      );
-      if (readyServices.size > 0) setSearchResources(readyServices);
-    } catch { /* no MCP servers */ }
-    setMcpLoading(false);
-  };
-
   useEffect(() => {
-    loadMcpServers();
     import('../services/vectorSearch').then((vs) => vs.checkVectorServices().then(setVectorStatus)).catch(() => {});
     // Clear this task's progress on mount
     const store = useContextPackStore.getState();
     useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
   }, []);
+
+  // Auto-enable search resources when mcpServers change
+  useEffect(() => {
+    const readyServices = new Set<ServiceType>(
+      mcpServers
+        .filter((s) => s.status === 'ready' && s.serviceType !== 'other')
+        .map((s) => s.serviceType)
+    );
+    if (readyServices.size > 0) setSearchResources(readyServices);
+  }, [mcpServers]);
 
   // Search for related context from other tasks
   const handleSearchRelated = async () => {
@@ -320,7 +264,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
               MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3d4856' }}>({mcpServers.length})</span>}
             </div>
             <button
-              onClick={loadMcpServers}
+              onClick={() => useContextPackStore.getState().loadMcpServers()}
               disabled={mcpLoading}
               className="icon-btn-subtle"
               style={{
