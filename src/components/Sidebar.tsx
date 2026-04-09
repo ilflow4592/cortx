@@ -163,7 +163,22 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         <span style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
-        <span className="sb-title" style={{ fontSize: 10 }}>Tasks</span>
+        <span className="sb-title" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={nonDone.length > 0 && nonDone.every((t) => selectedTasks.has(t.id))}
+            onChange={() => {
+              const allSelected = nonDone.every((t) => selectedTasks.has(t.id));
+              if (allSelected) {
+                setSelectedTasks(new Set());
+              } else {
+                setSelectedTasks(new Set(nonDone.map((t) => t.id)));
+              }
+            }}
+            style={{ width: 12, height: 12, accentColor: '#5aa5a5', cursor: 'pointer' }}
+          />
+          Tasks
+        </span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {projects.length === 0 && nonDone.length === 0 && doneList.length === 0 && (
