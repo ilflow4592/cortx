@@ -29,6 +29,10 @@ interface SlashCommand {
 }
 
 const EMPTY_ARR: never[] = [];
+
+// Module-level cache — survives component unmount/remount on task switch
+const messageCache = new Map<string, Message[]>();
+const sessionCache = new Map<string, string>();
 const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 const PHASE_NAMES: Record<PipelinePhase, string> = {
@@ -79,11 +83,12 @@ function serializeContextItems(items: ContextItem[]): string {
 }
 
 export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
-  const [messages, setMessagesRaw] = useState<Message[]>([]);
+  const [messages, setMessagesRaw] = useState<Message[]>(() => messageCache.get(taskId) || []);
   const setMessages: typeof setMessagesRaw = (action) => {
     setMessagesRaw((prev) => {
       const next = typeof action === 'function' ? action(prev) : action;
       messagesRef.current = next;
+      messageCache.set(taskId, next);
       return next;
     });
   };
@@ -96,7 +101,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
-  const claudeSessionIdRef = useRef<string>('');
+  const claudeSessionIdRef = useRef<string>(sessionCache.get(taskId) || '');
   const messagesRef = useRef<Message[]>([]);
 
   // Slash command state
@@ -407,6 +412,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
           // Capture session_id from init event for conversation continuity
           if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
             claudeSessionIdRef.current = evt.session_id;
+            sessionCache.set(taskId, evt.session_id);
           }
 
           if (evt.type === 'assistant' && evt.message?.content) {
@@ -775,7 +781,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         />
         {messages.length > 0 && !loading && (
           <button
-            onClick={() => { setMessages([]); setError(''); claudeSessionIdRef.current = ''; }}
+            onClick={() => { setMessages([]); setError(''); claudeSessionIdRef.current = ''; messageCache.delete(taskId); sessionCache.delete(taskId); }}
             style={{
               background: 'none', border: '1px solid #2a3642', borderRadius: 6,
               color: '#4d5868', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
