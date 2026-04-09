@@ -3,6 +3,7 @@ mod types;
 pub mod commands;
 
 use std::sync::{Arc, Mutex};
+use tauri::Manager;
 use pty::{PtyManager, SharedPtyManager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -25,6 +26,16 @@ pub fn run() {
                 )?;
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Graceful shutdown: close all PTY sessions and Claude processes
+                if let Some(mgr) = window.try_state::<SharedPtyManager>() {
+                    if let Ok(mut manager) = mgr.inner().lock() {
+                        manager.close_all();
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::git::create_worktree,

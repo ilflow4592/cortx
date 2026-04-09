@@ -309,6 +309,15 @@ impl PtyManager {
         self.sessions.remove(id);
     }
 
+    /// Close all PTY sessions and kill all Claude processes. Used for graceful shutdown.
+    pub fn close_all(&mut self) {
+        let ids: Vec<String> = self.claude_pids.keys().cloned().collect();
+        for id in &ids {
+            let _ = self.stop_claude(id);
+        }
+        self.sessions.clear();
+    }
+
     /// Terminate a running Claude CLI process by sending SIGTERM to its process group
     /// and the process itself. Removes the PID entry from tracking.
     /// Stop all Claude processes whose ID starts with the given prefix.

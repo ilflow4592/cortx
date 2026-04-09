@@ -24,6 +24,7 @@ pub struct CortxConfig {
 /// Returns stdout, stderr, and success status. Used for git operations and file I/O.
 #[tauri::command]
 pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
+    log::debug!("[shell] cwd={} cmd={}", cwd, &command[..command.len().min(200)]);
     tauri::async_runtime::spawn_blocking(move || {
         match Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
             .env("TERM", "dumb")
