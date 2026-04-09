@@ -7,7 +7,7 @@ import type { ContextItem } from '../../types/contextPack';
 import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../../types/task';
 import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../../constants/pipeline';
 import { isClaudeActiveInTerminal } from '../../utils/terminalState';
-import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
+import { messageCache, sessionCache, loadingCache, pendingCommands } from '../../utils/chatState';
 import type { Message, SlashCommand } from './types';
 
 const EMPTY_ARR: never[] = [];
@@ -405,6 +405,22 @@ export function useClaudeSession(
     sessionCache.delete(taskId);
   };
 
+  // Pick up pending commands from Sidebar's Run Pipeline button
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cmd = pendingCommands.get(taskId);
+      if (cmd && !loading) {
+        pendingCommands.delete(taskId);
+        setInput(cmd);
+        // Trigger send on next tick after input is set
+        setTimeout(() => sendRef.current(), 0);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [taskId, loading]);
+
+  const sendRef = useRef<() => void>(() => {});
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text) return;
@@ -785,6 +801,9 @@ export function useClaudeSession(
       setLoading(false);
     }
   };
+
+  // Keep sendRef in sync so pending command effect can call it
+  sendRef.current = handleSend;
 
   const contextFileCount = contextItems.filter((i) => i.url && !i.url.startsWith('http')).length;
   const contextTotalCount = contextItems.length;
