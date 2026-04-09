@@ -43,11 +43,8 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
-    // Reset timer + start task
-    useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0 });
-    if (task.status === 'waiting' || task.status === 'paused') {
-      useTaskStore.getState().startTask(taskId);
-    }
+    // Reset timer + set active (without pausing other tasks)
+    useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
     // Initialize pipeline state
     if (!task.pipeline?.enabled) {
       useTaskStore.getState().updateTask(taskId, {

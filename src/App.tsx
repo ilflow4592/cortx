@@ -61,7 +61,7 @@ export default function App() {
 
   // Timer
   useEffect(() => {
-    const i = setInterval(() => { const s = useTaskStore.getState(); const t = s.tasks.find((t) => t.id === s.activeTaskId && t.status === 'active'); if (t) s.incrementTimer(t.id); }, 1000);
+    const i = setInterval(() => { const s = useTaskStore.getState(); s.tasks.filter((t) => t.status === 'active').forEach((t) => s.incrementTimer(t.id)); }, 1000);
     return () => clearInterval(i);
   }, []);
 
