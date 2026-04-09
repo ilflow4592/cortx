@@ -1,38 +1,22 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { ArrowUp, Square, Paperclip } from 'lucide-react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useContextPackStore } from '../stores/contextPackStore';
-import { useTaskStore } from '../stores/taskStore';
-import type { ContextItem } from '../types/contextPack';
-import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../types/task';
-import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../constants/pipeline';
-import { isClaudeActiveInTerminal } from '../utils/terminalState';
-
-interface ClaudeChatProps {
-  taskId: string;
-  cwd: string;
-  onSwitchTab?: (tab: string) => void;
-}
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'activity';
-  content: string;
-  toolName?: string;
-}
-
-interface SlashCommand {
-  name: string;
-  description: string;
-  source: string;
-}
+import { useContextPackStore } from '../../stores/contextPackStore';
+import { useTaskStore } from '../../stores/taskStore';
+import type { ContextItem } from '../../types/contextPack';
+import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../../types/task';
+import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../../constants/pipeline';
+import { isClaudeActiveInTerminal } from '../../utils/terminalState';
+import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
+import type { Message, SlashCommand } from './types';
 
 const EMPTY_ARR: never[] = [];
 
-import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
+const CORTX_DESCRIPTIONS: Record<string, string> = {
+  'pipeline:dev-task': 'Grill-me + 개발 계획서 작성',
+  'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
+  'pipeline:dev-resume': '중단된 파이프라인 재개',
+};
 
 function sendNotification(title: string, body: string) {
   try {
@@ -43,12 +27,6 @@ function sendNotification(title: string, body: string) {
     /* ignore */
   }
 }
-
-const CORTX_DESCRIPTIONS: Record<string, string> = {
-  'pipeline:dev-task': 'Grill-me + 개발 계획서 작성',
-  'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
-  'pipeline:dev-resume': '중단된 파이프라인 재개',
-};
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -84,7 +62,28 @@ function serializeContextItems(items: ContextItem[]): string {
   return sections.join('\n\n');
 }
 
-export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
+export interface UseClaudeSessionReturn {
+  messages: Message[];
+  loading: boolean;
+  error: string;
+  input: string;
+  setInput: (val: string) => void;
+  setError: (val: string) => void;
+  slashCommands: SlashCommand[];
+  handleSend: () => Promise<void>;
+  handleStop: () => void;
+  handleClearMessages: () => void;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  endRef: React.RefObject<HTMLDivElement | null>;
+  contextFileCount: number;
+  contextTotalCount: number;
+}
+
+export function useClaudeSession(
+  taskId: string,
+  cwd: string,
+  onSwitchTab?: (tab: string) => void,
+): UseClaudeSessionReturn {
   const [messages, setMessagesRaw] = useState<Message[]>(() => messageCache.get(taskId) || []);
   const setMessages: typeof setMessagesRaw = (action) => {
     setMessagesRaw((prev) => {
@@ -94,6 +93,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
       return next;
     });
   };
+
   const [input, setInput] = useState('');
   const [loading, setLoadingRaw] = useState(() => loadingCache.get(taskId) || false);
   const setLoading = (val: boolean) => {
@@ -101,21 +101,17 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
     setLoadingRaw(val);
   };
   const [error, setError] = useState('');
+  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
+
   const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
   const contextItems = contextItemsRaw || EMPTY_ARR;
+
   const endRef = useRef<HTMLDivElement>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
   const claudeSessionIdRef = useRef<string>(sessionCache.get(taskId) || '');
   const messagesRef = useRef<Message[]>([]);
-
-  // Slash command state
-  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
-  const [showSlashMenu, setShowSlashMenu] = useState(false);
-  const [slashFilter, setSlashFilter] = useState('');
-  const [slashIndex, setSlashIndex] = useState(0);
-  const slashMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd || null })
@@ -153,141 +149,6 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
     }, 1000);
     return () => clearInterval(interval);
   }, [taskId, messages.length]);
-
-  // Pipeline command priority order
-  const PIPELINE_ORDER: Record<string, number> = {
-    'pipeline:dev-task': 0,
-    'pipeline:dev-implement': 1,
-    'pipeline:dev-review-loop': 2,
-    'pipeline:dev-resume': 3,
-  };
-
-  const filteredCommands = showSlashMenu
-    ? slashCommands
-        .filter((cmd) => cmd.name.toLowerCase().includes(slashFilter.toLowerCase()))
-        .sort((a, b) => {
-          const aOrder = PIPELINE_ORDER[a.name] ?? 100;
-          const bOrder = PIPELINE_ORDER[b.name] ?? 100;
-          if (aOrder !== bOrder) return aOrder - bOrder;
-          // Pipeline commands first, then others alphabetically
-          const aIsPipeline = a.name.startsWith('pipeline:') ? 0 : 1;
-          const bIsPipeline = b.name.startsWith('pipeline:') ? 0 : 1;
-          if (aIsPipeline !== bIsPipeline) return aIsPipeline - bIsPipeline;
-          return a.name.localeCompare(b.name);
-        })
-    : [];
-
-  // Reset index when filter changes
-  useEffect(() => {
-    setSlashIndex(0);
-  }, [slashFilter]);
-
-  // Scroll active slash item into view
-  useEffect(() => {
-    if (showSlashMenu && slashMenuRef.current) {
-      const active = slashMenuRef.current.querySelector('.slash-item-active');
-      active?.scrollIntoView({ block: 'nearest' });
-    }
-  }, [slashIndex, showSlashMenu]);
-
-  const selectSlashCommand = useCallback((cmd: SlashCommand) => {
-    setInput(`/${cmd.name} `);
-    setShowSlashMenu(false);
-    setSlashFilter('');
-    inputRef.current?.focus();
-  }, []);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInput(val);
-
-    // Detect slash command trigger
-    if (val.startsWith('/')) {
-      const query = val.slice(1).split(' ')[0];
-      // Only show menu if no space yet (still typing command name)
-      if (!val.includes(' ') || val.indexOf(' ') > val.length - 1) {
-        if (!val.includes(' ')) {
-          setSlashFilter(query);
-          setShowSlashMenu(true);
-          return;
-        }
-      }
-    }
-    setShowSlashMenu(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showSlashMenu && filteredCommands.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSlashIndex((prev) => Math.min(prev + 1, filteredCommands.length - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSlashIndex((prev) => Math.max(prev - 1, 0));
-        return;
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        e.preventDefault();
-        selectSlashCommand(filteredCommands[slashIndex]);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowSlashMenu(false);
-        return;
-      }
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const resolveSlashCommand = async (text: string): Promise<string> => {
-    if (!text.startsWith('/')) return text;
-
-    const parts = text.slice(1).split(/\s+/);
-    const cmdName = parts[0];
-    let args = parts.slice(1).join(' ');
-
-    // Auto-fill pipeline args from current task
-    const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-    if (cmdName.startsWith('pipeline:') && currentTask) {
-      const branch = currentTask.branchName || '';
-      const title = currentTask.title || '';
-      if (!args.trim()) {
-        args = `${branch} ${title}`.trim();
-      }
-    }
-
-    // Resolve skill from .claude/commands/ files
-    const skillKey = cmdName.replace(/:/g, '/');
-    const filePath = skillKey + '.md';
-    for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
-      try {
-        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd: '/',
-          command: `cat "${base}/${filePath}" 2>/dev/null`,
-        });
-        if (result.success && result.output.trim()) {
-          let prompt = result.output;
-          prompt = prompt.replace(/\$ARGUMENTS/g, args);
-          if (currentTask) {
-            prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
-            prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
-          }
-          return prompt;
-        }
-      } catch {
-        /* continue */
-      }
-    }
-
-    return text;
-  };
 
   // Parse pipeline markers from Claude's text output and update task state
   const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z_]+)(?::([^\]]*))?\]/g;
@@ -476,12 +337,79 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
     }
   };
 
+  const resolveSlashCommand = async (text: string): Promise<string> => {
+    if (!text.startsWith('/')) return text;
+
+    const parts = text.slice(1).split(/\s+/);
+    const cmdName = parts[0];
+    let args = parts.slice(1).join(' ');
+
+    // Auto-fill pipeline args from current task
+    const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+    if (cmdName.startsWith('pipeline:') && currentTask) {
+      const branch = currentTask.branchName || '';
+      const title = currentTask.title || '';
+      if (!args.trim()) {
+        args = `${branch} ${title}`.trim();
+      }
+    }
+
+    // Resolve skill from .claude/commands/ files
+    const skillKey = cmdName.replace(/:/g, '/');
+    const filePath = skillKey + '.md';
+    for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
+      try {
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `cat "${base}/${filePath}" 2>/dev/null`,
+        });
+        if (result.success && result.output.trim()) {
+          let prompt = result.output;
+          prompt = prompt.replace(/\$ARGUMENTS/g, args);
+          if (currentTask) {
+            prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
+            prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
+          }
+          return prompt;
+        }
+      } catch {
+        /* continue */
+      }
+    }
+
+    return text;
+  };
+
+  const handleStop = () => {
+    // Stop current response — kill process + unlisten + remove activity + reset task status
+    if (currentReqIdRef.current) {
+      invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
+    }
+    unlistenRefs.current.forEach((fn) => fn());
+    unlistenRefs.current = [];
+    setMessages([]);
+    messageCache.set(taskId, []);
+    loadingCache.delete(taskId);
+    sessionCache.delete(taskId);
+    claudeSessionIdRef.current = '';
+    setLoading(false);
+    // Reset task status to waiting, clear pipeline, and reset timer
+    useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
+  };
+
+  const handleClearMessages = () => {
+    setMessages([]);
+    setError('');
+    claudeSessionIdRef.current = '';
+    messageCache.delete(taskId);
+    sessionCache.delete(taskId);
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text) return;
 
     setInput('');
-    setShowSlashMenu(false);
     setError('');
 
     // Intercept built-in commands before sending to Claude
@@ -849,224 +777,20 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
   const contextFileCount = contextItems.filter((i) => i.url && !i.url.startsWith('http')).length;
   const contextTotalCount = contextItems.length;
 
-  return (
-    <>
-      <div className="chat-messages">
-        {messages.length === 0 && !loading && (
-          <div className="empty-state" style={{ height: '100%' }}>
-            <div className="empty-state-inner">
-              <div className="empty-state-icon" />
-              <div className="empty-state-title">Claude Code</div>
-              <div className="empty-state-sub">
-                Uses your Claude CLI authentication.
-                <br />
-                No API key or credits needed.
-                {contextTotalCount > 0 && (
-                  <>
-                    <br />
-                    <span style={{ color: '#7dbdbd', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Paperclip size={12} strokeWidth={1.5} /> {contextTotalCount} context items
-                      {contextFileCount > 0 && ` (${contextFileCount} files)`}
-                    </span>{' '}
-                    will be included
-                  </>
-                )}
-                <br />
-                <span style={{ color: '#4d5868', fontSize: 11 }}>
-                  Type{' '}
-                  <code
-                    style={{
-                      color: '#7dbdbd',
-                      background: '#242d38',
-                      padding: '1px 4px',
-                      borderRadius: 3,
-                      fontSize: 11,
-                    }}
-                  >
-                    /
-                  </code>{' '}
-                  for commands
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {messages.map((msg) =>
-          msg.role === 'activity' ? (
-            <div
-              key={msg.id}
-              style={{
-                display: 'flex',
-                alignItems: msg.content.includes('\n') ? 'flex-start' : 'center',
-                gap: 8,
-                padding: '4px 16px',
-                fontSize: 11,
-                color: '#6b6b78',
-              }}
-            >
-              <div
-                className="spinner"
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderWidth: 1.5,
-                  flexShrink: 0,
-                  marginTop: msg.content.includes('\n') ? 2 : 0,
-                }}
-              />
-              <div style={{ fontFamily: "'Fira Code', 'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
-                {msg.content}
-              </div>
-            </div>
-          ) : (
-            <div key={msg.id} className="msg">
-              <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>
-                {msg.role === 'user' ? 'U' : 'C'}
-              </div>
-              <div className="msg-body">
-                <div className="msg-name">{msg.role === 'user' ? 'You' : 'Claude Code'}</div>
-                <div className="msg-text" style={{ wordBreak: 'break-word' }}>
-                  {msg.role === 'assistant' ? (
-                    <Markdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>{msg.content}</Markdown>
-                  ) : (
-                    <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ),
-        )}
-
-        {loading && (
-          <div className="msg">
-            <div className="msg-avatar ai">C</div>
-            <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
-              <div className="loading-dot" />
-              <span style={{ fontSize: 13, color: '#4d5868' }}>Claude is thinking...</span>
-            </div>
-          </div>
-        )}
-
-        {error && <div className="error-box">{error}</div>}
-        <div ref={endRef} />
-      </div>
-
-      <div className="chat-input" style={{ position: 'relative' }}>
-        {/* Slash command menu */}
-        {showSlashMenu && filteredCommands.length > 0 && (
-          <div className="slash-menu" ref={slashMenuRef}>
-            {filteredCommands.map((cmd, i) => (
-              <div
-                key={cmd.name}
-                className={`slash-item ${i === slashIndex ? 'slash-item-active' : ''}`}
-                onMouseEnter={() => setSlashIndex(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  selectSlashCommand(cmd);
-                }}
-              >
-                <div className="slash-item-name">
-                  /{cmd.name}
-                  {cmd.source !== 'builtin' && <span className="slash-item-source">{cmd.source}</span>}
-                </div>
-                <div className="slash-item-desc">{cmd.description}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
-          placeholder="Send a message or type / for commands..."
-          rows={1}
-          style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
-          onInput={(e) => {
-            const t = e.currentTarget;
-            t.style.height = 'auto';
-            t.style.height = Math.min(t.scrollHeight, 120) + 'px';
-          }}
-        />
-        {messages.length > 0 && !loading && (
-          <button
-            onClick={() => {
-              setMessages([]);
-              setError('');
-              claudeSessionIdRef.current = '';
-              messageCache.delete(taskId);
-              sessionCache.delete(taskId);
-            }}
-            style={{
-              background: 'none',
-              border: '1px solid #2a3642',
-              borderRadius: 6,
-              color: '#4d5868',
-              cursor: 'pointer',
-              fontSize: 10,
-              padding: '4px 8px',
-              fontFamily: 'inherit',
-              whiteSpace: 'nowrap',
-            }}
-            title="Clear chat"
-          >
-            Clear
-          </button>
-        )}
-        <div className="model-select" style={{ cursor: 'default' }}>
-          <span
-            style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }}
-          />
-          Opus 4.6
-          {contextTotalCount > 0 && (
-            <span
-              style={{
-                color: '#7dbdbd',
-                marginLeft: 6,
-                fontSize: 10,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-              }}
-            >
-              <Paperclip size={11} strokeWidth={1.5} />
-              {contextTotalCount}
-            </span>
-          )}
-        </div>
-        {loading ? (
-          <button
-            className="send-btn"
-            onClick={() => {
-              // Stop current response — kill process + unlisten + remove activity + reset task status
-              if (currentReqIdRef.current) {
-                invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
-              }
-              unlistenRefs.current.forEach((fn) => fn());
-              unlistenRefs.current = [];
-              setMessages([]);
-              messageCache.set(taskId, []);
-              loadingCache.delete(taskId);
-              sessionCache.delete(taskId);
-              claudeSessionIdRef.current = '';
-              setLoading(false);
-              // Reset task status to waiting, clear pipeline, and reset timer
-              useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
-            }}
-            style={{ background: '#ef4444' }}
-            title="Stop response"
-          >
-            <Square size={14} fill="white" strokeWidth={0} />
-          </button>
-        ) : (
-          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>
-            <ArrowUp size={16} strokeWidth={1.5} />
-          </button>
-        )}
-      </div>
-    </>
-  );
+  return {
+    messages,
+    loading,
+    error,
+    input,
+    setInput,
+    setError,
+    slashCommands,
+    handleSend,
+    handleStop,
+    handleClearMessages,
+    inputRef,
+    endRef,
+    contextFileCount,
+    contextTotalCount,
+  };
 }

@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { FileText, X, Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
-import { ClaudeChat } from './ClaudeChat';
+import { ClaudeChat } from './claude/ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './ContextPack';
 import { CodeEditor } from './CodeEditor';

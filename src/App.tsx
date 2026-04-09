@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dock } from './components/Dock';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar } from './components/sidebar/Sidebar';
 import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
 import { NewTaskModal } from './components/NewTaskModal';
