@@ -747,7 +747,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
                 </div>
                 <div className="msg-text" style={{ wordBreak: 'break-word' }}>
                   {msg.role === 'assistant' ? (
-                    <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                    <Markdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>{msg.content}</Markdown>
                   ) : (
                     <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                   )}

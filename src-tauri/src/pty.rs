@@ -278,6 +278,17 @@ impl PtyManager {
 
     /// Terminate a running Claude CLI process by sending SIGTERM to its process group
     /// and the process itself. Removes the PID entry from tracking.
+    /// Stop all Claude processes whose ID starts with the given prefix.
+    pub fn stop_claude_by_prefix(&mut self, prefix: &str) {
+        let matching_ids: Vec<String> = self.claude_pids.keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect();
+        for id in matching_ids {
+            let _ = self.stop_claude(&id);
+        }
+    }
+
     pub fn stop_claude(&mut self, id: &str) -> Result<(), String> {
         if let Some(pid_holder) = self.claude_pids.remove(id) {
             if let Ok(lock) = pid_holder.lock() {

@@ -480,6 +480,13 @@ fn claude_stop(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<
     mgr.stop_claude(&id)
 }
 
+#[tauri::command]
+fn claude_stop_task(task_id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
+    let mut mgr = state.lock().map_err(|e| e.to_string())?;
+    mgr.stop_claude_by_prefix(&format!("claude-{}", task_id));
+    Ok(())
+}
+
 /// Send a follow-up message to an existing Claude CLI session via its PTY.
 #[tauri::command]
 fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
@@ -651,6 +658,7 @@ pub fn run() {
             list_slash_commands,
             claude_spawn,
             claude_stop,
+            claude_stop_task,
             claude_send,
             pty_spawn,
             pty_write,

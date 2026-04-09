@@ -133,7 +133,8 @@ body {
 .msg-text ul,.msg-text ol { padding-left:20px; margin:4px 0 }
 .msg-text li { margin:2px 0 }
 .msg-text table { border-collapse:collapse; margin:8px 0; font-size:12px; width:100% }
-.msg-text th,.msg-text td { border:1px solid #2a3642; padding:4px 8px; text-align:left }
+.msg-text th,.msg-text td { border:1px solid #2a3642; padding:4px 8px; text-align:left; word-break:break-word }
+.msg-text td code,.msg-text th code { background:#242d38; padding:1px 4px; border-radius:3px; font-size:11px; white-space:nowrap }
 .msg-text th { background:#1a1f26; color:#c0c8d4; font-weight:600 }
 .msg-text strong { color:#e8eef5 }
 .msg-text blockquote { border-left:3px solid #5aa5a5; padding-left:12px; margin:8px 0; color:#8b95a5 }
