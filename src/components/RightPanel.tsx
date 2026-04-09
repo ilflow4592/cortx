@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CheckCircle2, Loader2, SkipForward, Circle, Download, RotateCcw, ExternalLink, Braces, Code2, FolderOpen, TerminalSquare, Zap } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
+import { messageCache, sessionCache } from './ClaudeChat';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from './SourceIcons';
@@ -570,6 +571,9 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                     interrupts: [],
                   });
                   useTaskStore.getState().setTaskStatus(task.id, 'waiting');
+                  // Clear Claude messages and session
+                  messageCache.delete(task.id);
+                  sessionCache.delete(task.id);
                   onResetSession?.();
                   setShowResetModal(false);
                 }}
