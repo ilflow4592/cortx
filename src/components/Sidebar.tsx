@@ -126,6 +126,26 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             messageCache.set(taskId, [...cached]);
           }
         }
+
+        // Track token usage
+        if (evt.type === 'result' && evt.usage) {
+          const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
+          if (t?.pipeline?.enabled) {
+            const inTok = evt.usage.input_tokens || 0;
+            const outTok = evt.usage.output_tokens || 0;
+            const cost = evt.total_cost_usd || 0;
+            const phases = { ...t.pipeline.phases };
+            const activePhase = Object.keys(phases).find((p) => phases[p as keyof typeof phases]?.status === 'in_progress') as string | undefined;
+            if (activePhase) {
+              const entry = { ...phases[activePhase as keyof typeof phases] };
+              entry.inputTokens = (entry.inputTokens || 0) + inTok;
+              entry.outputTokens = (entry.outputTokens || 0) + outTok;
+              entry.costUsd = (entry.costUsd || 0) + cost;
+              (phases as Record<string, typeof entry>)[activePhase] = entry;
+              useTaskStore.getState().updateTask(taskId, { pipeline: { ...t.pipeline, phases: phases as typeof t.pipeline.phases } });
+            }
+          }
+        }
       } catch { /* not JSON */ }
     });
 
@@ -149,10 +169,20 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     await donePromise;
     unData();
 
-    // Check if Claude is asking a question (last message ends with ?)
+    // Check if Claude is asking a question
     const finalMsgs = messageCache.get(taskId) || [];
     const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
-    if (lastAssistant && lastAssistant.content.trim().endsWith('?')) {
+    const isQuestion = (text: string) => {
+      const t = text.trim();
+      if (t.endsWith('?')) return true;
+      if (t.endsWith('?')) return true; // fullwidth ?
+      // Korean question patterns
+      if (/(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요)\s*[.?]?\s*$/.test(t)) return true;
+      // Q1., 질문 N: patterns
+      if (/(?:^|\n)\s*(?:Q\d|질문\s*\d|질문:)/.test(t)) return true;
+      return false;
+    };
+    if (lastAssistant && isQuestion(lastAssistant.content)) {
       setAskingTasks((prev) => new Set(prev).add(taskId));
       try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` }); } catch {}
     }
