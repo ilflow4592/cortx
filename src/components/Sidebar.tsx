@@ -222,7 +222,23 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           const isCollapsed = collapsedProjects.has(project.id);
           return (
             <div key={project.id}>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff04' }}>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff04', position: 'relative' }}>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const allSelected = projTasks.every((t) => selectedTasks.has(t.id));
+                    if (allSelected) {
+                      setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.delete(t.id)); return n; });
+                    } else {
+                      setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.add(t.id)); return n; });
+                    }
+                  }}
+                  style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+                >
+                  {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id))
+                    ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
+                    : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+                </span>
                 <button
                   onClick={() => toggleCollapse(project.id)}
                   style={{
@@ -233,22 +249,6 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                 >
                   <span style={{ width: 12, height: 12, borderRadius: 4, background: project.color, flexShrink: 0 }} />
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const allSelected = projTasks.every((t) => selectedTasks.has(t.id));
-                      if (allSelected) {
-                        setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.delete(t.id)); return n; });
-                      } else {
-                        setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.add(t.id)); return n; });
-                      }
-                    }}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                  >
-                    {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id))
-                      ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
-                      : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
-                  </span>
                   <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
