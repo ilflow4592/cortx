@@ -158,6 +158,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       '## CORTX_PIPELINE_TRACKING',
       'Emit [PIPELINE:phase:status] markers. Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done.',
       '한국어로만 대화합니다.',
+      'Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
     ].join('\n');
 
     await invoke('claude_spawn', {
