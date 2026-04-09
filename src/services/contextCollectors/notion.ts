@@ -161,7 +161,89 @@ export async function collectNotion(
  * @param headers - Authorization 헤더 포함
  * @returns 페이지 본문 텍스트 (줄바꿈으로 구분)
  */
-async function fetchNotionPageContent(pageId: string, headers: Record<string, string>): Promise<string> {
+/**
+ * Notion 페이지의 properties에서 relation 링크를 추출하고,
+ * 링크된 페이지의 제목과 본문을 가져온다 (1단계 깊이).
+ */
+async function fetchNotionRelations(pageId: string, headers: Record<string, string>): Promise<string> {
+  try {
+    const resp = await fetch(`https://api.notion.com/v1/pages/${pageId}`, { headers });
+    if (!resp.ok) return '';
+    const page = await resp.json();
+
+    const props = page.properties as Record<string, {
+      type: string;
+      relation?: Array<{ id: string }>;
+      rich_text?: Array<{ plain_text: string }>;
+      title?: Array<{ plain_text: string }>;
+      select?: { name: string };
+      multi_select?: Array<{ name: string }>;
+      date?: { start: string; end?: string };
+      number?: number;
+      url?: string;
+      checkbox?: boolean;
+    }> | undefined;
+
+    if (!props) return '';
+
+    const parts: string[] = [];
+    const relationIds: Array<{ label: string; id: string }> = [];
+
+    for (const [key, val] of Object.entries(props)) {
+      if (!val) continue;
+      // Extract readable property values
+      if (val.type === 'rich_text' && val.rich_text?.length) {
+        const text = val.rich_text.map((t) => t.plain_text).join('');
+        if (text) parts.push(`${key}: ${text}`);
+      } else if (val.type === 'select' && val.select) {
+        parts.push(`${key}: ${val.select.name}`);
+      } else if (val.type === 'multi_select' && val.multi_select?.length) {
+        parts.push(`${key}: ${val.multi_select.map((s) => s.name).join(', ')}`);
+      } else if (val.type === 'date' && val.date) {
+        parts.push(`${key}: ${val.date.start}${val.date.end ? ' ~ ' + val.date.end : ''}`);
+      } else if (val.type === 'number' && val.number != null) {
+        parts.push(`${key}: ${val.number}`);
+      } else if (val.type === 'url' && val.url) {
+        parts.push(`${key}: ${val.url}`);
+      } else if (val.type === 'checkbox') {
+        parts.push(`${key}: ${val.checkbox ? 'Yes' : 'No'}`);
+      } else if (val.type === 'relation' && val.relation?.length) {
+        // Collect relation IDs for deep fetch
+        for (const rel of val.relation.slice(0, 3)) { // max 3 per property
+          relationIds.push({ label: key, id: rel.id });
+        }
+        parts.push(`${key}: [${val.relation.length} linked pages]`);
+      }
+    }
+
+    // Fetch linked pages (1-level deep, max 5 total)
+    for (const rel of relationIds.slice(0, 5)) {
+      try {
+        // Get linked page title
+        const linkedResp = await fetch(`https://api.notion.com/v1/pages/${rel.id}`, { headers });
+        if (!linkedResp.ok) continue;
+        const linkedPage = await linkedResp.json();
+        const linkedTitle = extractNotionTitle(linkedPage);
+
+        // Get linked page content (blocks)
+        const linkedContent = await fetchNotionBlocks(rel.id, headers);
+        if (linkedTitle || linkedContent) {
+          parts.push(`\n--- ${rel.label}: ${linkedTitle || 'Untitled'} ---`);
+          if (linkedContent) parts.push(linkedContent);
+        }
+      } catch { /* skip */ }
+    }
+
+    return parts.join('\n');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Notion 페이지의 블록(본문) 콘텐츠를 텍스트로 추출한다.
+ */
+async function fetchNotionBlocks(pageId: string, headers: Record<string, string>): Promise<string> {
   try {
     const resp = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
       headers,
@@ -176,7 +258,6 @@ async function fetchNotionPageContent(pageId: string, headers: Record<string, st
         const line = richTexts.map((t) => t.plain_text).join('');
         if (line) texts.push(line);
       }
-      // Handle child_page, child_database titles
       if (block.type === 'child_page') {
         texts.push(`[Page] ${block.child_page?.title || ''}`);
       }
@@ -188,6 +269,21 @@ async function fetchNotionPageContent(pageId: string, headers: Record<string, st
   } catch {
     return '';
   }
+}
+
+/**
+ * 페이지의 전체 콘텐츠를 가져온다: properties + 블록 + relation 링크 페이지.
+ */
+async function fetchNotionPageContent(pageId: string, headers: Record<string, string>): Promise<string> {
+  const [relations, blocks] = await Promise.all([
+    fetchNotionRelations(pageId, headers),
+    fetchNotionBlocks(pageId, headers),
+  ]);
+
+  const parts: string[] = [];
+  if (relations) parts.push(relations);
+  if (blocks) parts.push('\n--- 본문 ---\n' + blocks);
+  return parts.join('\n');
 }
 
 /**
