@@ -31,3 +31,5 @@ tauri-plugin-shell = "2"
 portable-pty = "0.8"
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
+tempfile = "3.27.0"
+urlencoding = "2.1.3"

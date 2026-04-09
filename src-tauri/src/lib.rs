@@ -334,26 +334,9 @@ fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
     } // end loop
 }
 
-/// Simple percent-decoding for URL query parameter values.
-/// Handles %XX hex sequences and '+' as space.
+/// Percent-decoding for URL query parameter values.
 fn urlencoding_decode(s: &str) -> String {
-    let mut result = String::new();
-    let mut chars = s.bytes();
-    while let Some(b) = chars.next() {
-        if b == b'%' {
-            let h1 = chars.next().unwrap_or(0);
-            let h2 = chars.next().unwrap_or(0);
-            let hex = format!("{}{}", h1 as char, h2 as char);
-            if let Ok(val) = u8::from_str_radix(&hex, 16) {
-                result.push(val as char);
-            }
-        } else if b == b'+' {
-            result.push(' ');
-        } else {
-            result.push(b as char);
-        }
-    }
-    result
+    urlencoding::decode(s).unwrap_or_else(|_| std::borrow::Cow::Borrowed(s)).into_owned()
 }
 
 /// Information about a configured MCP (Model Context Protocol) server.

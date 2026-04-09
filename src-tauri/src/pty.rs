@@ -94,16 +94,49 @@ impl PtyManager {
 
         thread::spawn(move || {
             // Write message to temp file (avoids shell escape issues with long prompts)
-            // Uses 0o600 permissions so only the current user can read/write
-            let msg_path = format!("/tmp/cortx-msg-{}.md", event_id);
-            let _ = write_secure_temp(&msg_path, &msg_owned);
+            // Uses tempfile for secure random paths + 0o600 permissions
+            let msg_file = tempfile::Builder::new()
+                .prefix("cortx-msg-")
+                .suffix(".md")
+                .tempfile()
+                .map_err(|e| format!("Failed to create temp file: {}", e));
+            let msg_path = match msg_file {
+                Ok(f) => {
+                    let p = f.path().to_string_lossy().to_string();
+                    f.keep().ok(); // persist so claude CLI can read it
+                    let _ = write_secure_temp(&p, &msg_owned);
+                    p
+                }
+                Err(_) => {
+                    let fallback = format!("/tmp/cortx-msg-{}.md", event_id);
+                    let _ = write_secure_temp(&fallback, &msg_owned);
+                    fallback
+                }
+            };
 
             // Write context summary to temp file if present
-            let tmp_path = format!("/tmp/cortx-ctx-{}.md", event_id);
             let has_summary = !summary_owned.is_empty();
-            if has_summary {
-                let _ = write_secure_temp(&tmp_path, &summary_owned);
-            }
+            let tmp_path = if has_summary {
+                let ctx_file = tempfile::Builder::new()
+                    .prefix("cortx-ctx-")
+                    .suffix(".md")
+                    .tempfile();
+                match ctx_file {
+                    Ok(f) => {
+                        let p = f.path().to_string_lossy().to_string();
+                        f.keep().ok();
+                        let _ = write_secure_temp(&p, &summary_owned);
+                        p
+                    }
+                    Err(_) => {
+                        let fallback = format!("/tmp/cortx-ctx-{}.md", event_id);
+                        let _ = write_secure_temp(&fallback, &summary_owned);
+                        fallback
+                    }
+                }
+            } else {
+                String::new()
+            };
 
             // Build claude command — read message from temp file via stdin, stream JSON output
             let mut cmd_parts = vec![
