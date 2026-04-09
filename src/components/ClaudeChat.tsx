@@ -262,7 +262,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     // Resolve skill from .claude/commands/ files
     const skillKey = cmdName.replace(/:/g, '/');
     const filePath = skillKey + '.md';
-    for (const base of ['~/.claude/commands', `${cwd}/.claude/commands`]) {
+    for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
       try {
         const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
           cwd: '/',

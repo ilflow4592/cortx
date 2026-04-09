@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { BarChart3, X, CheckCircle2, Play, Square, CheckSquare, RotateCcw } from 'lucide-react';
+import { BarChart3, X, CheckCircle2, Play, Square, CheckSquare, RotateCcw, Trash2 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useContextPackStore } from '../stores/contextPackStore';
 import { formatTime } from '../utils/time';
 
 export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { onShowReport?: () => void; onAddTask?: () => void; onEditProject?: (id: string) => void; onAddTaskForProject?: (projectId: string) => void }) {
@@ -19,6 +20,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
   const [askingTasks, setAskingTasks] = useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [deleteProjectTarget, setDeleteProjectTarget] = useState<{ id: string; name: string; taskCount: number } | null>(null);
 
   const toggleSelect = (id: string) => {
     setSelectedTasks((prev) => {
@@ -38,10 +40,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
     const cwd = task.worktreePath || task.repoPath || project?.localPath || '';
 
-    // Send command with auto-filled args — Claude CLI resolves the slash command
     const args = `${branch} ${title}`.trim();
-    const prompt = `${command} ${args}`;
-
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
@@ -73,6 +72,44 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     // Add user message immediately
     const msgs = messageCache.get(taskId) || [];
     msgs.push({ id: `${reqId}-user`, role: 'user' as const, content: command });
+
+    // Resolve slash command from .claude/commands/ files (project first, then global)
+    let resolvedPrompt = `${command} ${args}`;
+    const cmdName = command.slice(1); // remove leading /
+    const skillKey = cmdName.replace(/:/g, '/') + '.md';
+    for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
+      try {
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `cat "${base}/${skillKey}" 2>/dev/null`,
+        });
+        if (result.success && result.output.trim()) {
+          let prompt = result.output;
+          prompt = prompt.replace(/\$ARGUMENTS/g, args);
+          prompt = prompt.replace(/\{TASK_ID\}/g, branch);
+          prompt = prompt.replace(/\{TASK_NAME\}/g, title);
+          resolvedPrompt = prompt;
+          break;
+        }
+      } catch { /* continue */ }
+    }
+
+    // Build context pack data
+    const contextItems = useContextPackStore.getState().items;
+    let contextFiles: string[] = [];
+    if (contextItems.length > 0) {
+      // Show loading activity
+      const sourceIcons: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin' };
+      const lines = contextItems.map((item) => {
+        const src = sourceIcons[item.sourceType] || item.sourceType;
+        return `  [${src}] ${item.title}`;
+      });
+      msgs.push({ id: `${reqId}-context-load`, role: 'activity' as const, content: `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}` });
+
+      contextFiles = contextItems
+        .filter((item) => item.url && !item.url.startsWith('http'))
+        .map((item) => item.url);
+    }
     messageCache.set(taskId, [...msgs]);
 
     // Strip pipeline markers from display text
@@ -82,6 +119,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     let turnCounter = 0;
     let currentResponse = '';
     const assistantId = () => `${reqId}-turn-${turnCounter}`;
+    const activityId = `${reqId}-activity`;
 
     const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
       // Stop processing if task was reset
@@ -99,31 +137,45 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
             .filter((b: { type: string }) => b.type === 'text')
             .map((b: { text?: string }) => b.text || '');
+          const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>)
+            .filter((b: { type: string }) => b.type === 'tool_use');
+
           if (textBlocks.length > 0) {
             turnCounter++;
             currentResponse = stripMarkers(textBlocks.join(''));
             if (currentResponse.trim()) {
               const cached = messageCache.get(taskId) || [];
-              const existing = cached.findIndex((m) => m.id === assistantId());
+              // Remove previous activity message
+              const filtered = cached.filter((m) => m.id !== activityId);
+              const existing = filtered.findIndex((m) => m.id === assistantId());
               if (existing >= 0) {
-                cached[existing] = { ...cached[existing], content: currentResponse };
+                filtered[existing] = { ...filtered[existing], content: currentResponse };
               } else {
-                cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
+                filtered.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
               }
-              messageCache.set(taskId, [...cached]);
+              messageCache.set(taskId, [...filtered]);
             }
+          }
+
+          if (toolBlocks.length > 0) {
+            const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+            const cached = messageCache.get(taskId) || [];
+            const filtered = cached.filter((m) => m.id !== activityId);
+            filtered.push({ id: activityId, role: 'activity' as const, content: `Using ${toolLabel}...` });
+            messageCache.set(taskId, [...filtered]);
           }
         } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
           currentResponse = stripMarkers(currentResponse + evt.delta.text);
           if (currentResponse.trim()) {
             const cached = messageCache.get(taskId) || [];
-            const existing = cached.findIndex((m) => m.id === assistantId());
+            const filtered = cached.filter((m) => m.id !== activityId);
+            const existing = filtered.findIndex((m) => m.id === assistantId());
             if (existing >= 0) {
-              cached[existing] = { ...cached[existing], content: currentResponse };
+              filtered[existing] = { ...filtered[existing], content: currentResponse };
             } else {
-              cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
+              filtered.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
             }
-            messageCache.set(taskId, [...cached]);
+            messageCache.set(taskId, [...filtered]);
           }
         }
 
@@ -153,17 +205,64 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       listen(`claude-done-${reqId}`, () => resolve());
     });
 
-    // Context summary
-    const contextSummary = [
+    // Build context summary — same as ClaudeChat
+    const summaryParts = [
       '## CORTX_PIPELINE_TRACKING',
-      'Emit [PIPELINE:phase:status] markers. Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done.',
-      '한국어로만 대화합니다.',
-      'Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-    ].join('\n');
+      'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
+      'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
+      'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+      'Valid statuses: in_progress, done, skipped',
+      'Examples:',
+      '- When starting grill-me: emit [PIPELINE:grill_me:in_progress]',
+      '- When grill-me is complete: emit [PIPELINE:grill_me:done]',
+      '- When dev plan starts: emit [PIPELINE:dev_plan:in_progress]',
+      '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
+      '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
+      '',
+      '## CORTX_RULES (MUST FOLLOW)',
+      '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json.',
+      '- Do NOT search for dev-plan.md files. Obsidian is not used.',
+      '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
+      '- NEVER run git commit, git push, or gh pr create without asking the user first.',
+      '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
+      '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
+      '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
+      '- 한국어로만 대화합니다.',
+      '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
+    ];
+
+    if (contextItems.length > 0) {
+      // Serialize context items into summary
+      summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
+      summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
+      summaryParts.push('Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.');
+      summaryParts.push('Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.');
+      summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
+      const sourceLabels: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pinned' };
+      const bySource: Record<string, typeof contextItems> = {};
+      for (const item of contextItems) {
+        const key = item.sourceType || 'other';
+        (bySource[key] ??= []).push(item);
+      }
+      for (const [source, items] of Object.entries(bySource)) {
+        const label = sourceLabels[source] || source;
+        const lines = items.map((item) => {
+          const parts = [`- **${item.title}**`];
+          if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
+          if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
+          if (item.metadata?.fullText) parts.push(`\n${item.metadata.fullText}`);
+          return parts.join('\n');
+        });
+        summaryParts.push('', `## ${label}`, ...lines);
+      }
+    }
+
+    const contextSummary = summaryParts.join('\n');
 
     await invoke('claude_spawn', {
-      id: reqId, cwd: cwd || '/', message: prompt,
-      contextFiles: null, contextSummary, allowAllTools: true,
+      id: reqId, cwd: cwd || '/', message: resolvedPrompt,
+      contextFiles: contextFiles.length > 0 ? contextFiles : null,
+      contextSummary, allowAllTools: true,
       sessionId: null, model: null,
     });
 
@@ -253,13 +352,15 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
   const handleDeleteProject = (id: string, name: string) => {
     const projTasks = tasks.filter((t) => t.projectId === id);
-    const msg = projTasks.length > 0
-      ? `Delete project "${name}" and its ${projTasks.length} tasks?`
-      : `Delete project "${name}"?`;
-    if (window.confirm(msg)) {
-      projTasks.forEach((t) => removeTask(t.id));
-      removeProject(id);
-    }
+    setDeleteProjectTarget({ id, name, taskCount: projTasks.length });
+  };
+
+  const confirmDeleteProject = () => {
+    if (!deleteProjectTarget) return;
+    const projTasks = tasks.filter((t) => t.projectId === deleteProjectTarget.id);
+    projTasks.forEach((t) => removeTask(t.id));
+    removeProject(deleteProjectTarget.id);
+    setDeleteProjectTarget(null);
   };
 
   const toggleCollapse = (id: string) => {
@@ -476,6 +577,42 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         <div className="sb-summary"><span>Interrupts</span><span className="val" style={{ color: '#eab308' }}>{totalInterrupts} ({formatTime(totalInterruptTime)})</span></div>
         <div className="sb-summary"><span>Done</span><span className="val" style={{ color: '#34d399' }}>{doneList.length}/{tasks.length}</span></div>
       </div>
+
+      {/* Delete project confirmation modal */}
+      {deleteProjectTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteProjectTarget(null)}>
+          <div className="modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trash2 size={18} strokeWidth={1.5} color="#ef4444" /> Delete Project
+              </h2>
+              <button className="modal-close" onClick={() => setDeleteProjectTarget(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: '#c0c8d4', marginBottom: 8 }}>
+                <strong style={{ color: '#e8eef5' }}>"{deleteProjectTarget.name}"</strong>
+              </p>
+              <p style={{ fontSize: 13, color: '#6b7585' }}>
+                {deleteProjectTarget.taskCount > 0
+                  ? `This will delete the project and its ${deleteProjectTarget.taskCount} task${deleteProjectTarget.taskCount > 1 ? 's' : ''}. This action cannot be undone.`
+                  : 'Are you sure you want to delete this project? This action cannot be undone.'}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>
+                <button className="btn btn-ghost" onClick={() => setDeleteProjectTarget(null)}>Cancel</button>
+                <button
+                  className="btn"
+                  style={{ background: '#ef4444', color: '#fff' }}
+                  onClick={confirmDeleteProject}
+                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
