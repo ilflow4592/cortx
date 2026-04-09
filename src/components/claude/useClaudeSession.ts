@@ -527,17 +527,29 @@ export function useClaudeSession(
             );
 
             if (textBlocks.length > 0) {
-              // New assistant turn — create a new message
-              turnCounter++;
-              currentMsgId = `${reqId}-turn-${turnCounter}`;
-              response = parsePipelineMarkers(textBlocks.join('')).trimStart();
+              const newText = textBlocks.join('');
+              // Only start a new turn if there's no current message ID (first text or after tool use)
+              if (!currentMsgId) {
+                turnCounter++;
+                currentMsgId = `${reqId}-turn-${turnCounter}`;
+                response = parsePipelineMarkers(newText).trimStart();
+              } else {
+                response = parsePipelineMarkers(response + newText).trimStart();
+              }
+              const msgId = currentMsgId;
               setMessages((prev) => {
+                const existing = prev.find((m) => m.id === msgId);
+                if (existing) {
+                  return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
+                }
                 const filtered = prev.filter((m) => m.id !== activityId);
-                return [...filtered, { id: currentMsgId, role: 'assistant', content: response }];
+                return [...filtered, { id: msgId, role: 'assistant', content: response }];
               });
             }
 
             if (toolBlocks.length > 0) {
+              // Reset current message so next text block starts a new turn
+              currentMsgId = '';
               const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
               setMessages((prev) => {
                 const filtered = prev.filter((m) => m.id !== activityId);
