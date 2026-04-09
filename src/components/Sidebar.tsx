@@ -102,6 +102,20 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           if (textBlocks.length > 0) {
             turnCounter++;
             currentResponse = stripMarkers(textBlocks.join(''));
+            if (currentResponse.trim()) {
+              const cached = messageCache.get(taskId) || [];
+              const existing = cached.findIndex((m) => m.id === assistantId());
+              if (existing >= 0) {
+                cached[existing] = { ...cached[existing], content: currentResponse };
+              } else {
+                cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
+              }
+              messageCache.set(taskId, [...cached]);
+            }
+          }
+        } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
+          currentResponse = stripMarkers(currentResponse + evt.delta.text);
+          if (currentResponse.trim()) {
             const cached = messageCache.get(taskId) || [];
             const existing = cached.findIndex((m) => m.id === assistantId());
             if (existing >= 0) {
@@ -111,16 +125,6 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             }
             messageCache.set(taskId, [...cached]);
           }
-        } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
-          currentResponse = stripMarkers(currentResponse + evt.delta.text);
-          const cached = messageCache.get(taskId) || [];
-          const existing = cached.findIndex((m) => m.id === assistantId());
-          if (existing >= 0) {
-            cached[existing] = { ...cached[existing], content: currentResponse };
-          } else {
-            cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
-          }
-          messageCache.set(taskId, [...cached]);
         }
       } catch { /* not JSON */ }
     });

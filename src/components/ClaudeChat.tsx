@@ -142,8 +142,9 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     const interval = setInterval(() => {
       const cached = messageCache.get(taskId);
       if (cached && cached.length > 0 && cached.length > messages.length) {
-        setMessagesRaw(cached);
-        messagesRef.current = cached;
+        const filtered = cached.filter((m) => m.content.trim());
+        setMessagesRaw(filtered);
+        messagesRef.current = filtered;
       }
     }, 1000);
     return () => clearInterval(interval);
