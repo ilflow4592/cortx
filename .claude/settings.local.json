@@ -1,13 +1,5 @@
 {
   "permissions": {
-    "deny": [
-      "Bash(git push:*)",
-      "Bash(git push *)",
-      "Bash(gh pr create:*)",
-      "Bash(gh pr create *)",
-      "Bash(git commit --no-verify:*)",
-      "Bash(git commit -m * --no-verify*)"
-    ],
     "allow": [
       "Bash(git:*)",
       "Bash(chmod:*)",
@@ -44,7 +36,16 @@
       "Bash(brew list:*)",
       "Read(//private/tmp/**)",
       "Read(//tmp/**)",
-      "Read(//Users/lt-macbookpro-0010/Dev/TOMS-server/**)"
+      "Read(//Users/lt-macbookpro-0010/Dev/TOMS-server/**)",
+      "Bash(./node_modules/.bin/tsc --noEmit)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git push *)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr create *)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -m * --no-verify*)"
     ]
   },
   "hooks": {
