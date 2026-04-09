@@ -142,7 +142,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           <>
             <div className="sb-section" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={12} color="#34d399" strokeWidth={2} /> Done</div>
             {doneList.map((task) => (
-              <div key={task.id} className="task-row-wrap" style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+              <div key={task.id} className="task-row-wrap" style={{ padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', height: 77 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div className="sb-dot done" />
                   <span style={{ fontSize: 13, color: '#3d4856', textDecoration: 'line-through' }}>{task.title}</span>
