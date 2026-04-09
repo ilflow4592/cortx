@@ -31,8 +31,8 @@ interface SlashCommand {
 const EMPTY_ARR: never[] = [];
 
 // Module-level cache — survives component unmount/remount on task switch
-const messageCache = new Map<string, Message[]>();
-const sessionCache = new Map<string, string>();
+export const messageCache = new Map<string, Message[]>();
+export const sessionCache = new Map<string, string>();
 const PHASE_KEYS = new Set<PipelinePhase>(['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
 const PHASE_ORDER: PipelinePhase[] = ['grill_me', 'obsidian_save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done'];
 const PHASE_NAMES: Record<PipelinePhase, string> = {

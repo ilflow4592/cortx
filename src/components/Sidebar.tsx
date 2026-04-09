@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { BarChart3, X, CheckCircle2 } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { BarChart3, X, CheckCircle2, Play } from 'lucide-react';
+import { CORTX_SKILLS } from '../skills/pipelineSkills';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -14,6 +16,101 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const projects = useProjectStore((s) => s.projects);
   const removeProject = useProjectStore((s) => s.removeProject);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const runPipelineForTask = async (taskId: string, command: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const branch = task.branchName || '';
+    const title = task.title || '';
+    const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+    const cwd = task.worktreePath || task.repoPath || project?.localPath || '';
+
+    // Resolve skill
+    const skillKey = command.replace(/^\//, '').replace(/:/g, '/');
+    let prompt = CORTX_SKILLS[skillKey] || command;
+    const args = `${branch} ${title}`.trim();
+    prompt = prompt.replace(/\$ARGUMENTS/g, args);
+    prompt = prompt.replace(/\{TASK_ID\}/g, branch);
+    prompt = prompt.replace(/\{TASK_NAME\}/g, title);
+
+    const reqId = `claude-${taskId}-${Date.now()}`;
+    setRunningPipelines((prev) => new Set(prev).add(taskId));
+
+    // Start task timer
+    if (task.status === 'waiting' || task.status === 'paused') {
+      useTaskStore.getState().startTask(taskId);
+    }
+
+    // Import messageCache to store results
+    const { messageCache } = await import('./ClaudeChat');
+
+    // Listen for data
+    let response = '';
+    const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
+      try {
+        const evt = JSON.parse(event.payload);
+        if (evt.type === 'assistant' && evt.message?.content) {
+          const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
+            .filter((b: { type: string }) => b.type === 'text')
+            .map((b: { text?: string }) => b.text || '');
+          if (textBlocks.length > 0) response = textBlocks.join('');
+        } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
+          response += evt.delta.text;
+        } else if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
+          const { sessionCache } = require('./ClaudeChat');
+          sessionCache.set(taskId, evt.session_id);
+        }
+      } catch { /* not JSON */ }
+    });
+
+    const donePromise = new Promise<void>((resolve) => {
+      listen(`claude-done-${reqId}`, () => resolve());
+    });
+
+    // Context summary
+    const contextSummary = [
+      '## CORTX_PIPELINE_TRACKING',
+      'Emit [PIPELINE:phase:status] markers. Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done.',
+      '한국어로만 대화합니다.',
+    ].join('\n');
+
+    await invoke('claude_spawn', {
+      id: reqId, cwd: cwd || '/', message: prompt,
+      contextFiles: null, contextSummary, allowAllTools: true,
+      sessionId: null, model: null,
+    });
+
+    await donePromise;
+    unData();
+
+    // Save to message cache
+    if (response.trim()) {
+      const msgs = messageCache.get(taskId) || [];
+      msgs.push({ id: `${reqId}-user`, role: 'user' as const, content: command });
+      msgs.push({ id: `${reqId}-reply`, role: 'assistant' as const, content: response });
+      messageCache.set(taskId, msgs);
+    }
+
+    setRunningPipelines((prev) => { const n = new Set(prev); n.delete(taskId); return n; });
+  };
+
+  const runSelectedPipelines = () => {
+    const selected = [...selectedTasks].filter((id) => tasks.some((t) => t.id === id && t.status !== 'done'));
+    selected.forEach((id) => runPipelineForTask(id, '/pipeline:dev-task'));
+    setSelectedTasks(new Set());
+  };
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');
   const totalFocus = tasks.reduce((s, t) => s + t.elapsedSeconds, 0);
@@ -112,7 +209,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               {!isCollapsed && (
                 <>
                   {projTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} />
+                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} />
                   ))}
                   {projTasks.length === 0 && (
                     <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
@@ -132,7 +229,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <div className="sb-section" style={{ color: '#2a3642' }}>No project</div>
             )}
             {unassigned.map((task) => (
-              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} />
+              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} />
             ))}
           </>
         )}
@@ -169,6 +266,23 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         )}
       </div>
 
+      {/* Run Pipeline button */}
+      {selectedTasks.size > 0 && (
+        <div style={{ padding: '8px 16px' }}>
+          <button
+            onClick={runSelectedPipelines}
+            style={{
+              width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+              background: 'rgba(90,165,165,0.1)', border: '1px solid rgba(90,165,165,0.2)',
+              color: '#5aa5a5', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
+          </button>
+        </div>
+      )}
+
       {/* Today summary */}
       <div style={{ borderTop: '1px solid #141418', paddingBottom: 12 }}>
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -187,9 +301,10 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   );
 }
 
-function TaskRow({ task, isActive, onSelect, onDelete, indent, color }: {
+function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, onToggleSelect, isRunning }: {
   task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number; pipeline?: { enabled: boolean; phases: Record<string, { status: string }> } };
   isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean; color?: string;
+  selected?: boolean; onToggleSelect?: () => void; isRunning?: boolean;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -210,7 +325,19 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color }: {
       }}>
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <div className={`sb-dot ${dotCls}`} style={color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : undefined} />
+            {onToggleSelect && task.status !== 'done' && (
+              <input
+                type="checkbox"
+                checked={selected || false}
+                onChange={(e) => { e.stopPropagation(); onToggleSelect(); }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: 12, height: 12, accentColor: '#5aa5a5', cursor: 'pointer', flexShrink: 0 }}
+              />
+            )}
+            <div className={`sb-dot ${dotCls}`} style={{
+              ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
+              ...(isRunning ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)', animation: 'pulse-glow 1.5s infinite' } : {}),
+            }} />
             <span className="sb-task-name" title={task.title}>{task.title}</span>
           </div>
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>
