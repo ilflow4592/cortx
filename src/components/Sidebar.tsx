@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { BarChart3, X, CheckCircle2, Play } from 'lucide-react';
-import { CORTX_SKILLS } from '../skills/pipelineSkills';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -37,13 +36,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
     const cwd = task.worktreePath || task.repoPath || project?.localPath || '';
 
-    // Resolve skill
-    const skillKey = command.replace(/^\//, '').replace(/:/g, '/');
-    let prompt = CORTX_SKILLS[skillKey] || command;
+    // Send command with auto-filled args — Claude CLI resolves the slash command
     const args = `${branch} ${title}`.trim();
-    prompt = prompt.replace(/\$ARGUMENTS/g, args);
-    prompt = prompt.replace(/\{TASK_ID\}/g, branch);
-    prompt = prompt.replace(/\{TASK_NAME\}/g, title);
+    const prompt = `${command} ${args}`;
 
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
@@ -69,8 +64,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
           response += evt.delta.text;
         } else if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
-          const { sessionCache } = require('./ClaudeChat');
-          sessionCache.set(taskId, evt.session_id);
+          import('./ClaudeChat').then(({ sessionCache: sc }) => sc.set(taskId, evt.session_id));
         }
       } catch { /* not JSON */ }
     });
