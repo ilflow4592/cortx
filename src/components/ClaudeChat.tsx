@@ -136,6 +136,18 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     };
   }, []);
 
+  // Sync from messageCache for background-running pipelines
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cached = messageCache.get(taskId);
+      if (cached && cached.length > messages.length) {
+        setMessagesRaw(cached);
+        messagesRef.current = cached;
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [taskId, messages.length]);
+
   // Pipeline command priority order
   const PIPELINE_ORDER: Record<string, number> = {
     'pipeline:dev-task': 0,

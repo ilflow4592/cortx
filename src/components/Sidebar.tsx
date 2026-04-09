@@ -48,23 +48,53 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       useTaskStore.getState().startTask(taskId);
     }
 
-    // Import messageCache to store results
-    const { messageCache } = await import('./ClaudeChat');
+    // Import caches
+    const { messageCache, sessionCache } = await import('./ClaudeChat');
 
-    // Listen for data
-    let response = '';
+    // Add user message immediately
+    const msgs = messageCache.get(taskId) || [];
+    msgs.push({ id: `${reqId}-user`, role: 'user' as const, content: command });
+    messageCache.set(taskId, [...msgs]);
+
+    // Listen for data — update messageCache in real-time
+    let turnCounter = 0;
+    let currentResponse = '';
+    const assistantId = () => `${reqId}-turn-${turnCounter}`;
+
     const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
       try {
         const evt = JSON.parse(event.payload);
+
+        if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
+          sessionCache.set(taskId, evt.session_id);
+        }
+
         if (evt.type === 'assistant' && evt.message?.content) {
           const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
             .filter((b: { type: string }) => b.type === 'text')
             .map((b: { text?: string }) => b.text || '');
-          if (textBlocks.length > 0) response = textBlocks.join('');
+          if (textBlocks.length > 0) {
+            turnCounter++;
+            currentResponse = textBlocks.join('');
+            const cached = messageCache.get(taskId) || [];
+            const existing = cached.findIndex((m) => m.id === assistantId());
+            if (existing >= 0) {
+              cached[existing] = { ...cached[existing], content: currentResponse };
+            } else {
+              cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
+            }
+            messageCache.set(taskId, [...cached]);
+          }
         } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
-          response += evt.delta.text;
-        } else if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
-          import('./ClaudeChat').then(({ sessionCache: sc }) => sc.set(taskId, evt.session_id));
+          currentResponse += evt.delta.text;
+          const cached = messageCache.get(taskId) || [];
+          const existing = cached.findIndex((m) => m.id === assistantId());
+          if (existing >= 0) {
+            cached[existing] = { ...cached[existing], content: currentResponse };
+          } else {
+            cached.push({ id: assistantId(), role: 'assistant' as const, content: currentResponse });
+          }
+          messageCache.set(taskId, [...cached]);
         }
       } catch { /* not JSON */ }
     });
@@ -88,14 +118,6 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
     await donePromise;
     unData();
-
-    // Save to message cache
-    if (response.trim()) {
-      const msgs = messageCache.get(taskId) || [];
-      msgs.push({ id: `${reqId}-user`, role: 'user' as const, content: command });
-      msgs.push({ id: `${reqId}-reply`, role: 'assistant' as const, content: response });
-      messageCache.set(taskId, msgs);
-    }
 
     setRunningPipelines((prev) => { const n = new Set(prev); n.delete(taskId); return n; });
   };
