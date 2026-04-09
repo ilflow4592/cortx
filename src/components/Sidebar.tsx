@@ -174,12 +174,14 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
     const isQuestion = (text: string) => {
       const t = text.trim();
-      if (t.endsWith('?')) return true;
-      if (t.endsWith('?')) return true; // fullwidth ?
+      if (t.endsWith('?') || t.endsWith('?')) return true;
       // Korean question patterns
-      if (/(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요)\s*[.?]?\s*$/.test(t)) return true;
-      // Q1., 질문 N: patterns
-      if (/(?:^|\n)\s*(?:Q\d|질문\s*\d|질문:)/.test(t)) return true;
+      if (/(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요|주세요|해줘)\s*[.?？]?\s*$/.test(t)) return true;
+      // English question patterns
+      if (/(?:please confirm|what do you think|should we|would you|do you want|can you|is that correct|right\?|agree\?)\s*[.?]?\s*$/i.test(t)) return true;
+      // Q1., Q2., 질문 N: patterns in last 200 chars
+      const tail = t.slice(-200);
+      if (/(?:Q\d+[.:)]|질문\s*\d+\s*[:.)]).+[?？]/.test(tail)) return true;
       return false;
     };
     if (lastAssistant && isQuestion(lastAssistant.content)) {
