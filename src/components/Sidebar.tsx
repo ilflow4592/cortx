@@ -43,7 +43,8 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
-    // Start task timer + initialize pipeline
+    // Reset timer + start task
+    useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0 });
     if (task.status === 'waiting' || task.status === 'paused') {
       useTaskStore.getState().startTask(taskId);
     }
@@ -339,7 +340,10 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               background: 'rgba(90,165,165,0.1)', border: '1px solid rgba(90,165,165,0.2)',
               color: '#5aa5a5', cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              transition: 'all 200ms ease',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.2)'; e.currentTarget.style.borderColor = 'rgba(90,165,165,0.4)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.1)'; e.currentTarget.style.borderColor = 'rgba(90,165,165,0.2)'; }}
           >
             <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
           </button>
