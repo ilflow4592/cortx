@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { BarChart3, X } from 'lucide-react';
+import { BarChart3, X, CheckCircle2 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -140,7 +140,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         {/* Done */}
         {doneList.length > 0 && (
           <>
-            <div className="sb-section">✅ Done</div>
+            <div className="sb-section" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={12} color="#34d399" strokeWidth={2} /> Done</div>
             {doneList.map((task) => (
               <div key={task.id} className="task-row-wrap" style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
