@@ -421,7 +421,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
           >
             <RotateCcw size={12} strokeWidth={1.5} /> Reset Selected ({selectedTasks.size})
-          </button>
+          </button>}
         </div>
       )}
 
