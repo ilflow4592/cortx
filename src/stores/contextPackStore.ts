@@ -45,9 +45,9 @@ interface ContextPackState {
   snapshots: Record<string, ContextSnapshot>;
   sources: ContextSourceConfig[];
   keywords: Record<string, string[]>;
-  isCollecting: boolean;
-  collectAbort: AbortController | null;
-  collectProgress: SourceCollectStatus[];
+  collecting: Record<string, boolean>;           // per-task collecting state
+  collectAborts: Record<string, AbortController>; // per-task abort controllers
+  collectProgresses: Record<string, SourceCollectStatus[]>; // per-task progress
   lastCollectedAt: Record<string, string>;
   collectHistory: Record<string, CollectHistoryEntry[]>; // taskId -> history
   deltaItems: Record<string, ContextItem[]>; // items changed since pause
@@ -62,7 +62,7 @@ interface ContextPackState {
   removeSource: (index: number) => void;
 
   clearCollected: (taskId: string) => void;
-  cancelCollect: () => void;
+  cancelCollect: (taskId: string) => void;
 
   // Collection
   collectAll: (taskId: string, branchName: string, slackChannels?: string[], taskTitle?: string, overrideSources?: ContextSourceConfig[], model?: string) => Promise<void>;
@@ -102,9 +102,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   snapshots: {},
   sources: [],
   keywords: {},
-  isCollecting: false,
-  collectAbort: null,
-  collectProgress: [],
+  collecting: {},
+  collectAborts: {},
+  collectProgresses: {},
   lastCollectedAt: {},
   collectHistory: {},
   deltaItems: {},
@@ -130,10 +130,13 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
-  cancelCollect: () => {
-    const { collectAbort } = get();
-    if (collectAbort) collectAbort.abort();
-    set({ isCollecting: false, collectAbort: null });
+  cancelCollect: (taskId) => {
+    const { collectAborts } = get();
+    if (collectAborts[taskId]) collectAborts[taskId].abort();
+    set((s) => ({
+      collecting: { ...s.collecting, [taskId]: false },
+      collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
+    }));
   },
 
   // 자동 수집된 아이템만 제거하고 pinned 아이템은 보존
@@ -184,7 +187,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
    */
   collectAll: async (taskId, branchName, slackChannels, taskTitle, overrideSources, model) => {
     const state = get();
-    if (state.isCollecting) return; // 중복 실행 방지
+    if (state.collecting[taskId]) return; // 해당 task 중복 실행 방지
 
     const enabledSources = (overrideSources || state.sources).filter((s) => s.enabled);
     const progress: SourceCollectStatus[] = enabledSources.map((s) => ({
@@ -193,7 +196,11 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
     const abort = new AbortController();
     const startTime = Date.now();
-    set({ isCollecting: true, collectAbort: abort, collectProgress: progress.map((p) => ({ ...p, status: 'collecting' })) });
+    set((s) => ({
+      collecting: { ...s.collecting, [taskId]: true },
+      collectAborts: { ...s.collectAborts, [taskId]: abort },
+      collectProgresses: { ...s.collectProgresses, [taskId]: progress.map((p) => ({ ...p, status: 'collecting' as const })) },
+    }));
     const kw = state.keywords[taskId] || [];
 
     // Phase 1: Notion/Slack을 먼저 수집하여 GitHub 검색용 키워드를 추출
@@ -227,9 +234,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
           }
           if (abort.signal.aborted) return [] as ContextItem[];
           set((s) => ({
-            collectProgress: s.collectProgress.map((p, i) =>
+            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
               i === idx ? { ...p, status: 'done', itemCount: (items || []).length, tokenUsage } : p
-            ),
+            )},
           }));
           return items || [];
         })
@@ -242,9 +249,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         } else {
           const idx = enabledSources.indexOf(nonGithubSources[i]);
           set((s) => ({
-            collectProgress: s.collectProgress.map((p, j) =>
+            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
               j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
-            ),
+            )},
           }));
         }
       }
@@ -287,9 +294,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
           }
           if (abort.signal.aborted) return [] as ContextItem[];
           set((s) => ({
-            collectProgress: s.collectProgress.map((p, i) =>
+            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
               i === idx ? { ...p, status: 'done', itemCount: (items || []).length } : p
-            ),
+            )},
           }));
           return items || [];
         })
@@ -302,9 +309,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         } else {
           const idx = enabledSources.indexOf(githubSources[i]);
           set((s) => ({
-            collectProgress: s.collectProgress.map((p, j) =>
+            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
               j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
-            ),
+            )},
           }));
         }
       }
@@ -358,7 +365,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     });
 
     // 수집 이력 기록 (UI에서 과거 수집 결과 조회용, 최대 20건 유지)
-    const finalProgress = get().collectProgress;
+    const finalProgress = get().collectProgresses[taskId] || [];
     const historyEntry: CollectHistoryEntry = {
       id: `ch-${Date.now().toString(36)}`,
       taskId,
@@ -379,8 +386,8 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
     set((s) => ({
       items: { ...s.items, [taskId]: deduped },
-      isCollecting: false,
-      collectAbort: null,
+      collecting: { ...s.collecting, [taskId]: false },
+      collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
       lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
       collectHistory: {
         ...s.collectHistory,

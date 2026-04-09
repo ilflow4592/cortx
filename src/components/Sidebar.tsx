@@ -94,8 +94,8 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       } catch { /* continue */ }
     }
 
-    // Build context pack data
-    const contextItems = useContextPackStore.getState().items;
+    // Build context pack data — task-specific
+    const contextItems = useContextPackStore.getState().items[taskId] || [];
     let contextFiles: string[] = [];
     if (contextItems.length > 0) {
       // Show loading activity

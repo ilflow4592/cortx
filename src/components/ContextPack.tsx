@@ -14,8 +14,8 @@ const MODEL_OPTIONS = [
 ];
 
 export function ContextPack({ taskId }: { taskId: string }) {
-  const isCollecting = useContextPackStore((s) => s.isCollecting);
-  const collectProgress = useContextPackStore((s) => s.collectProgress);
+  const isCollecting = useContextPackStore((s) => s.collecting[taskId] || false);
+  const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId] || []);
   const sources = useContextPackStore((s) => s.sources);
   const taskItemsRaw = useContextPackStore((s) => s.items[taskId]);
   const taskDeltaRaw = useContextPackStore((s) => s.deltaItems[taskId]);
@@ -163,8 +163,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
   useEffect(() => {
     loadMcpServers();
     import('../services/vectorSearch').then((vs) => vs.checkVectorServices().then(setVectorStatus)).catch(() => {});
-    // Clear previous task's progress on mount
-    useContextPackStore.setState({ collectProgress: [] });
+    // Clear this task's progress on mount
+    const store = useContextPackStore.getState();
+    useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
   }, []);
 
   // Search for related context from other tasks
@@ -508,7 +509,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Actions */}
         <div className="ctx-actions">
           {isCollecting ? (
-            <button className="ctx-btn ctx-btn-collect" onClick={() => useContextPackStore.getState().cancelCollect()} style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+            <button className="ctx-btn ctx-btn-collect" onClick={() => useContextPackStore.getState().cancelCollect(taskId)} style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
               ✕ Cancel
             </button>
           ) : (
