@@ -73,6 +73,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     msgs.push({ id: `${reqId}-user`, role: 'user' as const, content: command });
     messageCache.set(taskId, [...msgs]);
 
+    // Strip pipeline markers from display text
+    const stripMarkers = (text: string) => text.replace(/\[PIPELINE:[^\]]*\]/g, '').trimStart();
+
     // Listen for data — update messageCache in real-time
     let turnCounter = 0;
     let currentResponse = '';
@@ -92,7 +95,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             .map((b: { text?: string }) => b.text || '');
           if (textBlocks.length > 0) {
             turnCounter++;
-            currentResponse = textBlocks.join('');
+            currentResponse = stripMarkers(textBlocks.join(''));
             const cached = messageCache.get(taskId) || [];
             const existing = cached.findIndex((m) => m.id === assistantId());
             if (existing >= 0) {
@@ -103,7 +106,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             messageCache.set(taskId, [...cached]);
           }
         } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
-          currentResponse += evt.delta.text;
+          currentResponse = stripMarkers(currentResponse + evt.delta.text);
           const cached = messageCache.get(taskId) || [];
           const existing = cached.findIndex((m) => m.id === assistantId());
           if (existing >= 0) {
