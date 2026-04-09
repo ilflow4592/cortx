@@ -623,6 +623,16 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         }
       }
 
+      // Select model based on pipeline phase — Sonnet for implementation, Opus for planning
+      let selectedModel: string | null = null;
+      if (isPipeline) {
+        const currentPipeline = useTaskStore.getState().tasks.find((t) => t.id === taskId)?.pipeline;
+        if (currentPipeline?.phases?.implement?.status === 'in_progress') {
+          selectedModel = 'claude-sonnet-4-6'; // Implementation: Sonnet (cost-effective)
+        }
+        // Grill-me, Dev Plan, Review: Opus (default)
+      }
+
       await invoke('claude_spawn', {
         id: reqId,
         cwd: cwd || '/',
@@ -631,6 +641,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         contextSummary: contextSummary || null,
         allowAllTools: text.startsWith('/') || null,
         sessionId: claudeSessionIdRef.current || null,
+        model: selectedModel,
       });
 
       await donePromise;

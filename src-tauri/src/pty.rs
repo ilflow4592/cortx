@@ -76,7 +76,7 @@ impl PtyManager {
     /// Writes the prompt to a secure temp file, builds the CLI command with flags
     /// (model, permission mode, resume, context), and streams JSON output via
     /// `claude-data-{id}` events. Emits `claude-done-{id}` when the process exits.
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, session_id: Option<&str>, app: &AppHandle) -> Result<(), String> {
+    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, session_id: Option<&str>, model: Option<&str>, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -87,6 +87,7 @@ impl PtyManager {
         let summary_owned = context_summary.to_string();
         let allow_tools = allow_all_tools;
         let session_id_owned = session_id.map(|s| s.to_string());
+        let model_owned = model.unwrap_or("claude-opus-4-6").to_string();
 
         let pid_holder: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
@@ -114,8 +115,18 @@ impl PtyManager {
                 "stream-json".to_string(),
                 "--verbose".to_string(),
                 "--model".to_string(),
-                "claude-opus-4-6".to_string(),
+                model_owned.clone(),
+                "--max-turns".to_string(),
+                "30".to_string(),
             ];
+
+            // Add fallback model (only if using Opus, fallback to Sonnet)
+            if model_owned.contains("opus") {
+                cmd_parts.extend([
+                    "--fallback-model".to_string(),
+                    "claude-sonnet-4-6".to_string(),
+                ]);
+            }
 
             // Always bypass permissions — Cortx app runs non-interactively
             cmd_parts.extend([
