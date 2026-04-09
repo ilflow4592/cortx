@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { BarChart3, X, CheckCircle2, Play, Square, CheckSquare } from 'lucide-react';
+import { BarChart3, X, CheckCircle2, Play, Square, CheckSquare, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -348,6 +348,44 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.1)'; e.currentTarget.style.borderColor = 'rgba(90,165,165,0.2)'; }}
           >
             <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
+          </button>
+          <button
+            onClick={async () => {
+              if (!window.confirm(`Reset all ${selectedTasks.size} selected tasks? Pipeline, timer, Claude session, git changes will be cleared.`)) return;
+              const { messageCache, sessionCache } = await import('./ClaudeChat');
+              for (const id of selectedTasks) {
+                const t = tasks.find((task) => task.id === id);
+                if (!t) continue;
+                // Kill Claude processes
+                await invoke('claude_stop_task', { taskId: id }).catch(() => {});
+                // Discard git changes
+                const project = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
+                const cwd = t.worktreePath || t.repoPath || project?.localPath || '';
+                if (cwd) {
+                  await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                  await invoke('run_shell_command', { cwd, command: 'git clean -fd 2>/dev/null' }).catch(() => {});
+                  await invoke('run_shell_command', { cwd, command: 'git reset origin/develop 2>/dev/null' }).catch(() => {});
+                  await invoke('run_shell_command', { cwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                }
+                // Reset task state
+                useTaskStore.getState().updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
+                useTaskStore.getState().setTaskStatus(id, 'waiting');
+                messageCache.delete(id);
+                sessionCache.delete(id);
+              }
+              setSelectedTasks(new Set());
+            }}
+            style={{
+              width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+              background: 'none', border: '1px solid rgba(239,68,68,0.2)',
+              color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              marginTop: 6, transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
+          >
+            <RotateCcw size={12} strokeWidth={1.5} /> Reset Selected ({selectedTasks.size})
           </button>
         </div>
       )}
