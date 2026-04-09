@@ -59,9 +59,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     });
   }
 
-  // Add user message immediately
+  // Add user message + initial thinking indicator immediately
+  const thinkingId = `${reqId}-thinking`;
   const msgs: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[] = [];
   msgs.push({ id: `${reqId}-user`, role: 'user', content: command });
+  msgs.push({ id: thinkingId, role: 'activity', content: 'Claude is thinking...' });
+  messageCache.set(taskId, [...msgs]);
 
   // Resolve slash command from .claude/commands/ files
   let resolvedPrompt = `${command} ${args}`;
@@ -180,13 +183,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   let currentMsgId = '';
   const activityId = `${reqId}-activity`;
 
-  const updateCache = (
-    updater: (
-      cached: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[],
-    ) => { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[],
-  ) => {
+  type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
+  const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
     const cached = messageCache.get(taskId) || [];
-    messageCache.set(taskId, updater(cached));
+    // Remove initial thinking indicator once real content arrives
+    const withoutThinking = cached.filter((m) => m.id !== thinkingId);
+    messageCache.set(taskId, updater(withoutThinking));
   };
 
   const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
