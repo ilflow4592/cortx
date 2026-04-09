@@ -557,6 +557,10 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         }).then((un) => unlistenRefs.current.push(un));
       });
 
+      // Sync session from cache (background execution may have set it)
+      if (!claudeSessionIdRef.current && sessionCache.has(taskId)) {
+        claudeSessionIdRef.current = sessionCache.get(taskId)!;
+      }
       const hasExistingSession = !!claudeSessionIdRef.current;
       const isPipeline = text.startsWith('/pipeline:');
 
@@ -677,7 +681,7 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
         contextFiles: contextFiles.length > 0 ? contextFiles : null,
         contextSummary: contextSummary || null,
         allowAllTools: text.startsWith('/') || null,
-        sessionId: claudeSessionIdRef.current || null,
+        sessionId: claudeSessionIdRef.current || sessionCache.get(taskId) || null,
         model: selectedModel,
       });
 
