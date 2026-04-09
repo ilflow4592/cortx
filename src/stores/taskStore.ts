@@ -79,12 +79,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }));
   },
 
-  // waiting 상태면 선택만 하고, 그 외 상태면 startTask로 활성화까지 진행
+  // 활성 태스크를 전환. 다른 태스크의 status는 변경하지 않음 (병렬 실행 지원)
   setActiveTask: (id) => {
-    const target = get().tasks.find((t) => t.id === id);
-    if (!target) return;
-    if (target.status === 'waiting') set({ activeTaskId: id });
-    else get().startTask(id);
+    set({ activeTaskId: id });
   },
 
   setTaskStatus: (id, status, memo) => set((s) => ({
