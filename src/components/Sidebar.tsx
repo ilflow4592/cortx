@@ -43,6 +43,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const reqId = `claude-${taskId}-${Date.now()}`;
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
+    // Clear previous messages and session — fresh start
+    const { messageCache, sessionCache } = await import('./ClaudeChat');
+    messageCache.delete(taskId);
+    sessionCache.delete(taskId);
+
     // Reset timer + set active (without pausing other tasks)
     useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
     // Initialize pipeline state
@@ -62,9 +67,6 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         },
       });
     }
-
-    // Import caches
-    const { messageCache, sessionCache } = await import('./ClaudeChat');
 
     // Add user message immediately
     const msgs = messageCache.get(taskId) || [];
