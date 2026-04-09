@@ -28,7 +28,7 @@ export async function collectViaMcp(
   serviceType: 'github' | 'notion' | 'slack',
   keywords: string[],
   cwd: string,
-  extra?: { owner?: string; repo?: string; model?: string }
+  extra?: { owner?: string; repo?: string; model?: string },
 ): Promise<McpCollectResult> {
   if (keywords.length === 0) return { items: [] };
 
@@ -51,19 +51,19 @@ async function runShell(command: string): Promise<{ success: boolean; output: st
 }
 
 /** gh CLI의 search 명령어로 PR과 Issue를 병렬 검색한다 (키워드당 최대 5개) */
-async function collectGitHubViaCli(
-  keywords: string[],
-  owner?: string,
-  repo?: string,
-): Promise<ContextItem[]> {
+async function collectGitHubViaCli(keywords: string[], owner?: string, repo?: string): Promise<ContextItem[]> {
   const items: ContextItem[] = [];
   const repoFlag = owner && repo ? `--repo ${owner}/${repo}` : '';
 
   for (const kw of keywords.slice(0, 3)) {
     // Search PRs and Issues in parallel
     const [prResult, issueResult] = await Promise.all([
-      runShell(`gh search prs ${repoFlag} ${shellEscape(kw)} --limit 5 --json title,url,number,state,updatedAt,body 2>/dev/null`),
-      runShell(`gh search issues ${repoFlag} ${shellEscape(kw)} --limit 5 --json title,url,number,state,updatedAt,body 2>/dev/null`),
+      runShell(
+        `gh search prs ${repoFlag} ${shellEscape(kw)} --limit 5 --json title,url,number,state,updatedAt,body 2>/dev/null`,
+      ),
+      runShell(
+        `gh search issues ${repoFlag} ${shellEscape(kw)} --limit 5 --json title,url,number,state,updatedAt,body 2>/dev/null`,
+      ),
     ]);
 
     for (const { result, type } of [
@@ -88,7 +88,9 @@ async function collectGitHubViaCli(
             metadata: { type, state: item.state || '', number: String(item.number) },
           });
         }
-      } catch { /* parse error */ }
+      } catch {
+        /* parse error */
+      }
     }
   }
 
@@ -151,8 +153,8 @@ async function collectViaClaudeCli(
       parsed = JSON.parse(jsonMatch[0]);
     } catch {
       // Fallback: extract title/url manually
-      const titles = [...output.matchAll(/"title"\s*:\s*"([^"]*?)"/g)].map(m => m[1]);
-      const urls = [...output.matchAll(/"url"\s*:\s*"([^"]*?)"/g)].map(m => m[1]);
+      const titles = [...output.matchAll(/"title"\s*:\s*"([^"]*?)"/g)].map((m) => m[1]);
+      const urls = [...output.matchAll(/"url"\s*:\s*"([^"]*?)"/g)].map((m) => m[1]);
       parsed = titles.map((t, i) => ({ title: t, url: urls[i] || '' }));
     }
     if (!Array.isArray(parsed)) return { items: [], tokenUsage };
@@ -162,9 +164,9 @@ async function collectViaClaudeCli(
     const items = parsed.map((item, i) => ({
       id: `mcp-${serviceType}-${item.id || i}`,
       sourceType: sourceTypeMap[serviceType],
-      title: item.parent ? `↳ ${item.title}` : (item.title || 'Untitled'),
+      title: item.parent ? `↳ ${item.title}` : item.title || 'Untitled',
       url: item.url || '',
-      summary: item.parent ? `${item.parent}` : (item.summary || ''),
+      summary: item.parent ? `${item.parent}` : item.summary || '',
       timestamp: item.lastEdited || item.timestamp || new Date().toISOString(),
       isNew: false,
       category: 'auto' as const,

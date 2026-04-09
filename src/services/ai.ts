@@ -32,7 +32,7 @@ export async function callAI(params: AICallParams): Promise<string> {
   const systemPrompt = `You are an AI coding assistant helping with the task: "${taskTitle}". Be concise and helpful.`;
 
   // OAuth 토큰이 있으면 우선 사용, 없으면 API key로 fallback
-  const token = (params.authMethod === 'oauth' && params.oauthToken) ? params.oauthToken : apiKey;
+  const token = params.authMethod === 'oauth' && params.oauthToken ? params.oauthToken : apiKey;
 
   switch (provider) {
     case 'claude':
@@ -51,7 +51,13 @@ export async function callAI(params: AICallParams): Promise<string> {
  * OAuth와 API key 두 가지 인증 방식을 지원한다.
  * NOTE: 'anthropic-dangerous-direct-browser-access' 헤더는 브라우저에서 직접 호출 시 필수
  */
-async function callClaude(apiKey: string, model: string, system: string, messages: ChatMessage[], isOAuth = false): Promise<string> {
+async function callClaude(
+  apiKey: string,
+  model: string,
+  system: string,
+  messages: ChatMessage[],
+  isOAuth = false,
+): Promise<string> {
   if (!apiKey) throw new Error('Claude API key not set. Go to Settings to configure.');
 
   const headers: Record<string, string> = {
@@ -98,14 +104,11 @@ async function callOpenAI(apiKey: string, model: string, system: string, message
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
-      messages: [
-        { role: 'system', content: system },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
+      messages: [{ role: 'system', content: system }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
     }),
   });
 
@@ -126,10 +129,7 @@ async function callOllama(baseUrl: string, model: string, system: string, messag
     body: JSON.stringify({
       model,
       stream: false,
-      messages: [
-        { role: 'system', content: system },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-      ],
+      messages: [{ role: 'system', content: system }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
     }),
   });
 

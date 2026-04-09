@@ -11,7 +11,6 @@ import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } fr
 import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../constants/pipeline';
 import { isClaudeActiveInTerminal } from '../utils/terminalState';
 
-
 interface ClaudeChatProps {
   taskId: string;
   cwd: string;
@@ -40,7 +39,9 @@ function sendNotification(title: string, body: string) {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body });
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 const CORTX_DESCRIPTIONS: Record<string, string> = {
@@ -118,9 +119,13 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
 
   useEffect(() => {
     invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd || null })
-      .then((cmds) => setSlashCommands(cmds.map((cmd) =>
-        CORTX_DESCRIPTIONS[cmd.name] ? { ...cmd, description: CORTX_DESCRIPTIONS[cmd.name] } : cmd
-      )))
+      .then((cmds) =>
+        setSlashCommands(
+          cmds.map((cmd) =>
+            CORTX_DESCRIPTIONS[cmd.name] ? { ...cmd, description: CORTX_DESCRIPTIONS[cmd.name] } : cmd,
+          ),
+        ),
+      )
       .catch(() => {});
   }, [cwd]);
 
@@ -276,7 +281,9 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           }
           return prompt;
         }
-      } catch { /* continue */ }
+      } catch {
+        /* continue */
+      }
     }
 
     return text;
@@ -394,17 +401,19 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           sysMsg('No pipeline active — token tracking is only available during pipeline runs.');
         } else {
           const phases = task.pipeline.phases;
-          let totalIn = 0, totalOut = 0, totalCost = 0;
-          const rows = PHASE_ORDER
-            .filter((p) => phases[p]?.inputTokens || phases[p]?.outputTokens)
-            .map((p) => {
-              const e = phases[p];
-              const inT = e.inputTokens || 0;
-              const outT = e.outputTokens || 0;
-              const cost = e.costUsd || 0;
-              totalIn += inT; totalOut += outT; totalCost += cost;
-              return `| ${PHASE_NAMES[p]} | ${inT.toLocaleString()} | ${outT.toLocaleString()} | $${cost.toFixed(4)} |`;
-            });
+          let totalIn = 0,
+            totalOut = 0,
+            totalCost = 0;
+          const rows = PHASE_ORDER.filter((p) => phases[p]?.inputTokens || phases[p]?.outputTokens).map((p) => {
+            const e = phases[p];
+            const inT = e.inputTokens || 0;
+            const outT = e.outputTokens || 0;
+            const cost = e.costUsd || 0;
+            totalIn += inT;
+            totalOut += outT;
+            totalCost += cost;
+            return `| ${PHASE_NAMES[p]} | ${inT.toLocaleString()} | ${outT.toLocaleString()} | $${cost.toFixed(4)} |`;
+          });
           if (rows.length === 0) {
             sysMsg('No token usage recorded yet.');
           } else {
@@ -455,9 +464,9 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           : 'disabled';
         sysMsg(
           `**Session:** ${hasSession ? 'active' : 'none'}\n` +
-          `**Messages:** ${msgCount}\n` +
-          `**Pipeline:** ${pipelineStatus === 'disabled' ? 'disabled' : `active (${PHASE_NAMES[pipelineStatus as PipelinePhase] || pipelineStatus})`}\n` +
-          `**CWD:** ${cwd || '/'}`
+            `**Messages:** ${msgCount}\n` +
+            `**Pipeline:** ${pipelineStatus === 'disabled' ? 'disabled' : `active (${PHASE_NAMES[pipelineStatus as PipelinePhase] || pipelineStatus})`}\n` +
+            `**CWD:** ${cwd || '/'}`,
         );
         return true;
       }
@@ -504,7 +513,11 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           .map((m) => m.content)
           .join('\n\n---\n\n');
         useTaskStore.getState().updateTask(taskId, {
-          pipeline: { ...task.pipeline, phases, devPlan: planMessages.length > 50 ? planMessages : task.pipeline.devPlan },
+          pipeline: {
+            ...task.pipeline,
+            phases,
+            devPlan: planMessages.length > 50 ? planMessages : task.pipeline.devPlan,
+          },
         });
         sendNotification('Cortx Pipeline', 'Dev Plan completed — starting implementation');
       }
@@ -581,8 +594,9 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
               .map((b: { text?: string }) => b.text || '');
 
             // Check for tool_use content
-            const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>)
-              .filter((b: { type: string }) => b.type === 'tool_use');
+            const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>).filter(
+              (b: { type: string }) => b.type === 'tool_use',
+            );
 
             if (textBlocks.length > 0) {
               // New assistant turn — create a new message
@@ -599,7 +613,10 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
               const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
               setMessages((prev) => {
                 const filtered = prev.filter((m) => m.id !== activityId);
-                return [...filtered, { id: activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel }];
+                return [
+                  ...filtered,
+                  { id: activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel },
+                ];
               });
             }
           } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
@@ -613,7 +630,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
             setMessages((prev) => {
               const existing = prev.find((m) => m.id === msgId);
               if (existing) {
-                return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+                return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
               }
               return [...prev.filter((m) => m.id !== activityId), { id: msgId, role: 'assistant', content: response }];
             });
@@ -639,12 +656,12 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
             if (evt.usage) {
               const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
               if (task?.pipeline?.enabled) {
-                const inTok = (evt.usage.input_tokens || 0);
+                const inTok = evt.usage.input_tokens || 0;
                 const outTok = evt.usage.output_tokens || 0;
                 const cost = evt.total_cost_usd || 0;
                 // Find current active phase
-                const activePhase = PHASE_ORDER.find((p) =>
-                  PHASE_KEYS.has(p) && task.pipeline!.phases[p]?.status === 'in_progress'
+                const activePhase = PHASE_ORDER.find(
+                  (p) => PHASE_KEYS.has(p) && task.pipeline!.phases[p]?.status === 'in_progress',
                 );
                 if (activePhase) {
                   const phases = { ...task.pipeline!.phases };
@@ -671,7 +688,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           setMessages((prev) => {
             const existing = prev.find((m) => m.id === msgId);
             if (existing) {
-              return prev.map((m) => m.id === msgId ? { ...m, content: response } : m);
+              return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
             }
             return [...prev, { id: msgId, role: 'assistant', content: response }];
           });
@@ -733,32 +750,32 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
       // Only send full context on first message (no existing session)
       if (!hasExistingSession) {
         const nonFileItems = contextItems.filter(
-          (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin'
+          (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin',
         );
         const itemsSummary = serializeContextItems(nonFileItems);
 
         if (isPipeline && contextItems.length > 0) {
-          contextSummary += '\n\n---\n\n## CORTX_CONTEXT_PACK_MODE\n'
-            + 'This pipeline was invoked from the Cortx app with Context Pack data.\n'
-            + 'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.\n'
-            + 'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.\n'
-            + 'If a dev-plan is needed, generate it from the Context Pack data.';
+          contextSummary +=
+            '\n\n---\n\n## CORTX_CONTEXT_PACK_MODE\n' +
+            'This pipeline was invoked from the Cortx app with Context Pack data.\n' +
+            'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.\n' +
+            'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.\n' +
+            'If a dev-plan is needed, generate it from the Context Pack data.';
         }
 
         if (itemsSummary) {
-          contextSummary = contextSummary
-            ? `${contextSummary}\n\n---\n\n${itemsSummary}`
-            : itemsSummary;
+          contextSummary = contextSummary ? `${contextSummary}\n\n---\n\n${itemsSummary}` : itemsSummary;
         }
 
-        contextFiles = contextItems
-          .filter((item) => item.url && !item.url.startsWith('http'))
-          .map((item) => item.url);
+        contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
 
         // Show loaded context items before Claude starts
         if (isPipeline && contextItems.length > 0) {
           const sourceIcons: Record<string, string> = {
-            github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin',
+            github: 'GitHub',
+            slack: 'Slack',
+            notion: 'Notion',
+            pin: 'Pin',
           };
           const lines = contextItems.map((item) => {
             const src = sourceIcons[item.sourceType] || item.sourceType;
@@ -766,7 +783,10 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           });
           const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
           const ctxMsgId = `${reqId}-context-load`;
-          setMessages((prev) => [...prev, { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' }]);
+          setMessages((prev) => [
+            ...prev,
+            { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' },
+          ]);
         }
       }
 
@@ -838,7 +858,8 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
               <div className="empty-state-icon" />
               <div className="empty-state-title">Claude Code</div>
               <div className="empty-state-sub">
-                Uses your Claude CLI authentication.<br />
+                Uses your Claude CLI authentication.
+                <br />
                 No API key or credits needed.
                 {contextTotalCount > 0 && (
                   <>
@@ -852,21 +873,48 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
                 )}
                 <br />
                 <span style={{ color: '#4d5868', fontSize: 11 }}>
-                  Type <code style={{ color: '#7dbdbd', background: '#242d38', padding: '1px 4px', borderRadius: 3, fontSize: 11 }}>/</code> for commands
+                  Type{' '}
+                  <code
+                    style={{
+                      color: '#7dbdbd',
+                      background: '#242d38',
+                      padding: '1px 4px',
+                      borderRadius: 3,
+                      fontSize: 11,
+                    }}
+                  >
+                    /
+                  </code>{' '}
+                  for commands
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {messages.map((msg) => (
+        {messages.map((msg) =>
           msg.role === 'activity' ? (
-            <div key={msg.id} style={{
-              display: 'flex', alignItems: msg.content.includes('\n') ? 'flex-start' : 'center',
-              gap: 8, padding: '4px 16px',
-              fontSize: 11, color: '#6b6b78',
-            }}>
-              <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5, flexShrink: 0, marginTop: msg.content.includes('\n') ? 2 : 0 }} />
+            <div
+              key={msg.id}
+              style={{
+                display: 'flex',
+                alignItems: msg.content.includes('\n') ? 'flex-start' : 'center',
+                gap: 8,
+                padding: '4px 16px',
+                fontSize: 11,
+                color: '#6b6b78',
+              }}
+            >
+              <div
+                className="spinner"
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderWidth: 1.5,
+                  flexShrink: 0,
+                  marginTop: msg.content.includes('\n') ? 2 : 0,
+                }}
+              />
               <div style={{ fontFamily: "'Fira Code', 'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
                 {msg.content}
               </div>
@@ -877,9 +925,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
                 {msg.role === 'user' ? 'U' : 'C'}
               </div>
               <div className="msg-body">
-                <div className="msg-name">
-                  {msg.role === 'user' ? 'You' : 'Claude Code'}
-                </div>
+                <div className="msg-name">{msg.role === 'user' ? 'You' : 'Claude Code'}</div>
                 <div className="msg-text" style={{ wordBreak: 'break-word' }}>
                   {msg.role === 'assistant' ? (
                     <Markdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>{msg.content}</Markdown>
@@ -889,8 +935,8 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
                 </div>
               </div>
             </div>
-          )
-        ))}
+          ),
+        )}
 
         {loading && (
           <div className="msg">
@@ -922,9 +968,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
               >
                 <div className="slash-item-name">
                   /{cmd.name}
-                  {cmd.source !== 'builtin' && (
-                    <span className="slash-item-source">{cmd.source}</span>
-                  )}
+                  {cmd.source !== 'builtin' && <span className="slash-item-source">{cmd.source}</span>}
                 </div>
                 <div className="slash-item-desc">{cmd.description}</div>
               </div>
@@ -941,44 +985,86 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
           placeholder="Send a message or type / for commands..."
           rows={1}
           style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
-          onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; }}
+          onInput={(e) => {
+            const t = e.currentTarget;
+            t.style.height = 'auto';
+            t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+          }}
         />
         {messages.length > 0 && !loading && (
           <button
-            onClick={() => { setMessages([]); setError(''); claudeSessionIdRef.current = ''; messageCache.delete(taskId); sessionCache.delete(taskId); }}
+            onClick={() => {
+              setMessages([]);
+              setError('');
+              claudeSessionIdRef.current = '';
+              messageCache.delete(taskId);
+              sessionCache.delete(taskId);
+            }}
             style={{
-              background: 'none', border: '1px solid #2a3642', borderRadius: 6,
-              color: '#4d5868', cursor: 'pointer', fontSize: 10, padding: '4px 8px',
-              fontFamily: 'inherit', whiteSpace: 'nowrap',
+              background: 'none',
+              border: '1px solid #2a3642',
+              borderRadius: 6,
+              color: '#4d5868',
+              cursor: 'pointer',
+              fontSize: 10,
+              padding: '4px 8px',
+              fontFamily: 'inherit',
+              whiteSpace: 'nowrap',
             }}
             title="Clear chat"
-          >Clear</button>
+          >
+            Clear
+          </button>
         )}
         <div className="model-select" style={{ cursor: 'default' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }} />
+          <span
+            style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }}
+          />
           Opus 4.6
           {contextTotalCount > 0 && (
-            <span style={{ color: '#7dbdbd', marginLeft: 6, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <span
+              style={{
+                color: '#7dbdbd',
+                marginLeft: 6,
+                fontSize: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
+            >
               <Paperclip size={11} strokeWidth={1.5} />
               {contextTotalCount}
             </span>
           )}
         </div>
         {loading ? (
-          <button className="send-btn" onClick={() => {
-            // Stop current response — kill process + unlisten + remove activity + reset task status
-            if (currentReqIdRef.current) {
-              invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
-            }
-            unlistenRefs.current.forEach((fn) => fn());
-            unlistenRefs.current = [];
-            setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
-            setLoading(false);
-            // Reset task status to waiting, clear pipeline, and reset timer
-            useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
-          }} style={{ background: '#ef4444' }} title="Stop response"><Square size={14} fill="white" strokeWidth={0} /></button>
+          <button
+            className="send-btn"
+            onClick={() => {
+              // Stop current response — kill process + unlisten + remove activity + reset task status
+              if (currentReqIdRef.current) {
+                invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
+              }
+              unlistenRefs.current.forEach((fn) => fn());
+              unlistenRefs.current = [];
+              setMessages([]);
+              messageCache.set(taskId, []);
+              loadingCache.delete(taskId);
+              sessionCache.delete(taskId);
+              claudeSessionIdRef.current = '';
+              setLoading(false);
+              // Reset task status to waiting, clear pipeline, and reset timer
+              useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
+            }}
+            style={{ background: '#ef4444' }}
+            title="Stop response"
+          >
+            <Square size={14} fill="white" strokeWidth={0} />
+          </button>
         ) : (
-          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}><ArrowUp size={16} strokeWidth={1.5} /></button>
+          <button className="send-btn" onClick={handleSend} disabled={!input.trim()}>
+            <ArrowUp size={16} strokeWidth={1.5} />
+          </button>
         )}
       </div>
     </>

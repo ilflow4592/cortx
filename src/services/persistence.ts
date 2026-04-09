@@ -6,7 +6,7 @@
  */
 
 /** Singleton — 한 번만 로드하고 재사용 */
-let storeInstance: Awaited<ReturnType<typeof import('@tauri-apps/plugin-store')['load']>> | null = null;
+let storeInstance: Awaited<ReturnType<(typeof import('@tauri-apps/plugin-store'))['load']>> | null = null;
 
 /** Tauri plugin-store 인스턴스를 lazy-load로 가져온다 (dynamic import 필수) */
 async function getStore() {
@@ -49,7 +49,11 @@ export async function loadData<T>(key: string): Promise<T | null> {
     // Tauri store 사용 불가 시 localStorage fallback
     const raw = localStorage.getItem(`cortx-${key}`);
     if (raw) {
-      try { return JSON.parse(raw); } catch { return null; }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
     }
     return null;
   }

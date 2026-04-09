@@ -1,6 +1,11 @@
 import { useTaskStore } from '../stores/taskStore';
 
-export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onToggleRightPanel }: {
+export function StatusBar({
+  showSidebar,
+  onToggleSidebar,
+  showRightPanel,
+  onToggleRightPanel,
+}: {
   showSidebar?: boolean;
   onToggleSidebar?: () => void;
   showRightPanel?: boolean;
@@ -13,14 +18,29 @@ export function StatusBar({ showSidebar, onToggleSidebar, showRightPanel, onTogg
     <div className="statusbar">
       <div className="sb-l">
         {activeTask ? (
-          <span className="sb-active-tag"><span className="dot" />{activeTask.title}</span>
+          <span className="sb-active-tag">
+            <span className="dot" />
+            {activeTask.title}
+          </span>
         ) : (
           <span style={{ color: '#3d4856' }}>No active task</span>
         )}
       </div>
       <div className="sb-r">
-        <span style={{ cursor: 'pointer', color: showSidebar ? '#52525b' : '#818cf8' }} onClick={onToggleSidebar} title="Toggle sidebar ⌘B">⌘B sidebar</span>
-        <span style={{ cursor: 'pointer', color: showRightPanel ? '#52525b' : '#818cf8' }} onClick={onToggleRightPanel} title="Toggle right panel ⌘⇧B">⌘⇧B panel</span>
+        <span
+          style={{ cursor: 'pointer', color: showSidebar ? '#52525b' : '#818cf8' }}
+          onClick={onToggleSidebar}
+          title="Toggle sidebar ⌘B"
+        >
+          ⌘B sidebar
+        </span>
+        <span
+          style={{ cursor: 'pointer', color: showRightPanel ? '#52525b' : '#818cf8' }}
+          onClick={onToggleRightPanel}
+          title="Toggle right panel ⌘⇧B"
+        >
+          ⌘⇧B panel
+        </span>
         <span>⌘⇧P pause</span>
         <span>⌘⇧R resume</span>
       </div>

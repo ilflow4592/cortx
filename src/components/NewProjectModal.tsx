@@ -49,54 +49,96 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
     const name = parts[parts.length - 1] || 'project';
 
     // Try to detect GitHub remote
-    invoke<{ success: boolean; output: string }>('list_worktrees', { repoPath: localPath }).then(() => {
-      // Try git remote
-      invoke<{ success: boolean; output: string; error: string }>('run_shell_command', { cwd: localPath, command: 'git remote get-url origin' }).then((r) => {
-        let owner = '', repo = '';
-        if (r.success) {
-          const match = r.output.trim().match(/github\.com[:/]([^/]+)\/([^/\s.]+)/);
-          if (match) { owner = match[1]; repo = match[2].replace(/\.git$/, ''); }
-        }
-        addProject(name, localPath, owner, repo);
-        if (owner && repo) {
-          const sources = useContextPackStore.getState().sources;
-          if (!sources.some((s) => s.type === 'github' && s.owner === owner && s.repo === repo)) {
-            addSource({ type: 'github', enabled: true, token: '', owner, repo });
-          }
-        }
-        onClose();
-      }).catch(() => {
+    invoke<{ success: boolean; output: string }>('list_worktrees', { repoPath: localPath })
+      .then(() => {
+        // Try git remote
+        invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
+          cwd: localPath,
+          command: 'git remote get-url origin',
+        })
+          .then((r) => {
+            let owner = '',
+              repo = '';
+            if (r.success) {
+              const match = r.output.trim().match(/github\.com[:/]([^/]+)\/([^/\s.]+)/);
+              if (match) {
+                owner = match[1];
+                repo = match[2].replace(/\.git$/, '');
+              }
+            }
+            addProject(name, localPath, owner, repo);
+            if (owner && repo) {
+              const sources = useContextPackStore.getState().sources;
+              if (!sources.some((s) => s.type === 'github' && s.owner === owner && s.repo === repo)) {
+                addSource({ type: 'github', enabled: true, token: '', owner, repo });
+              }
+            }
+            onClose();
+          })
+          .catch(() => {
+            addProject(name, localPath, '', '');
+            onClose();
+          });
+      })
+      .catch(() => {
         addProject(name, localPath, '', '');
         onClose();
       });
-    }).catch(() => {
-      addProject(name, localPath, '', '');
-      onClose();
-    });
   };
 
   return (
     <>
       <div className="modal-header">
         <h2>Add Project</h2>
-        <button className="modal-close" onClick={onClose}>×</button>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
       </div>
       <div style={{ padding: 8 }}>
-        <OptionButton icon={<FolderOpen size={22} strokeWidth={1.5} color="#5aa5a5" />} label="Open project" desc="Select an existing local folder" onClick={handleOpen} />
-        <OptionButton icon={<Globe size={22} strokeWidth={1.5} color="#5aa5a5" />} label="Clone from URL" desc="Clone a Git repository" onClick={() => onSelect('clone')} />
+        <OptionButton
+          icon={<FolderOpen size={22} strokeWidth={1.5} color="#5aa5a5" />}
+          label="Open project"
+          desc="Select an existing local folder"
+          onClick={handleOpen}
+        />
+        <OptionButton
+          icon={<Globe size={22} strokeWidth={1.5} color="#5aa5a5" />}
+          label="Clone from URL"
+          desc="Clone a Git repository"
+          onClick={() => onSelect('clone')}
+        />
       </div>
     </>
   );
 }
 
-function OptionButton({ icon, label, desc, onClick }: { icon: ReactNode; label: string; desc: string; onClick: () => void }) {
+function OptionButton({
+  icon,
+  label,
+  desc,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  desc: string;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '14px 16px',
-        background: 'none', border: 'none', borderRadius: 10, cursor: 'pointer',
-        fontFamily: 'inherit', textAlign: 'left', color: '#e4e4e7',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        width: '100%',
+        padding: '14px 16px',
+        background: 'none',
+        border: 'none',
+        borderRadius: 10,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        textAlign: 'left',
+        color: '#e4e4e7',
         transition: 'background 0.1s',
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = '#12121a')}
@@ -127,7 +169,9 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
           setName(parts[parts.length - 1] || '');
         }
       }
-    } catch { /* cancelled */ }
+    } catch {
+      /* cancelled */
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -141,19 +185,50 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
     <>
       <div className="modal-header">
         <h2>Open Project</h2>
-        <button className="modal-close" onClick={onClose}>×</button>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
       </div>
       <form className="modal-body" onSubmit={handleSubmit}>
         <div className="field">
           <span className="field-label">Project folder</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input className="field-input mono" style={{ flex: 1 }} value={localPath} onChange={(e) => { setLocalPath(e.target.value); if (!name) setName(e.target.value.split('/').pop() || ''); }} placeholder="/Users/ilya/Dev/my-project" />
-            <button type="button" onClick={handleBrowse} style={{ padding: '0 14px', background: '#18181b', border: '1px solid #27272a', borderRadius: 8, color: '#a1a1aa', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Browse...</button>
+            <input
+              className="field-input mono"
+              style={{ flex: 1 }}
+              value={localPath}
+              onChange={(e) => {
+                setLocalPath(e.target.value);
+                if (!name) setName(e.target.value.split('/').pop() || '');
+              }}
+              placeholder="/Users/ilya/Dev/my-project"
+            />
+            <button
+              type="button"
+              onClick={handleBrowse}
+              style={{
+                padding: '0 14px',
+                background: '#18181b',
+                border: '1px solid #27272a',
+                borderRadius: 8,
+                color: '#a1a1aa',
+                fontSize: 12,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}
+            >
+              Browse...
+            </button>
           </div>
         </div>
         <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
-          <button type="submit" className="btn btn-primary" disabled={!localPath}>Open</button>
+          <button type="button" className="btn btn-ghost" onClick={onBack}>
+            ← Back
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={!localPath}>
+            Open
+          </button>
         </div>
       </form>
     </>
@@ -187,7 +262,9 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
     try {
       const selected = await open({ directory: true, multiple: false, title: 'Select clone location' });
       if (selected && typeof selected === 'string') setCloneLocation(selected);
-    } catch { /* cancelled */ }
+    } catch {
+      /* cancelled */
+    }
   };
 
   const handleClone = async (e: React.FormEvent) => {
@@ -235,16 +312,25 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
     <>
       <div className="modal-header">
         <h2>Clone from URL</h2>
-        <button className="modal-close" onClick={onClose}>×</button>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
       </div>
       <form className="modal-body" onSubmit={handleClone}>
         <div className="field">
           <span className="field-label">Git URL</span>
-          <input className="field-input mono" value={gitUrl} onChange={(e) => setGitUrl(e.target.value)} placeholder="https://github.com/user/repo.git" />
+          <input
+            className="field-input mono"
+            value={gitUrl}
+            onChange={(e) => setGitUrl(e.target.value)}
+            placeholder="https://github.com/user/repo.git"
+          />
           {githubOwner && githubRepo && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
-              <span style={{ fontSize: 11, color: '#34d399' }}>{githubOwner}/{githubRepo}</span>
+              <span style={{ fontSize: 11, color: '#34d399' }}>
+                {githubOwner}/{githubRepo}
+              </span>
             </div>
           )}
         </div>
@@ -252,8 +338,30 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
         <div className="field">
           <span className="field-label">Clone location</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input className="field-input mono" style={{ flex: 1 }} value={cloneLocation} onChange={(e) => setCloneLocation(e.target.value)} placeholder="/Users/ilya/cortx/repos" />
-            <button type="button" onClick={handleBrowse} style={{ padding: '0 14px', background: '#18181b', border: '1px solid #27272a', borderRadius: 8, color: '#a1a1aa', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Browse...</button>
+            <input
+              className="field-input mono"
+              style={{ flex: 1 }}
+              value={cloneLocation}
+              onChange={(e) => setCloneLocation(e.target.value)}
+              placeholder="/Users/ilya/cortx/repos"
+            />
+            <button
+              type="button"
+              onClick={handleBrowse}
+              style={{
+                padding: '0 14px',
+                background: '#18181b',
+                border: '1px solid #27272a',
+                borderRadius: 8,
+                color: '#a1a1aa',
+                fontSize: 12,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}
+            >
+              Browse...
+            </button>
           </div>
           {clonePath && (
             <div style={{ fontSize: 10, color: '#3f3f46', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -270,7 +378,9 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
         {error && <div className="error-box">{error}</div>}
 
         <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+          <button type="button" className="btn btn-ghost" onClick={onBack}>
+            ← Back
+          </button>
           <button type="submit" className="btn btn-primary" disabled={!gitUrl || !cloneLocation || cloning}>
             {cloning ? 'Cloning...' : 'Clone repository'}
           </button>

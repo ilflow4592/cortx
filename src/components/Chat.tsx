@@ -32,7 +32,9 @@ export function Chat({ taskId }: { taskId: string }) {
 
   const contextItemsRaw = useContextPackStore((s) => s.items[taskId]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [task?.chatHistory.length]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [task?.chatHistory.length]);
 
   if (!task) return null;
 
@@ -40,7 +42,7 @@ export function Chat({ taskId }: { taskId: string }) {
   const provider = task.modelOverride?.provider || aiProvider;
   const resolvedModelId = task.modelOverride?.modelId || modelId;
   const resolvedOllamaUrl = ollamaUrl;
-  const resolvedAuthMethod = (authMethod === 'oauth' && oauthAccessToken) ? 'oauth' as const : 'api-key' as const;
+  const resolvedAuthMethod = authMethod === 'oauth' && oauthAccessToken ? ('oauth' as const) : ('api-key' as const);
   const resolvedApiKey = resolvedAuthMethod === 'oauth' ? oauthAccessToken : apiKey;
 
   // Build context-aware system prompt
@@ -65,20 +67,34 @@ export function Chat({ taskId }: { taskId: string }) {
     if (!text || isLoading) return;
     setError(null);
 
-    const userMsg: ChatMessage = { id: Date.now().toString(36), role: 'user', content: text, timestamp: new Date().toISOString() };
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(36),
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString(),
+    };
     addChatMessage(taskId, userMsg);
     setInput('');
     setIsLoading(true);
 
     try {
       const resp = await callAI({
-        provider, apiKey: resolvedApiKey, modelId: resolvedModelId, ollamaUrl: resolvedOllamaUrl,
+        provider,
+        apiKey: resolvedApiKey,
+        modelId: resolvedModelId,
+        ollamaUrl: resolvedOllamaUrl,
         oauthToken: oauthAccessToken,
         authMethod: resolvedAuthMethod,
         messages: [...task.chatHistory, userMsg],
         taskTitle: buildSystemContext(),
       });
-      addChatMessage(taskId, { id: (Date.now()+1).toString(36), role: 'assistant', content: resp, model: resolvedModelId, timestamp: new Date().toISOString() });
+      addChatMessage(taskId, {
+        id: (Date.now() + 1).toString(36),
+        role: 'assistant',
+        content: resp,
+        model: resolvedModelId,
+        timestamp: new Date().toISOString(),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -97,13 +113,18 @@ export function Chat({ taskId }: { taskId: string }) {
     <>
       <div className="chat-messages">
         {task.chatHistory.length === 0 && (
-          <div className="empty-state" style={{ height:'100%' }}>
+          <div className="empty-state" style={{ height: '100%' }}>
             <div className="empty-state-inner">
               <div className="empty-state-icon">💬</div>
               <div className="empty-state-title">Start a conversation</div>
               <div className="empty-state-sub">
                 {apiKey ? `Using ${displayModel}` : 'Configure API key in Settings'}
-                {contextItems.length > 0 && <><br/>{contextItems.length} context items will be included</>}
+                {contextItems.length > 0 && (
+                  <>
+                    <br />
+                    {contextItems.length} context items will be included
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -114,17 +135,19 @@ export function Chat({ taskId }: { taskId: string }) {
               {msg.role === 'assistant' ? 'C' : 'IL'}
             </div>
             <div className="msg-body">
-              <div className="msg-name">{msg.role === 'assistant' ? (msg.model || 'AI') : 'ilya'}</div>
-              <div className="msg-text" style={{ whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{msg.content}</div>
+              <div className="msg-name">{msg.role === 'assistant' ? msg.model || 'AI' : 'ilya'}</div>
+              <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {msg.content}
+              </div>
             </div>
           </div>
         ))}
         {isLoading && (
           <div className="msg">
             <div className="msg-avatar ai">C</div>
-            <div className="msg-body" style={{ display:'flex', alignItems:'center', gap:8, paddingTop:4 }}>
+            <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
               <div className="loading-dot" />
-              <span style={{ fontSize:13, color:'#52525b' }}>Thinking...</span>
+              <span style={{ fontSize: 13, color: '#52525b' }}>Thinking...</span>
             </div>
           </div>
         )}
@@ -133,29 +156,75 @@ export function Chat({ taskId }: { taskId: string }) {
       </div>
       <div className="chat-input">
         <input
-          type="text" value={input}
+          type="text"
+          value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder="메시지를 입력하세요..."
         />
-        <div style={{ position:'relative' }}>
+        <div style={{ position: 'relative' }}>
           <div className="model-select" onClick={() => setShowModelPicker(!showModelPicker)}>
             <span className="m-dot" />
             {displayModel} ▾
           </div>
           {showModelPicker && (
-            <div style={{ position:'absolute', bottom:'100%', right:0, marginBottom:4, background:'#0c0c10', border:'1px solid #18181b', borderRadius:10, padding:6, zIndex:20, minWidth:220, maxHeight:300, overflowY:'auto' }}>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '100%',
+                right: 0,
+                marginBottom: 4,
+                background: '#0c0c10',
+                border: '1px solid #18181b',
+                borderRadius: 10,
+                padding: 6,
+                zIndex: 20,
+                minWidth: 220,
+                maxHeight: 300,
+                overflowY: 'auto',
+              }}
+            >
               {task.modelOverride && (
                 <button
-                  onClick={() => { updateTask(taskId, { modelOverride: undefined }); setShowModelPicker(false); }}
-                  style={{ display:'block', width:'100%', textAlign:'left', padding:'6px 10px', background:'none', border:'none', color:'#ef4444', fontSize:11, cursor:'pointer', fontFamily:'inherit', borderRadius:6, marginBottom:4 }}
+                  onClick={() => {
+                    updateTask(taskId, { modelOverride: undefined });
+                    setShowModelPicker(false);
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    borderRadius: 6,
+                    marginBottom: 4,
+                  }}
                 >
                   ✕ Use global default
                 </button>
               )}
               {presetModels.map((group) => (
                 <div key={group.provider}>
-                  <div style={{ padding:'6px 10px', fontSize:9, fontWeight:600, color:'#3f3f46', textTransform:'uppercase', letterSpacing:1 }}>
+                  <div
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: '#3f3f46',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
                     {group.provider}
                   </div>
                   {group.models.map((m) => (
@@ -163,10 +232,17 @@ export function Chat({ taskId }: { taskId: string }) {
                       key={m}
                       onClick={() => handleSelectModel(group.provider, m)}
                       style={{
-                        display:'block', width:'100%', textAlign:'left', padding:'6px 10px',
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '6px 10px',
                         background: modelId === m ? 'rgba(99,102,241,0.08)' : 'none',
-                        border:'none', color: modelId === m ? '#818cf8' : '#a1a1aa',
-                        fontSize:11, cursor:'pointer', fontFamily:"'JetBrains Mono', monospace", borderRadius:6,
+                        border: 'none',
+                        color: modelId === m ? '#818cf8' : '#a1a1aa',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        borderRadius: 6,
                       }}
                     >
                       {m}
@@ -177,7 +253,9 @@ export function Chat({ taskId }: { taskId: string }) {
             </div>
           )}
         </div>
-        <button className="send-btn" onClick={handleSend} disabled={!input.trim() || isLoading}>↑</button>
+        <button className="send-btn" onClick={handleSend} disabled={!input.trim() || isLoading}>
+          ↑
+        </button>
       </div>
     </>
   );

@@ -35,7 +35,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const id = genId();
     const colorIndex = get().projects.length % COLORS.length;
     const project: Project = {
-      id, name, localPath, githubOwner, githubRepo,
+      id,
+      name,
+      localPath,
+      githubOwner,
+      githubRepo,
       baseBranch: 'main',
       slackChannels: [],
       color: COLORS[colorIndex],
@@ -45,13 +49,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return id;
   },
 
-  removeProject: (id) => set((s) => ({
-    projects: s.projects.filter((p) => p.id !== id),
-  })),
+  removeProject: (id) =>
+    set((s) => ({
+      projects: s.projects.filter((p) => p.id !== id),
+    })),
 
-  updateProject: (id, updates) => set((s) => ({
-    projects: s.projects.map((p) => p.id === id ? { ...p, ...updates } : p),
-  })),
+  updateProject: (id, updates) =>
+    set((s) => ({
+      projects: s.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+    })),
 
   /**
    * localStorage에서 읽은 raw 데이터를 현재 스키마로 마이그레이션하여 로드.

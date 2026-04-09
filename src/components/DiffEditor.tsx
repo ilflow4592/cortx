@@ -2,10 +2,25 @@ import { DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
 import { ArrowLeft } from 'lucide-react';
 
 const EXT_LANG: Record<string, string> = {
-  java: 'java', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-  json: 'json', md: 'markdown', yml: 'yaml', yaml: 'yaml', xml: 'xml', html: 'html',
-  css: 'css', sql: 'sql', sh: 'shell', py: 'python', kt: 'kotlin', gradle: 'groovy',
-  properties: 'ini', toml: 'ini',
+  java: 'java',
+  ts: 'typescript',
+  tsx: 'typescript',
+  js: 'javascript',
+  jsx: 'javascript',
+  json: 'json',
+  md: 'markdown',
+  yml: 'yaml',
+  yaml: 'yaml',
+  xml: 'xml',
+  html: 'html',
+  css: 'css',
+  sql: 'sql',
+  sh: 'shell',
+  py: 'python',
+  kt: 'kotlin',
+  gradle: 'groovy',
+  properties: 'ini',
+  toml: 'ini',
 };
 
 function getLanguage(filePath: string): string {
@@ -26,15 +41,41 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid #2a3642', flexShrink: 0, background: '#0f1419',
-      }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b7585', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ArrowLeft size={16} strokeWidth={1.5} /></button>
-        <span style={{
-          fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-        }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 12px',
+          borderBottom: '1px solid #2a3642',
+          flexShrink: 0,
+          background: '#0f1419',
+        }}
+      >
+        <button
+          onClick={onBack}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#6b7585',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <ArrowLeft size={16} strokeWidth={1.5} />
+        </button>
+        <span
+          style={{
+            fontSize: 11,
+            color: '#8b95a5',
+            fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1,
+          }}
+        >
           {relativePath}
         </span>
         <span style={{ fontSize: 9, color: '#6b7585' }}>Diff</span>

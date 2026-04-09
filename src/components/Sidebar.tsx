@@ -7,7 +7,16 @@ import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { formatTime } from '../utils/time';
 
-export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { onShowReport?: () => void; onAddTask?: () => void; onEditProject?: (id: string) => void; onAddTaskForProject?: (projectId: string) => void }) {
+export function Sidebar({
+  onShowReport,
+  onEditProject,
+  onAddTaskForProject,
+}: {
+  onShowReport?: () => void;
+  onAddTask?: () => void;
+  onEditProject?: (id: string) => void;
+  onAddTaskForProject?: (projectId: string) => void;
+}) {
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
@@ -20,7 +29,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
   const [askingTasks, setAskingTasks] = useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [deleteProjectTarget, setDeleteProjectTarget] = useState<{ id: string; name: string; taskCount: number } | null>(null);
+  const [deleteProjectTarget, setDeleteProjectTarget] = useState<{
+    id: string;
+    name: string;
+    taskCount: number;
+  } | null>(null);
 
   const toggleSelect = (id: string) => {
     setSelectedTasks((prev) => {
@@ -91,7 +104,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           resolvedPrompt = prompt;
           break;
         }
-      } catch { /* continue */ }
+      } catch {
+        /* continue */
+      }
     }
 
     // Build context pack data — task-specific
@@ -104,11 +119,13 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         const src = sourceIcons[item.sourceType] || item.sourceType;
         return `  [${src}] ${item.title}`;
       });
-      msgs.push({ id: `${reqId}-context-load`, role: 'activity' as const, content: `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}` });
+      msgs.push({
+        id: `${reqId}-context-load`,
+        role: 'activity' as const,
+        content: `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`,
+      });
 
-      contextFiles = contextItems
-        .filter((item) => item.url && !item.url.startsWith('http'))
-        .map((item) => item.url);
+      contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
     }
     messageCache.set(taskId, [...msgs]);
 
@@ -137,8 +154,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
             .filter((b: { type: string }) => b.type === 'text')
             .map((b: { text?: string }) => b.text || '');
-          const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>)
-            .filter((b: { type: string }) => b.type === 'tool_use');
+          const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>).filter(
+            (b: { type: string }) => b.type === 'tool_use',
+          );
 
           if (textBlocks.length > 0) {
             turnCounter++;
@@ -187,18 +205,24 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
             const outTok = evt.usage.output_tokens || 0;
             const cost = evt.total_cost_usd || 0;
             const phases = { ...t.pipeline.phases };
-            const activePhase = Object.keys(phases).find((p) => phases[p as keyof typeof phases]?.status === 'in_progress') as string | undefined;
+            const activePhase = Object.keys(phases).find(
+              (p) => phases[p as keyof typeof phases]?.status === 'in_progress',
+            ) as string | undefined;
             if (activePhase) {
               const entry = { ...phases[activePhase as keyof typeof phases] };
               entry.inputTokens = (entry.inputTokens || 0) + inTok;
               entry.outputTokens = (entry.outputTokens || 0) + outTok;
               entry.costUsd = (entry.costUsd || 0) + cost;
               (phases as Record<string, typeof entry>)[activePhase] = entry;
-              useTaskStore.getState().updateTask(taskId, { pipeline: { ...t.pipeline, phases: phases as typeof t.pipeline.phases } });
+              useTaskStore
+                .getState()
+                .updateTask(taskId, { pipeline: { ...t.pipeline, phases: phases as typeof t.pipeline.phases } });
             }
           }
         }
-      } catch { /* not JSON */ }
+      } catch {
+        /* not JSON */
+      }
     });
 
     const donePromise = new Promise<void>((resolve) => {
@@ -235,10 +259,19 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       // Serialize context items into summary
       summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
       summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
-      summaryParts.push('Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.');
-      summaryParts.push('Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.');
+      summaryParts.push(
+        'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+      );
+      summaryParts.push(
+        'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+      );
       summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
-      const sourceLabels: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pinned' };
+      const sourceLabels: Record<string, string> = {
+        github: 'GitHub',
+        slack: 'Slack',
+        notion: 'Notion',
+        pin: 'Pinned',
+      };
       const bySource: Record<string, typeof contextItems> = {};
       for (const item of contextItems) {
         const key = item.sourceType || 'other';
@@ -260,10 +293,14 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     const contextSummary = summaryParts.join('\n');
 
     await invoke('claude_spawn', {
-      id: reqId, cwd: cwd || '/', message: resolvedPrompt,
+      id: reqId,
+      cwd: cwd || '/',
+      message: resolvedPrompt,
       contextFiles: contextFiles.length > 0 ? contextFiles : null,
-      contextSummary, allowAllTools: true,
-      sessionId: null, model: null,
+      contextSummary,
+      allowAllTools: true,
+      sessionId: null,
+      model: null,
     });
 
     await donePromise;
@@ -276,9 +313,19 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       const t = text.trim();
       if (t.endsWith('?') || t.endsWith('?')) return true;
       // Korean question patterns
-      if (/(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요|주세요|해줘)\s*[.?？]?\s*$/.test(t)) return true;
+      if (
+        /(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요|주세요|해줘)\s*[.?？]?\s*$/.test(
+          t,
+        )
+      )
+        return true;
       // English question patterns
-      if (/(?:please confirm|what do you think|should we|would you|do you want|can you|is that correct|right\?|agree\?)\s*[.?]?\s*$/i.test(t)) return true;
+      if (
+        /(?:please confirm|what do you think|should we|would you|do you want|can you|is that correct|right\?|agree\?)\s*[.?]?\s*$/i.test(
+          t,
+        )
+      )
+        return true;
       // Q1., Q2., 질문 N: patterns in last 200 chars
       const tail = t.slice(-200);
       if (/(?:Q\d+[.:)]|질문\s*\d+\s*[:.)]).+[?？]/.test(tail)) return true;
@@ -286,10 +333,19 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
     };
     if (lastAssistant && isQuestion(lastAssistant.content)) {
       setAskingTasks((prev) => new Set(prev).add(taskId));
-      try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` }); } catch { /* ignore */ }
+      try {
+        if ('Notification' in window && Notification.permission === 'granted')
+          new Notification('Cortx', { body: `${task.title} — 사용자 입력이 필요합니다` });
+      } catch {
+        /* ignore */
+      }
     }
 
-    setRunningPipelines((prev) => { const n = new Set(prev); n.delete(taskId); return n; });
+    setRunningPipelines((prev) => {
+      const n = new Set(prev);
+      n.delete(taskId);
+      return n;
+    });
   };
 
   const runSelectedPipelines = () => {
@@ -309,7 +365,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         return msgs[msgs.length - 1].role === 'user';
       });
       if (toRemove.length > 0) {
-        setAskingTasks((prev) => { const n = new Set(prev); toRemove.forEach((id) => n.delete(id)); return n; });
+        setAskingTasks((prev) => {
+          const n = new Set(prev);
+          toRemove.forEach((id) => n.delete(id));
+          return n;
+        });
       }
     });
   }
@@ -321,7 +381,11 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
       return !t || !t.pipeline?.enabled || t.status === 'waiting';
     });
     if (toRemove.length > 0) {
-      setRunningPipelines((prev) => { const n = new Set(prev); toRemove.forEach((id) => n.delete(id)); return n; });
+      setRunningPipelines((prev) => {
+        const n = new Set(prev);
+        toRemove.forEach((id) => n.delete(id));
+        return n;
+      });
     }
   }
 
@@ -329,22 +393,34 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const doneList = tasks.filter((t) => t.status === 'done');
   const totalFocus = tasks.reduce((s, t) => s + t.elapsedSeconds, 0);
   const totalInterrupts = tasks.reduce((s, t) => s + (t.interrupts?.length || 0), 0);
-  const totalInterruptTime = tasks.reduce((s, t) => s + (t.interrupts || []).reduce((a, e) => a + e.durationSeconds, 0), 0);
+  const totalInterruptTime = tasks.reduce(
+    (s, t) => s + (t.interrupts || []).reduce((a, e) => a + e.durationSeconds, 0),
+    0,
+  );
 
-  const handleDeleteTask = async (task: { id: string; worktreePath?: string; repoPath?: string; branchName?: string }) => {
+  const handleDeleteTask = async (task: {
+    id: string;
+    worktreePath?: string;
+    repoPath?: string;
+    branchName?: string;
+  }) => {
     // Remove worktree and branch
     const repoPath = task.repoPath || '';
     if (task.worktreePath && repoPath) {
       try {
         await invoke('remove_worktree', { repoPath, worktreePath: task.worktreePath });
-      } catch { /* worktree might not exist */ }
+      } catch {
+        /* worktree might not exist */
+      }
       if (task.branchName) {
         try {
           await invoke('run_shell_command', {
             cwd: repoPath,
             command: `git branch -D ${task.branchName} 2>/dev/null`,
           });
-        } catch { /* branch might not exist */ }
+        } catch {
+          /* branch might not exist */
+        }
       }
     }
     removeTask(task.id);
@@ -366,7 +442,8 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   const toggleCollapse = (id: string) => {
     setCollapsedProjects((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -381,17 +458,55 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
 
   return (
     <div className="sidebar">
-      <div className="sb-header" onMouseDown={async (e) => { if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') { try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().startDragging(); } catch { /* ignore */ } } }} onDoubleClick={async (e) => { if ((e.target as HTMLElement).tagName === 'BUTTON') return; try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); const w = getCurrentWindow(); if (await w.isMaximized()) await w.unmaximize(); else await w.maximize(); } catch { /* ignore */ } }}>
+      <div
+        className="sb-header"
+        onMouseDown={async (e) => {
+          if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') {
+            try {
+              const { getCurrentWindow } = await import('@tauri-apps/api/window');
+              await getCurrentWindow().startDragging();
+            } catch {
+              /* ignore */
+            }
+          }
+        }}
+        onDoubleClick={async (e) => {
+          if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const w = getCurrentWindow();
+            if (await w.isMaximized()) await w.unmaximize();
+            else await w.maximize();
+          } catch {
+            /* ignore */
+          }
+        }}
+      >
         <span style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
-        <span className="sb-title" style={{ fontSize: 10 }}>Tasks</span>
+        <span className="sb-title" style={{ fontSize: 10 }}>
+          Tasks
+        </span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {projects.length === 0 && nonDone.length === 0 && doneList.length === 0 && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 12, color: '#4d5868', lineHeight: 1.8, padding: 16 }}>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              fontSize: 12,
+              color: '#4d5868',
+              lineHeight: 1.8,
+              padding: 16,
+            }}
+          >
             <div>
-              No projects yet.<br />
+              No projects yet.
+              <br />
               Click 📁 in the dock to add a project.
             </div>
           </div>
@@ -402,46 +517,124 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           const isCollapsed = collapsedProjects.has(project.id);
           return (
             <div key={project.id}>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ffffff04', position: 'relative' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderBottom: '1px solid #ffffff04',
+                  position: 'relative',
+                }}
+              >
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
                     const allSelected = projTasks.every((t) => selectedTasks.has(t.id));
                     if (allSelected) {
-                      setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.delete(t.id)); return n; });
+                      setSelectedTasks((prev) => {
+                        const n = new Set(prev);
+                        projTasks.forEach((t) => n.delete(t.id));
+                        return n;
+                      });
                     } else {
-                      setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.add(t.id)); return n; });
+                      setSelectedTasks((prev) => {
+                        const n = new Set(prev);
+                        projTasks.forEach((t) => n.add(t.id));
+                        return n;
+                      });
                     }
                   }}
-                  style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+                  style={{
+                    position: 'absolute',
+                    left: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    zIndex: 5,
+                  }}
                 >
-                  {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id))
-                    ? <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
-                    : <Square size={18} color="#3d4856" strokeWidth={1.5} />}
+                  {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id)) ? (
+                    <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+                  ) : (
+                    <Square size={18} color="#3d4856" strokeWidth={1.5} />
+                  )}
                 </span>
                 <button
                   onClick={() => toggleCollapse(project.id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '12px 16px 12px 30px',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: 'inherit', textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flex: 1,
+                    padding: '12px 16px 12px 30px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    textAlign: 'left',
                   }}
                 >
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: project.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#a1a1aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{project.name}</span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#a1a1aa',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: 120,
+                    }}
+                  >
+                    {project.name}
+                  </span>
                   <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
-                  <ProjBtn icon={<span style={{ display: 'inline-block', transition: 'transform 200ms ease', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▼</span>} title={isCollapsed ? 'Expand' : 'Collapse'} onClick={() => toggleCollapse(project.id)} />
-                  {onAddTaskForProject && <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />}
+                  <ProjBtn
+                    icon={
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          transition: 'transform 200ms ease',
+                          transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                        }}
+                      >
+                        ▼
+                      </span>
+                    }
+                    title={isCollapsed ? 'Expand' : 'Collapse'}
+                    onClick={() => toggleCollapse(project.id)}
+                  />
+                  {onAddTaskForProject && (
+                    <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />
+                  )}
                   {onEditProject && <ProjBtn icon="⚙" title="Settings" onClick={() => onEditProject(project.id)} />}
-                  <ProjBtn icon={<X size={12} strokeWidth={1.5} />} title="Delete" onClick={() => handleDeleteProject(project.id, project.name)} hoverColor="#ef4444" />
+                  <ProjBtn
+                    icon={<X size={12} strokeWidth={1.5} />}
+                    title="Delete"
+                    onClick={() => handleDeleteProject(project.id, project.name)}
+                    hoverColor="#ef4444"
+                  />
                 </div>
               </div>
               {!isCollapsed && (
                 <>
                   {projTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent color={project.color} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} isAsking={askingTasks.has(task.id)} />
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      isActive={activeTaskId === task.id}
+                      onSelect={() => setActiveTask(task.id)}
+                      onDelete={() => handleDeleteTask(task)}
+                      indent
+                      color={project.color}
+                      selected={selectedTasks.has(task.id)}
+                      onToggleSelect={() => toggleSelect(task.id)}
+                      isRunning={runningPipelines.has(task.id)}
+                      isAsking={askingTasks.has(task.id)}
+                    />
                   ))}
                   {projTasks.length === 0 && (
                     <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
@@ -458,10 +651,23 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         {unassigned.length > 0 && (
           <>
             {projects.length > 0 && (
-              <div className="sb-section" style={{ color: '#2a3642' }}>No project</div>
+              <div className="sb-section" style={{ color: '#2a3642' }}>
+                No project
+              </div>
             )}
             {unassigned.map((task) => (
-              <TaskRow key={task.id} task={task} isActive={activeTaskId === task.id} onSelect={() => setActiveTask(task.id)} onDelete={() => handleDeleteTask(task)} indent={false} selected={selectedTasks.has(task.id)} onToggleSelect={() => toggleSelect(task.id)} isRunning={runningPipelines.has(task.id)} isAsking={askingTasks.has(task.id)} />
+              <TaskRow
+                key={task.id}
+                task={task}
+                isActive={activeTaskId === task.id}
+                onSelect={() => setActiveTask(task.id)}
+                onDelete={() => handleDeleteTask(task)}
+                indent={false}
+                selected={selectedTasks.has(task.id)}
+                onToggleSelect={() => toggleSelect(task.id)}
+                isRunning={runningPipelines.has(task.id)}
+                isAsking={askingTasks.has(task.id)}
+              />
             ))}
           </>
         )}
@@ -469,29 +675,75 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         {/* Done */}
         {doneList.length > 0 && (
           <>
-            <div className="sb-section" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={12} color="#34d399" strokeWidth={2} /> Done</div>
+            <div className="sb-section" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle2 size={12} color="#34d399" strokeWidth={2} /> Done
+            </div>
             {doneList.map((task) => (
-              <div key={task.id} className="task-row-wrap" style={{ padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', height: 77 }}>
+              <div
+                key={task.id}
+                className="task-row-wrap"
+                style={{
+                  padding: '0 14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  position: 'relative',
+                  height: 77,
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1, paddingRight: 50 }}>
                   <div className="sb-dot done" />
-                  <span style={{ fontSize: 13, color: '#3d4856', textDecoration: 'line-through', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: '#3d4856',
+                      textDecoration: 'line-through',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {task.title}
+                  </span>
                 </div>
                 <span className="sb-timer">{formatTime(task.elapsedSeconds)}</span>
                 <button
                   onClick={() => setTaskStatus(task.id, 'waiting')}
                   className="task-delete-btn"
                   style={{
-                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                    width: 22, height: 22, borderRadius: 6,
-                    background: '#1e2530', border: '1px solid #2a3642',
-                    color: '#4d5868', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
+                    position: 'absolute',
+                    right: 6,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: '#1e2530',
+                    border: '1px solid #2a3642',
+                    color: '#4d5868',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    transition: 'opacity 0.15s, color 0.15s, background 0.15s',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#34d39920'; e.currentTarget.style.color = '#34d399'; e.currentTarget.style.borderColor = '#34d39940'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#1e2530'; e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.borderColor = '#2a3642'; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#34d39920';
+                    e.currentTarget.style.color = '#34d399';
+                    e.currentTarget.style.borderColor = '#34d39940';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#1e2530';
+                    e.currentTarget.style.color = '#4d5868';
+                    e.currentTarget.style.borderColor = '#2a3642';
+                  }}
                   title="Undo — move back to waiting"
-                >↩</button>
+                >
+                  ↩
+                </button>
               </div>
             ))}
           </>
@@ -504,62 +756,141 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           <button
             onClick={runSelectedPipelines}
             style={{
-              width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-              background: 'rgba(90,165,165,0.1)', border: '1px solid rgba(90,165,165,0.2)',
-              color: '#5aa5a5', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 600,
+              background: 'rgba(90,165,165,0.1)',
+              border: '1px solid rgba(90,165,165,0.2)',
+              color: '#5aa5a5',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
               transition: 'all 200ms ease',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.2)'; e.currentTarget.style.borderColor = 'rgba(90,165,165,0.4)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(90,165,165,0.1)'; e.currentTarget.style.borderColor = 'rgba(90,165,165,0.2)'; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(90,165,165,0.2)';
+              e.currentTarget.style.borderColor = 'rgba(90,165,165,0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(90,165,165,0.1)';
+              e.currentTarget.style.borderColor = 'rgba(90,165,165,0.2)';
+            }}
           >
             <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
           </button>
           {showResetConfirm && (
             <div style={{ padding: '8px 0', marginTop: 4 }}>
               <div style={{ fontSize: 11, color: '#c0c8d4', marginBottom: 6 }}>Reset {selectedTasks.size} tasks?</div>
-              <div style={{ fontSize: 10, color: '#6b7585', marginBottom: 8 }}>Pipeline, timer, Claude session, git changes will be cleared.</div>
+              <div style={{ fontSize: 10, color: '#6b7585', marginBottom: 8 }}>
+                Pipeline, timer, Claude session, git changes will be cleared.
+              </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={async () => {
-                  setShowResetConfirm(false);
-                  const { messageCache, sessionCache } = await import('../utils/chatState');
-                  for (const id of selectedTasks) {
-                    const t = tasks.find((task) => task.id === id);
-                    if (!t) continue;
-                    await invoke('claude_stop_task', { taskId: id }).catch(() => {});
-                    const proj = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
-                    const taskCwd = t.worktreePath || t.repoPath || proj?.localPath || '';
-                    if (taskCwd) {
-                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
-                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git clean -fd 2>/dev/null' }).catch(() => {});
-                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git reset origin/develop 2>/dev/null' }).catch(() => {});
-                      await invoke('run_shell_command', { cwd: taskCwd, command: 'git checkout -- . 2>/dev/null' }).catch(() => {});
+                <button
+                  onClick={async () => {
+                    setShowResetConfirm(false);
+                    const { messageCache, sessionCache } = await import('../utils/chatState');
+                    for (const id of selectedTasks) {
+                      const t = tasks.find((task) => task.id === id);
+                      if (!t) continue;
+                      await invoke('claude_stop_task', { taskId: id }).catch(() => {});
+                      const proj = t.projectId ? projects.find((p) => p.id === t.projectId) : null;
+                      const taskCwd = t.worktreePath || t.repoPath || proj?.localPath || '';
+                      if (taskCwd) {
+                        await invoke('run_shell_command', {
+                          cwd: taskCwd,
+                          command: 'git checkout -- . 2>/dev/null',
+                        }).catch(() => {});
+                        await invoke('run_shell_command', { cwd: taskCwd, command: 'git clean -fd 2>/dev/null' }).catch(
+                          () => {},
+                        );
+                        await invoke('run_shell_command', {
+                          cwd: taskCwd,
+                          command: 'git reset origin/develop 2>/dev/null',
+                        }).catch(() => {});
+                        await invoke('run_shell_command', {
+                          cwd: taskCwd,
+                          command: 'git checkout -- . 2>/dev/null',
+                        }).catch(() => {});
+                      }
+                      useTaskStore
+                        .getState()
+                        .updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
+                      useTaskStore.getState().setTaskStatus(id, 'waiting');
+                      messageCache.delete(id);
+                      sessionCache.delete(id);
                     }
-                    useTaskStore.getState().updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
-                    useTaskStore.getState().setTaskStatus(id, 'waiting');
-                    messageCache.delete(id);
-                    sessionCache.delete(id);
-                  }
-                  setSelectedTasks(new Set());
-                }} style={{ padding: '4px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>Reset</button>
-                <button onClick={() => setShowResetConfirm(false)} style={{ padding: '4px 12px', borderRadius: 5, fontSize: 10, background: 'none', border: '1px solid #3d4856', color: '#8b95a5', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                    setSelectedTasks(new Set());
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 5,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    background: 'rgba(239,68,68,0.12)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 5,
+                    fontSize: 10,
+                    background: 'none',
+                    border: '1px solid #3d4856',
+                    color: '#8b95a5',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}
-          {!showResetConfirm && <button
-            onClick={() => setShowResetConfirm(true)}
-            style={{
-              width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-              background: 'none', border: '1px solid rgba(239,68,68,0.2)',
-              color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              marginTop: 6, transition: 'all 200ms ease',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; }}
-          >
-            <RotateCcw size={12} strokeWidth={1.5} /> Reset Selected ({selectedTasks.size})
-          </button>}
+          {!showResetConfirm && (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 500,
+                background: 'none',
+                border: '1px solid rgba(239,68,68,0.2)',
+                color: '#ef4444',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                marginTop: 6,
+                transition: 'all 200ms ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'none';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)';
+              }}
+            >
+              <RotateCcw size={12} strokeWidth={1.5} /> Reset Selected ({selectedTasks.size})
+            </button>
+          )}
         </div>
       )}
 
@@ -568,14 +899,45 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
           {onShowReport && (
-            <button onClick={onShowReport} className="icon-btn-subtle" style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 4, padding: '2px 6px' }}>
+            <button
+              onClick={onShowReport}
+              className="icon-btn-subtle"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#3d4856',
+                cursor: 'pointer',
+                fontSize: 10,
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                borderRadius: 4,
+                padding: '2px 6px',
+              }}
+            >
               <BarChart3 size={14} strokeWidth={1.5} /> Report
             </button>
           )}
         </div>
-        <div className="sb-summary"><span>Focus</span><span className="val" style={{ color: '#7dbdbd' }}>{formatTime(totalFocus)}</span></div>
-        <div className="sb-summary"><span>Interrupts</span><span className="val" style={{ color: '#eab308' }}>{totalInterrupts} ({formatTime(totalInterruptTime)})</span></div>
-        <div className="sb-summary"><span>Done</span><span className="val" style={{ color: '#34d399' }}>{doneList.length}/{tasks.length}</span></div>
+        <div className="sb-summary">
+          <span>Focus</span>
+          <span className="val" style={{ color: '#7dbdbd' }}>
+            {formatTime(totalFocus)}
+          </span>
+        </div>
+        <div className="sb-summary">
+          <span>Interrupts</span>
+          <span className="val" style={{ color: '#eab308' }}>
+            {totalInterrupts} ({formatTime(totalInterruptTime)})
+          </span>
+        </div>
+        <div className="sb-summary">
+          <span>Done</span>
+          <span className="val" style={{ color: '#34d399' }}>
+            {doneList.length}/{tasks.length}
+          </span>
+        </div>
       </div>
 
       {/* Delete project confirmation modal */}
@@ -586,7 +948,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
               <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Trash2 size={18} strokeWidth={1.5} color="#ef4444" /> Delete Project
               </h2>
-              <button className="modal-close" onClick={() => setDeleteProjectTarget(null)}>×</button>
+              <button className="modal-close" onClick={() => setDeleteProjectTarget(null)}>
+                ×
+              </button>
             </div>
             <div className="modal-body" style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 14, color: '#c0c8d4', marginBottom: 8 }}>
@@ -598,7 +962,9 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                   : 'Are you sure you want to delete this project? This action cannot be undone.'}
               </p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>
-                <button className="btn btn-ghost" onClick={() => setDeleteProjectTarget(null)}>Cancel</button>
+                <button className="btn btn-ghost" onClick={() => setDeleteProjectTarget(null)}>
+                  Cancel
+                </button>
                 <button
                   className="btn"
                   style={{ background: '#ef4444', color: '#fff' }}
@@ -617,10 +983,35 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
   );
 }
 
-function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, onToggleSelect, isRunning, isAsking }: {
-  task: { id: string; title: string; status: string; branchName: string; elapsedSeconds: number; pipeline?: { enabled: boolean; phases: Record<string, { status: string }> } };
-  isActive: boolean; onSelect: () => void; onDelete: () => void; indent: boolean; color?: string;
-  selected?: boolean; onToggleSelect?: () => void; isRunning?: boolean; isAsking?: boolean;
+function TaskRow({
+  task,
+  isActive,
+  onSelect,
+  onDelete,
+  indent,
+  color,
+  selected,
+  onToggleSelect,
+  isRunning,
+  isAsking,
+}: {
+  task: {
+    id: string;
+    title: string;
+    status: string;
+    branchName: string;
+    elapsedSeconds: number;
+    pipeline?: { enabled: boolean; phases: Record<string, { status: string }> };
+  };
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+  indent: boolean;
+  color?: string;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  isRunning?: boolean;
+  isAsking?: boolean;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -637,75 +1028,160 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
     <div className="task-row-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
       {onToggleSelect && task.status !== 'done' && (
         <span
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-          style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', display: 'flex', alignItems: 'center', zIndex: 5 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          style={{
+            position: 'absolute',
+            left: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            zIndex: 5,
+          }}
         >
-          {selected
-            ? <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
-            : <Square size={18} color="#3d4856" strokeWidth={1.5} />}
+          {selected ? (
+            <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+          ) : (
+            <Square size={18} color="#3d4856" strokeWidth={1.5} />
+          )}
         </span>
       )}
-      <button className={cls} onClick={onSelect} style={{
-        ...(indent ? { paddingLeft: 24 } : {}),
-        ...(isActive && color ? { borderLeftColor: color, boxShadow: `inset 3px 0 8px -3px ${color}50` } : {}),
-      }}>
+      <button
+        className={cls}
+        onClick={onSelect}
+        style={{
+          ...(indent ? { paddingLeft: 24 } : {}),
+          ...(isActive && color ? { borderLeftColor: color, boxShadow: `inset 3px 0 8px -3px ${color}50` } : {}),
+        }}
+      >
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <div className={`sb-dot ${dotCls}`} style={{
-              ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
-              ...(isAsking ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)' } : {}),
-              ...(isRunning && !isAsking ? { background: '#5aa5a5', boxShadow: '0 0 6px rgba(90,165,165,0.6)', animation: 'pulse-glow 1.5s infinite' } : {}),
-            }} />
-            <span className="sb-task-name" title={task.title}>{task.title}</span>
+            <div
+              className={`sb-dot ${dotCls}`}
+              style={{
+                ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
+                ...(isAsking ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)' } : {}),
+                ...(isRunning && !isAsking
+                  ? {
+                      background: '#5aa5a5',
+                      boxShadow: '0 0 6px rgba(90,165,165,0.6)',
+                      animation: 'pulse-glow 1.5s infinite',
+                    }
+                  : {}),
+              }}
+            />
+            <span className="sb-task-name" title={task.title}>
+              {task.title}
+            </span>
           </div>
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>
         </div>
-        {task.branchName && <div className="sb-meta"><code>{task.branchName}</code></div>}
-        {task.pipeline?.enabled && (() => {
-          const phases = task.pipeline.phases;
-          const activePhase = Object.entries(phases).find(([, v]) => v.status === 'in_progress');
-          if (isAsking) {
-            return <div style={{ fontSize: 9, color: '#f59e0b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
-              Asking
-            </div>;
-          }
-          if (activePhase) {
-            return <div style={{ fontSize: 9, color: '#5aa5a5', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#5aa5a5', animation: 'pulse 1.2s infinite' }} />
-              Running
-            </div>;
-          }
-          return null;
-        })()}
+        {task.branchName && (
+          <div className="sb-meta">
+            <code>{task.branchName}</code>
+          </div>
+        )}
+        {task.pipeline?.enabled &&
+          (() => {
+            const phases = task.pipeline.phases;
+            const activePhase = Object.entries(phases).find(([, v]) => v.status === 'in_progress');
+            if (isAsking) {
+              return (
+                <div
+                  style={{ fontSize: 9, color: '#f59e0b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
+                  Asking
+                </div>
+              );
+            }
+            if (activePhase) {
+              return (
+                <div
+                  style={{ fontSize: 9, color: '#5aa5a5', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: '#5aa5a5',
+                      animation: 'pulse 1.2s infinite',
+                    }}
+                  />
+                  Running
+                </div>
+              );
+            }
+            return null;
+          })()}
       </button>
       <button
-        onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
-        style={{
-          position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-          width: 22, height: 22, borderRadius: 6,
-          background: '#1e2530', border: '1px solid #2a3642',
-          color: '#4d5868', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: 0, transition: 'opacity 0.15s, color 0.15s, background 0.15s',
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowConfirm(true);
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = '#ef444420'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef444440'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = '#1e2530'; e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.borderColor = '#2a3642'; }}
+        style={{
+          position: 'absolute',
+          right: 6,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          background: '#1e2530',
+          border: '1px solid #2a3642',
+          color: '#4d5868',
+          cursor: 'pointer',
+          fontSize: 14,
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 0,
+          transition: 'opacity 0.15s, color 0.15s, background 0.15s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = '#ef444420';
+          e.currentTarget.style.color = '#ef4444';
+          e.currentTarget.style.borderColor = '#ef444440';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = '#1e2530';
+          e.currentTarget.style.color = '#4d5868';
+          e.currentTarget.style.borderColor = '#2a3642';
+        }}
         className="task-delete-btn"
         title="Delete task"
-      ><X size={12} strokeWidth={1.5} /></button>
+      >
+        <X size={12} strokeWidth={1.5} />
+      </button>
 
       {/* Inline delete confirmation */}
       {showConfirm && (
-        <div style={{
-          position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-          background: '#1e2530', border: '1px solid #ef444430', borderRadius: 8,
-          padding: '8px 12px', zIndex: 20, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
-        }}>
-          <span style={{ fontSize: 11, color: '#e8eef5' }}>
-            {deleting ? 'Deleting...' : 'Delete this task?'}
-          </span>
+        <div
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: '#1e2530',
+            border: '1px solid #ef444430',
+            borderRadius: 8,
+            padding: '8px 12px',
+            zIndex: 20,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#e8eef5' }}>{deleting ? 'Deleting...' : 'Delete this task?'}</span>
           {!deleting && (
             <>
               <button
@@ -715,19 +1191,37 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
                   onDelete();
                 }}
                 style={{
-                  padding: '3px 10px', borderRadius: 5, fontSize: 11, fontWeight: 600,
-                  background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                  color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
+                  padding: '3px 10px',
+                  borderRadius: 5,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
                 }}
-              >Yes</button>
+              >
+                Yes
+              </button>
               <button
-                onClick={(e) => { e.stopPropagation(); setShowConfirm(false); }}
-                style={{
-                  padding: '3px 10px', borderRadius: 5, fontSize: 11,
-                  background: 'none', border: '1px solid #3d4856',
-                  color: '#888895', cursor: 'pointer', fontFamily: 'inherit',
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowConfirm(false);
                 }}
-              >No</button>
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: 5,
+                  fontSize: 11,
+                  background: 'none',
+                  border: '1px solid #3d4856',
+                  color: '#888895',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                No
+              </button>
             </>
           )}
           {deleting && <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
@@ -737,22 +1231,50 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
   );
 }
 
-function ProjBtn({ icon, title, onClick, hoverColor }: { icon: React.ReactNode; title: string; onClick: () => void; hoverColor?: string }) {
+function ProjBtn({
+  icon,
+  title,
+  onClick,
+  hoverColor,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  hoverColor?: string;
+}) {
   const color = hoverColor || '#a1a1aa';
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       title={title}
       style={{
-        width: 28, height: 28, borderRadius: 6,
-        background: 'none', border: 'none',
-        color: '#4d5868', cursor: 'pointer',
-        fontSize: 16, fontWeight: 500,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        background: 'none',
+        border: 'none',
+        color: '#4d5868',
+        cursor: 'pointer',
+        fontSize: 16,
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         transition: 'color 0.1s, background 0.1s',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = color; e.currentTarget.style.background = `${color}15`; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = '#4d5868'; e.currentTarget.style.background = 'none'; }}
-    >{icon}</button>
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = color;
+        e.currentTarget.style.background = `${color}15`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = '#4d5868';
+        e.currentTarget.style.background = 'none';
+      }}
+    >
+      {icon}
+    </button>
   );
 }

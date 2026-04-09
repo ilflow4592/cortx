@@ -53,11 +53,22 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
           cursor: '#6366f1',
           cursorAccent: '#06060a',
           selectionBackground: '#6366f140',
-          black: '#0c0c12', red: '#ef4444', green: '#34d399', yellow: '#eab308',
-          blue: '#6366f1', magenta: '#c084fc', cyan: '#67e8f9', white: '#e4e4e7',
-          brightBlack: '#52525b', brightRed: '#f87171', brightGreen: '#6ee7b7',
-          brightYellow: '#fde047', brightBlue: '#818cf8', brightMagenta: '#d8b4fe',
-          brightCyan: '#a5f3fc', brightWhite: '#fafafa',
+          black: '#0c0c12',
+          red: '#ef4444',
+          green: '#34d399',
+          yellow: '#eab308',
+          blue: '#6366f1',
+          magenta: '#c084fc',
+          cyan: '#67e8f9',
+          white: '#e4e4e7',
+          brightBlack: '#52525b',
+          brightRed: '#f87171',
+          brightGreen: '#6ee7b7',
+          brightYellow: '#fde047',
+          brightBlue: '#818cf8',
+          brightMagenta: '#d8b4fe',
+          brightCyan: '#a5f3fc',
+          brightWhite: '#fafafa',
         },
         cursorBlink: true,
         scrollback: 5000,
@@ -118,7 +129,11 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
     }
 
     const resizeObserver = new ResizeObserver(() => {
-      try { cache?.fit.fit(); } catch { /* ignore */ }
+      try {
+        cache?.fit.fit();
+      } catch {
+        /* ignore */
+      }
     });
     resizeObserver.observe(container);
 

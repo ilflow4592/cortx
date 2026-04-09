@@ -9,7 +9,11 @@ const reasons: { value: InterruptReason; label: string; icon: string }[] = [
   { value: 'other', label: 'Other', icon: '💭' },
 ];
 
-export function PauseDialog({ onConfirm, onCancel, defaultMemo }: {
+export function PauseDialog({
+  onConfirm,
+  onCancel,
+  defaultMemo,
+}: {
   onConfirm: (reason: InterruptReason, memo: string) => void;
   onCancel: () => void;
   defaultMemo: string;
@@ -22,7 +26,9 @@ export function PauseDialog({ onConfirm, onCancel, defaultMemo }: {
       <div className="modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Pause Task</h2>
-          <button className="modal-close" onClick={onCancel}>×</button>
+          <button className="modal-close" onClick={onCancel}>
+            ×
+          </button>
         </div>
         <div className="modal-body">
           <div className="field">
@@ -33,11 +39,15 @@ export function PauseDialog({ onConfirm, onCancel, defaultMemo }: {
                   key={r.value}
                   onClick={() => setReason(r.value)}
                   style={{
-                    padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 500,
                     border: reason === r.value ? '1px solid rgba(99,102,241,0.3)' : '1px solid #18181b',
                     background: reason === r.value ? 'rgba(99,102,241,0.06)' : '#06060a',
                     color: reason === r.value ? '#818cf8' : '#71717a',
-                    cursor: 'pointer', fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
                   }}
                 >
                   {r.icon} {r.label}
@@ -47,11 +57,25 @@ export function PauseDialog({ onConfirm, onCancel, defaultMemo }: {
           </div>
           <div className="field">
             <span className="field-label">Memo (what were you doing?)</span>
-            <input className="field-input" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="e.g. Implementing auth flow..." autoFocus />
+            <input
+              className="field-input"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="e.g. Implementing auth flow..."
+              autoFocus
+            />
           </div>
           <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-            <button className="btn" style={{ background: '#eab308', color: '#09090b' }} onClick={() => onConfirm(reason, memo)}>⏸ Pause</button>
+            <button className="btn btn-ghost" onClick={onCancel}>
+              Cancel
+            </button>
+            <button
+              className="btn"
+              style={{ background: '#eab308', color: '#09090b' }}
+              onClick={() => onConfirm(reason, memo)}
+            >
+              ⏸ Pause
+            </button>
           </div>
         </div>
       </div>

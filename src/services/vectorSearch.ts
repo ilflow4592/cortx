@@ -78,19 +78,21 @@ export async function storeContext(item: VectorItem): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      points: [{
-        id: pointId,
-        vector,
-        payload: {
-          itemId: item.id,
-          taskId: item.taskId,
-          sourceType: item.sourceType,
-          title: item.title,
-          content: item.content,
-          url: item.url,
-          timestamp: item.timestamp,
+      points: [
+        {
+          id: pointId,
+          vector,
+          payload: {
+            itemId: item.id,
+            taskId: item.taskId,
+            sourceType: item.sourceType,
+            title: item.title,
+            content: item.content,
+            url: item.url,
+            timestamp: item.timestamp,
+          },
         },
-      }],
+      ],
     }),
   });
 }
@@ -150,9 +152,11 @@ export async function searchContext(query: string, limit = 10, taskId?: string):
   if (vector.length === 0) return [];
 
   // taskId가 있으면 해당 태스크의 컨텍스트만 필터링
-  const filter = taskId ? {
-    must: [{ key: 'taskId', match: { value: taskId } }],
-  } : undefined;
+  const filter = taskId
+    ? {
+        must: [{ key: 'taskId', match: { value: taskId } }],
+      }
+    : undefined;
 
   const resp = await fetch(`${QDRANT_URL}/collections/${COLLECTION}/points/search`, {
     method: 'POST',
@@ -201,12 +205,16 @@ export async function checkVectorServices(): Promise<{ ollama: boolean; qdrant: 
   try {
     const resp = await fetch(`${OLLAMA_URL}/api/tags`);
     ollama = resp.ok;
-  } catch { /* not running */ }
+  } catch {
+    /* not running */
+  }
 
   try {
     const resp = await fetch(`${QDRANT_URL}/collections`);
     qdrant = resp.ok;
-  } catch { /* not running */ }
+  } catch {
+    /* not running */
+  }
 
   return { ollama, qdrant };
 }
@@ -221,11 +229,7 @@ export async function checkVectorServices(): Promise<{ ollama: boolean; qdrant: 
  * @param topN - 반환할 최대 키워드 수 (기본 10)
  * @returns 유사도 순으로 정렬된 키워드/구문 배열
  */
-export async function extractKeywords(
-  query: string,
-  texts: string[],
-  topN = 10
-): Promise<string[]> {
+export async function extractKeywords(query: string, texts: string[], topN = 10): Promise<string[]> {
   if (texts.length === 0) return [];
 
   // 정규식으로 의미 있는 후보 구문을 추출
@@ -242,9 +246,10 @@ export async function extractKeywords(
     if (prs) prs.forEach((p) => candidates.add(p));
     // 2~4단어 명사구 (한국어 + 영어)
     const phrases = text.match(/[\w가-힣]{2,}(?:\s[\w가-힣]{2,}){1,3}/g);
-    if (phrases) phrases.forEach((p) => {
-      if (p.length >= 4 && p.length <= 50) candidates.add(p.trim());
-    });
+    if (phrases)
+      phrases.forEach((p) => {
+        if (p.length >= 4 && p.length <= 50) candidates.add(p.trim());
+      });
   }
 
   const candidateList = [...candidates];
@@ -263,7 +268,9 @@ export async function extractKeywords(
         if (vec.length === 0) continue;
         const score = cosineSim(queryVec, vec);
         scored.push({ phrase, score });
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     // Sort by similarity, return top N
@@ -277,7 +284,9 @@ export async function extractKeywords(
 
 /** Cosine similarity between two vectors. Returns 0 if either norm is zero. */
 function cosineSim(a: number[], b: number[]): number {
-  let dot = 0, normA = 0, normB = 0;
+  let dot = 0,
+    normA = 0,
+    normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
@@ -291,7 +300,7 @@ function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return hash;

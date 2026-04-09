@@ -4,7 +4,7 @@ const steps = [
   {
     icon: '🧠',
     title: 'Welcome to Cortx',
-    sub: 'Your brain can\'t hold 5 contexts at once. Cortx can.',
+    sub: "Your brain can't hold 5 contexts at once. Cortx can.",
     items: [
       { text: '<strong>Create tasks</strong> with the + button in the dock' },
       { text: 'Each task gets its own <strong>worktree, terminal, and AI chat</strong>' },
@@ -72,15 +72,23 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
 
         <div className="onboarding-actions">
           {step > 0 && (
-            <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>Back</button>
+            <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>
+              Back
+            </button>
           )}
           {isLast ? (
-            <button className="btn btn-primary" onClick={onComplete}>Get Started</button>
+            <button className="btn btn-primary" onClick={onComplete}>
+              Get Started
+            </button>
           ) : (
-            <button className="btn btn-primary" onClick={() => setStep(step + 1)}>Next</button>
+            <button className="btn btn-primary" onClick={() => setStep(step + 1)}>
+              Next
+            </button>
           )}
           {!isLast && (
-            <button className="btn btn-ghost" onClick={onComplete} style={{ fontSize:11 }}>Skip</button>
+            <button className="btn btn-ghost" onClick={onComplete} style={{ fontSize: 11 }}>
+              Skip
+            </button>
           )}
         </div>
       </div>

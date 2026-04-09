@@ -30,7 +30,9 @@ function getClientId(): string {
       const data = JSON.parse(raw);
       if (data.oauthClientId) return data.oauthClientId;
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return '';
 }
 
@@ -78,7 +80,11 @@ export interface OAuthResult {
 export async function startAnthropicOAuth(): Promise<OAuthResult> {
   const clientId = getClientId();
   if (!clientId) {
-    return { accessToken: '', error: 'OAuth requires a registered Client ID. Enter your Client ID in the field below, or use an API key instead.' };
+    return {
+      accessToken: '',
+      error:
+        'OAuth requires a registered Client ID. Enter your Client ID in the field below, or use an API key instead.',
+    };
   }
 
   // 1. Generate PKCE
@@ -114,7 +120,11 @@ export async function startAnthropicOAuth(): Promise<OAuthResult> {
   // 4. Open browser (fire-and-forget, don't block)
   openUrl(authUrl).catch(() => {
     // Fallback: try window.open
-    try { window.open(authUrl, '_blank'); } catch { /* ignore */ }
+    try {
+      window.open(authUrl, '_blank');
+    } catch {
+      /* ignore */
+    }
   });
 
   // 5. Wait for callback from the OAuth redirect

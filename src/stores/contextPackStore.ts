@@ -71,7 +71,7 @@ interface ContextPackState {
   snapshots: Record<string, ContextSnapshot>;
   sources: ContextSourceConfig[];
   keywords: Record<string, string[]>;
-  collecting: Record<string, boolean>;           // per-task collecting state
+  collecting: Record<string, boolean>; // per-task collecting state
   collectAborts: Record<string, AbortController>; // per-task abort controllers
   collectProgresses: Record<string, SourceCollectStatus[]>; // per-task progress
   lastCollectedAt: Record<string, string>;
@@ -96,7 +96,14 @@ interface ContextPackState {
   cancelCollect: (taskId: string) => void;
 
   // Collection
-  collectAll: (taskId: string, branchName: string, slackChannels?: string[], taskTitle?: string, overrideSources?: ContextSourceConfig[], model?: string) => Promise<void>;
+  collectAll: (
+    taskId: string,
+    branchName: string,
+    slackChannels?: string[],
+    taskTitle?: string,
+    overrideSources?: ContextSourceConfig[],
+    model?: string,
+  ) => Promise<void>;
   takeSnapshot: (taskId: string) => void;
   detectDelta: (taskId: string, branchName: string) => Promise<void>;
 
@@ -145,7 +152,17 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   loadMcpServers: async () => {
     set({ mcpLoading: true });
     try {
-      const servers = await invoke<{ name: string; command: string; args: string[]; env: Record<string, string>; server_type: string; url: string }[]>('list_mcp_servers');
+      const servers =
+        await invoke<
+          {
+            name: string;
+            command: string;
+            args: string[];
+            env: Record<string, string>;
+            server_type: string;
+            url: string;
+          }[]
+        >('list_mcp_servers');
       const statuses: McpServerStatus[] = [];
       for (const server of servers) {
         const serviceType = detectServiceType(server.name);
@@ -154,15 +171,36 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
           const check = AUTH_CHECKS[matchKey];
           try {
             const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-              cwd: '/', command: check.cmd,
+              cwd: '/',
+              command: check.cmd,
             });
             const authed = result.success || result.output.includes('Logged in') || result.output.includes('ok');
-            statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: authed ? 'ready' : 'auth-needed', authUrl: check.authUrl, serviceType });
+            statuses.push({
+              name: server.name,
+              command: server.command,
+              env: server.env || {},
+              status: authed ? 'ready' : 'auth-needed',
+              authUrl: check.authUrl,
+              serviceType,
+            });
           } catch {
-            statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'auth-needed', authUrl: check.authUrl, serviceType });
+            statuses.push({
+              name: server.name,
+              command: server.command,
+              env: server.env || {},
+              status: 'auth-needed',
+              authUrl: check.authUrl,
+              serviceType,
+            });
           }
         } else {
-          statuses.push({ name: server.name, command: server.command, env: server.env || {}, status: 'unknown', serviceType });
+          statuses.push({
+            name: server.name,
+            command: server.command,
+            env: server.env || {},
+            status: 'unknown',
+            serviceType,
+          });
         }
       }
       set({ mcpServers: statuses, mcpLoading: false });
@@ -253,7 +291,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
     const enabledSources = (overrideSources || state.sources).filter((s) => s.enabled);
     const progress: SourceCollectStatus[] = enabledSources.map((s) => ({
-      type: s.type, status: 'pending', itemCount: 0,
+      type: s.type,
+      status: 'pending',
+      itemCount: 0,
     }));
 
     const abort = new AbortController();
@@ -261,7 +301,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     set((s) => ({
       collecting: { ...s.collecting, [taskId]: true },
       collectAborts: { ...s.collectAborts, [taskId]: abort },
-      collectProgresses: { ...s.collectProgresses, [taskId]: progress.map((p) => ({ ...p, status: 'collecting' as const })) },
+      collectProgresses: {
+        ...s.collectProgresses,
+        [taskId]: progress.map((p) => ({ ...p, status: 'collecting' as const })),
+      },
     }));
     const kw = state.keywords[taskId] || [];
 
@@ -284,24 +327,29 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
               items = await collectSlack(source, kw, slackChannels);
             } else {
               const r = await collectViaMcp('slack', kw, '', { model });
-              items = r?.items || []; tokenUsage = r?.tokenUsage;
+              items = r?.items || [];
+              tokenUsage = r?.tokenUsage;
             }
           } else if (source.type === 'notion') {
             if (source.token) {
               items = await collectNotion(source, kw, taskTitle);
             } else {
               const r = await collectViaMcp('notion', kw, '', { model });
-              items = r?.items || []; tokenUsage = r?.tokenUsage;
+              items = r?.items || [];
+              tokenUsage = r?.tokenUsage;
             }
           }
           if (abort.signal.aborted) return [] as ContextItem[];
           set((s) => ({
-            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
-              i === idx ? { ...p, status: 'done', itemCount: (items || []).length, tokenUsage } : p
-            )},
+            collectProgresses: {
+              ...s.collectProgresses,
+              [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
+                i === idx ? { ...p, status: 'done', itemCount: (items || []).length, tokenUsage } : p,
+              ),
+            },
           }));
           return items || [];
-        })
+        }),
       );
 
       for (let i = 0; i < phase1.length; i++) {
@@ -311,9 +359,12 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         } else {
           const idx = enabledSources.indexOf(nonGithubSources[i]);
           set((s) => ({
-            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
-              j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
-            )},
+            collectProgresses: {
+              ...s.collectProgresses,
+              [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
+                j === idx ? { ...p, status: 'error', error: String(r.reason) } : p,
+              ),
+            },
           }));
         }
       }
@@ -341,7 +392,12 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
 
       // 사용자 키워드 + 정규식 키워드 + 시맨틱 키워드를 합쳐서 중복 제거
       const githubKw = [...new Set([...kw, ...regexKeywords, ...semanticKeywords])];
-      console.log('[cortx] GitHub search with keywords:', { original: kw, regex: regexKeywords, semantic: semanticKeywords, final: githubKw });
+      console.log('[cortx] GitHub search with keywords:', {
+        original: kw,
+        regex: regexKeywords,
+        semantic: semanticKeywords,
+        final: githubKw,
+      });
 
       const phase2 = await Promise.allSettled(
         githubSources.map(async (source) => {
@@ -356,12 +412,15 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
           }
           if (abort.signal.aborted) return [] as ContextItem[];
           set((s) => ({
-            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
-              i === idx ? { ...p, status: 'done', itemCount: (items || []).length } : p
-            )},
+            collectProgresses: {
+              ...s.collectProgresses,
+              [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
+                i === idx ? { ...p, status: 'done', itemCount: (items || []).length } : p,
+              ),
+            },
           }));
           return items || [];
-        })
+        }),
       );
 
       for (let i = 0; i < phase2.length; i++) {
@@ -371,9 +430,12 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         } else {
           const idx = enabledSources.indexOf(githubSources[i]);
           set((s) => ({
-            collectProgresses: { ...s.collectProgresses, [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
-              j === idx ? { ...p, status: 'error', error: String(r.reason) } : p
-            )},
+            collectProgresses: {
+              ...s.collectProgresses,
+              [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
+                j === idx ? { ...p, status: 'error', error: String(r.reason) } : p,
+              ),
+            },
           }));
         }
       }
@@ -382,22 +444,27 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     if (abort.signal.aborted) return;
 
     // 키워드가 제목에 포함된 아이템을 상위로 정렬 (간단한 relevance ranking)
-    const sorted = kw.length > 0
-      ? [...collected].sort((a, b) => {
-          const aTitle = kw.some((k) => a.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
-          const bTitle = kw.some((k) => b.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
-          return aTitle - bTitle;
-        })
-      : collected;
+    const sorted =
+      kw.length > 0
+        ? [...collected].sort((a, b) => {
+            const aTitle = kw.some((k) => a.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
+            const bTitle = kw.some((k) => b.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
+            return aTitle - bTitle;
+          })
+        : collected;
 
     // 벡터 DB 저장 + 시맨틱 필터링 (Ollama/Qdrant 미실행 시 전체 아이템 사용)
     let relevant = sorted;
     try {
       const vs = await import('../services/vectorSearch');
       const vectorItems = collected.map((item) => ({
-        id: item.id, taskId, sourceType: item.sourceType,
-        title: item.title, content: item.metadata?.fullText || item.summary || item.title,
-        url: item.url, timestamp: item.timestamp,
+        id: item.id,
+        taskId,
+        sourceType: item.sourceType,
+        title: item.title,
+        content: item.metadata?.fullText || item.summary || item.title,
+        url: item.url,
+        timestamp: item.timestamp,
       }));
       await vs.storeContextBatch(vectorItems);
 
@@ -443,7 +510,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         ...(p.error ? { error: p.error } : {}),
       })),
       totalItems: deduped.length - pinned.length,
-      totalTokens: finalProgress.reduce((sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0), 0),
+      totalTokens: finalProgress.reduce(
+        (sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0),
+        0,
+      ),
     };
 
     set((s) => ({
@@ -553,7 +623,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         lastCollectedAt: s.lastCollectedAt,
         collectHistory: s.collectHistory,
         deltaItems: s.deltaItems,
-      })
+      }),
     );
   },
 }));

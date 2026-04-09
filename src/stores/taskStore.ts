@@ -42,24 +42,35 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   addTask: (title, repoPath, branchName, extras) => {
     const id = genId();
     const task: Task = {
-      id, title, status: 'waiting', layer: 'focus',
-      branchName, worktreePath: '', repoPath, memo: '',
-      elapsedSeconds: 0, chatHistory: [], interrupts: [],
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id,
+      title,
+      status: 'waiting',
+      layer: 'focus',
+      branchName,
+      worktreePath: '',
+      repoPath,
+      memo: '',
+      elapsedSeconds: 0,
+      chatHistory: [],
+      interrupts: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...extras,
     };
     set((s) => ({ tasks: [...s.tasks, task] }));
     return id;
   },
 
-  removeTask: (id) => set((s) => ({
-    tasks: s.tasks.filter((t) => t.id !== id),
-    activeTaskId: s.activeTaskId === id ? null : s.activeTaskId,
-  })),
+  removeTask: (id) =>
+    set((s) => ({
+      tasks: s.tasks.filter((t) => t.id !== id),
+      activeTaskId: s.activeTaskId === id ? null : s.activeTaskId,
+    })),
 
-  updateTask: (id, updates) => set((s) => ({
-    tasks: s.tasks.map((t) => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t),
-  })),
+  updateTask: (id, updates) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)),
+    })),
 
   selectTask: (id) => set({ activeTaskId: id }),
 
@@ -84,23 +95,38 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set({ activeTaskId: id });
   },
 
-  setTaskStatus: (id, status, memo) => set((s) => ({
-    tasks: s.tasks.map((t) => t.id === id
-      ? { ...t, status, memo: memo !== undefined ? memo : t.memo, updatedAt: new Date().toISOString() }
-      : t),
-    activeTaskId: status === 'done' && s.activeTaskId === id ? null : s.activeTaskId,
-  })),
+  setTaskStatus: (id, status, memo) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === id
+          ? { ...t, status, memo: memo !== undefined ? memo : t.memo, updatedAt: new Date().toISOString() }
+          : t,
+      ),
+      activeTaskId: status === 'done' && s.activeTaskId === id ? null : s.activeTaskId,
+    })),
 
   // 중단 사유(reason)와 메모를 interrupt log에 기록하며 작업을 paused로 전환
   pauseWithReason: (id, reason, memo) => {
     const entry: InterruptEntry = {
-      id: genId(), pausedAt: new Date().toISOString(), resumedAt: null,
-      reason, memo, durationSeconds: 0,
+      id: genId(),
+      pausedAt: new Date().toISOString(),
+      resumedAt: null,
+      reason,
+      memo,
+      durationSeconds: 0,
     };
     set((s) => ({
-      tasks: s.tasks.map((t) => t.id === id
-        ? { ...t, status: 'paused' as TaskStatus, memo, interrupts: [...(t.interrupts || []), entry], updatedAt: new Date().toISOString() }
-        : t),
+      tasks: s.tasks.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status: 'paused' as TaskStatus,
+              memo,
+              interrupts: [...(t.interrupts || []), entry],
+              updatedAt: new Date().toISOString(),
+            }
+          : t,
+      ),
     }));
   },
 
@@ -121,20 +147,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }));
   },
 
-  setTaskLayer: (id, layer) => set((s) => ({
-    tasks: s.tasks.map((t) => t.id === id ? { ...t, layer, updatedAt: new Date().toISOString() } : t),
-  })),
+  setTaskLayer: (id, layer) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, layer, updatedAt: new Date().toISOString() } : t)),
+    })),
 
-  addChatMessage: (taskId, message) => set((s) => ({
-    tasks: s.tasks.map((t) => t.id === taskId
-      ? { ...t, chatHistory: [...t.chatHistory, message], updatedAt: new Date().toISOString() }
-      : t),
-  })),
+  addChatMessage: (taskId, message) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === taskId ? { ...t, chatHistory: [...t.chatHistory, message], updatedAt: new Date().toISOString() } : t,
+      ),
+    })),
 
   // 외부 setInterval에서 1초마다 호출. updatedAt은 갱신하지 않아 persist 빈도를 줄임
-  incrementTimer: (id) => set((s) => ({
-    tasks: s.tasks.map((t) => t.id === id ? { ...t, elapsedSeconds: t.elapsedSeconds + 1 } : t),
-  })),
+  incrementTimer: (id) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, elapsedSeconds: t.elapsedSeconds + 1 } : t)),
+    })),
 
   /**
    * localStorage에서 읽은 raw 데이터를 현재 스키마로 마이그레이션하여 로드.
@@ -145,8 +174,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const migrated = tasks.map((t) => ({
       id: t.id || genId(),
       title: t.title || '',
-      status: t.status || 'waiting' as TaskStatus,
-      layer: t.layer || 'focus' as TaskLayer,
+      status: t.status || ('waiting' as TaskStatus),
+      layer: t.layer || ('focus' as TaskLayer),
       projectId: t.projectId || undefined,
       branchName: t.branchName || '',
       worktreePath: t.worktreePath || '',

@@ -19,7 +19,7 @@ import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 export async function collectSlack(
   config: ContextSourceConfig,
   keywords: string[],
-  channelIds?: string[]
+  channelIds?: string[],
 ): Promise<ContextItem[]> {
   if (!config.token) return [];
 
@@ -37,10 +37,9 @@ export async function collectSlack(
 
   for (const channelId of uniqueChannels) {
     try {
-      const resp = await fetch(
-        `https://slack.com/api/conversations.history?channel=${channelId}&limit=30`,
-        { headers }
-      );
+      const resp = await fetch(`https://slack.com/api/conversations.history?channel=${channelId}&limit=30`, {
+        headers,
+      });
       if (!resp.ok) continue;
       const data = await resp.json();
       if (!data.ok) continue;
@@ -51,7 +50,9 @@ export async function collectSlack(
         const infoResp = await fetch(`https://slack.com/api/conversations.info?channel=${channelId}`, { headers });
         const infoData = await infoResp.json();
         if (infoData.ok) channelName = infoData.channel?.name || channelId;
-      } catch { /* use ID as fallback */ }
+      } catch {
+        /* use ID as fallback */
+      }
 
       for (const msg of data.messages || []) {
         const text = stripSlackFormatting(msg.text || '');
@@ -74,7 +75,9 @@ export async function collectSlack(
           },
         });
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   // 2. 연결된 채널이 없을 때 키워드 검색으로 fallback
@@ -83,7 +86,7 @@ export async function collectSlack(
     try {
       const resp = await fetch(
         `https://slack.com/api/search.messages?query=${encodeURIComponent(query)}&sort=timestamp&count=10`,
-        { headers }
+        { headers },
       );
       if (resp.ok) {
         const data = await resp.json();
@@ -106,7 +109,9 @@ export async function collectSlack(
           }
         }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   return items;
@@ -124,13 +129,14 @@ export async function collectSlack(
 export async function filterByRelevance(
   items: ContextItem[],
   taskTitle: string,
-  callAI: (prompt: string) => Promise<string>
+  callAI: (prompt: string) => Promise<string>,
 ): Promise<ContextItem[]> {
   if (items.length === 0) return [];
 
-  const messageList = items.slice(0, 30).map((item, i) =>
-    `[${i}] ${item.metadata?.fullText || item.title}`
-  ).join('\n');
+  const messageList = items
+    .slice(0, 30)
+    .map((item, i) => `[${i}] ${item.metadata?.fullText || item.title}`)
+    .join('\n');
 
   const prompt = `You are filtering Slack messages for relevance to a developer's task.
 
@@ -149,11 +155,12 @@ Be selective — only include truly relevant messages.`;
 
     if (cleaned === 'none' || cleaned === '') return [];
 
-    const indices = cleaned.split(',')
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n) && n >= 0 && n < items.length);
+    const indices = cleaned
+      .split(',')
+      .map((s) => parseInt(s.trim()))
+      .filter((n) => !isNaN(n) && n >= 0 && n < items.length);
 
-    return indices.map(i => items[i]);
+    return indices.map((i) => items[i]);
   } catch {
     // If AI filtering fails, return all items
     return items;

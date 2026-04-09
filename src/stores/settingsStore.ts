@@ -50,16 +50,19 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set((state) => {
       const next = { ...state, ...updates };
       // 함수(액션)를 제외한 순수 데이터만 직렬화
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        aiProvider: next.aiProvider,
-        authMethod: next.authMethod,
-        apiKey: next.apiKey,
-        oauthClientId: next.oauthClientId,
-        oauthAccessToken: next.oauthAccessToken,
-        oauthRefreshToken: next.oauthRefreshToken,
-        modelId: next.modelId,
-        ollamaUrl: next.ollamaUrl,
-      }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          aiProvider: next.aiProvider,
+          authMethod: next.authMethod,
+          apiKey: next.apiKey,
+          oauthClientId: next.oauthClientId,
+          oauthAccessToken: next.oauthAccessToken,
+          oauthRefreshToken: next.oauthRefreshToken,
+          modelId: next.modelId,
+          ollamaUrl: next.ollamaUrl,
+        }),
+      );
       return next;
     });
   },

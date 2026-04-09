@@ -19,9 +19,15 @@ import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 export async function collectGitHub(
   config: ContextSourceConfig,
   keywords: string[],
-  branchName: string
+  branchName: string,
 ): Promise<ContextItem[]> {
-  console.log('[cortx:github] config:', { owner: config.owner, repo: config.repo, token: config.token ? 'yes' : 'no', keywords, branchName });
+  console.log('[cortx:github] config:', {
+    owner: config.owner,
+    repo: config.repo,
+    token: config.token ? 'yes' : 'no',
+    keywords,
+    branchName,
+  });
   if (!config.owner || !config.repo) {
     console.log('[cortx:github] skipped: no owner/repo');
     return [];
@@ -42,7 +48,7 @@ export async function collectGitHub(
 async function collectWithToken(
   config: ContextSourceConfig,
   keywords: string[],
-  branchName: string
+  branchName: string,
 ): Promise<ContextItem[]> {
   const headers = {
     Authorization: `Bearer ${config.token}`,
@@ -61,7 +67,7 @@ async function collectWithToken(
     try {
       const resp = await fetch(
         `https://api.github.com/search/issues?q=${encodeURIComponent(q)}&sort=updated&per_page=5`,
-        { headers }
+        { headers },
       );
       if (!resp.ok) continue;
       const data = await resp.json();
@@ -95,7 +101,7 @@ async function collectWithToken(
     try {
       const resp = await fetch(
         `https://api.github.com/repos/${config.owner}/${config.repo}/commits?sha=${encodeURIComponent(branchName)}&per_page=5`,
-        { headers }
+        { headers },
       );
       if (resp.ok) {
         const commits = await resp.json();
@@ -122,20 +128,19 @@ async function collectWithToken(
   try {
     const resp = await fetch(
       `https://api.github.com/repos/${config.owner}/${config.repo}/pulls?state=open&sort=updated&per_page=10`,
-      { headers }
+      { headers },
     );
     if (resp.ok) {
       const prs = await resp.json();
       // 브랜치명 또는 키워드가 제목에 포함된 PR만 필터링
       const relatedPrs = prs.filter(
         (pr: { head: { ref: string }; title: string }) =>
-          pr.head.ref === branchName ||
-          keywords.some((k) => pr.title.toLowerCase().includes(k.toLowerCase()))
+          pr.head.ref === branchName || keywords.some((k) => pr.title.toLowerCase().includes(k.toLowerCase())),
       );
       for (const pr of relatedPrs.slice(0, 3)) {
         const commentsResp = await fetch(
           `https://api.github.com/repos/${config.owner}/${config.repo}/pulls/${pr.number}/comments?per_page=5&sort=updated&direction=desc`,
-          { headers }
+          { headers },
         );
         if (commentsResp.ok) {
           const comments = await commentsResp.json();
@@ -179,7 +184,14 @@ async function ghApi(endpoint: string): Promise<unknown | null> {
       cwd: '/',
       command: cmd,
     });
-    console.log('[cortx:ghApi] success:', result.success, 'output length:', result.output?.length, 'error:', result.error?.slice(0, 100));
+    console.log(
+      '[cortx:ghApi] success:',
+      result.success,
+      'output length:',
+      result.output?.length,
+      'error:',
+      result.error?.slice(0, 100),
+    );
     if (result.success && result.output.trim()) {
       return JSON.parse(result.output);
     }
@@ -194,7 +206,7 @@ async function collectWithGhCli(
   owner: string,
   repo: string,
   keywords: string[],
-  branchName: string
+  branchName: string,
 ): Promise<ContextItem[]> {
   const items: ContextItem[] = [];
 
@@ -205,7 +217,9 @@ async function collectWithGhCli(
   ].filter(Boolean);
 
   for (const q of queries.slice(0, 3)) {
-    const data = await ghApi(`search/issues?q=${encodeURIComponent(q)}&sort=updated&per_page=5`) as { items?: Array<Record<string, unknown>> } | null;
+    const data = (await ghApi(`search/issues?q=${encodeURIComponent(q)}&sort=updated&per_page=5`)) as {
+      items?: Array<Record<string, unknown>>;
+    } | null;
     if (!data?.items) continue;
     for (const issue of data.items) {
       const htmlUrl = issue.html_url as string;
@@ -231,7 +245,9 @@ async function collectWithGhCli(
 
   // 2. Recent commits on branch
   if (branchName) {
-    const commits = await ghApi(`repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branchName)}&per_page=5`) as Array<Record<string, unknown>> | null;
+    const commits = (await ghApi(
+      `repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branchName)}&per_page=5`,
+    )) as Array<Record<string, unknown>> | null;
     if (Array.isArray(commits)) {
       for (const c of commits) {
         const commit = c.commit as Record<string, unknown>;
@@ -252,15 +268,20 @@ async function collectWithGhCli(
   }
 
   // 3. Open PRs related to branch/keywords
-  const prs = await ghApi(`repos/${owner}/${repo}/pulls?state=open&sort=updated&per_page=10`) as Array<Record<string, unknown>> | null;
+  const prs = (await ghApi(`repos/${owner}/${repo}/pulls?state=open&sort=updated&per_page=10`)) as Array<
+    Record<string, unknown>
+  > | null;
   if (Array.isArray(prs)) {
     const relatedPrs = prs.filter((pr) => {
       const head = pr.head as Record<string, string>;
-      return head.ref === branchName ||
-        keywords.some((k) => (pr.title as string).toLowerCase().includes(k.toLowerCase()));
+      return (
+        head.ref === branchName || keywords.some((k) => (pr.title as string).toLowerCase().includes(k.toLowerCase()))
+      );
     });
     for (const pr of relatedPrs.slice(0, 3)) {
-      const comments = await ghApi(`repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=5&sort=updated&direction=desc`) as Array<Record<string, unknown>> | null;
+      const comments = (await ghApi(
+        `repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=5&sort=updated&direction=desc`,
+      )) as Array<Record<string, unknown>> | null;
       if (!Array.isArray(comments)) continue;
       for (const comment of comments) {
         items.push({

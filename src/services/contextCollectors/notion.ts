@@ -21,7 +21,7 @@ import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 export async function collectNotion(
   config: ContextSourceConfig,
   keywords: string[],
-  taskTitle?: string
+  taskTitle?: string,
 ): Promise<ContextItem[]> {
   if (!config.token) return [];
 
@@ -79,25 +79,20 @@ export async function collectNotion(
   // 2. 설정된 Notion 데이터베이스에서 키워드와 매칭되는 항목 추가 수집
   if (config.notionDatabaseId) {
     try {
-      const resp = await fetch(
-        `https://api.notion.com/v1/databases/${config.notionDatabaseId}/query`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }],
-            page_size: 10,
-          }),
-        }
-      );
+      const resp = await fetch(`https://api.notion.com/v1/databases/${config.notionDatabaseId}/query`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }],
+          page_size: 10,
+        }),
+      });
 
       if (resp.ok) {
         const data = await resp.json();
         for (const page of data.results || []) {
           const title = extractNotionTitle(page);
-          const matchesKeyword = keywords.some(
-            (k) => title.toLowerCase().includes(k.toLowerCase())
-          );
+          const matchesKeyword = keywords.some((k) => title.toLowerCase().includes(k.toLowerCase()));
           if (!matchesKeyword) continue;
 
           const id = `notion-db-${page.id}`;
@@ -138,7 +133,9 @@ export async function collectNotion(
           command: `cat '${tmpFile}' | claude -p - --model claude-haiku-4-5-20251001 2>/dev/null; rm -f '${tmpFile}'`,
         });
         return result.success ? result.output.trim() : '';
-      } catch { return ''; }
+      } catch {
+        return '';
+      }
     };
 
     const filtered = await filterNotionByRelevance(items, taskTitle, callAI);
@@ -171,18 +168,23 @@ async function fetchNotionRelations(pageId: string, headers: Record<string, stri
     if (!resp.ok) return '';
     const page = await resp.json();
 
-    const props = page.properties as Record<string, {
-      type: string;
-      relation?: Array<{ id: string }>;
-      rich_text?: Array<{ plain_text: string }>;
-      title?: Array<{ plain_text: string }>;
-      select?: { name: string };
-      multi_select?: Array<{ name: string }>;
-      date?: { start: string; end?: string };
-      number?: number;
-      url?: string;
-      checkbox?: boolean;
-    }> | undefined;
+    const props = page.properties as
+      | Record<
+          string,
+          {
+            type: string;
+            relation?: Array<{ id: string }>;
+            rich_text?: Array<{ plain_text: string }>;
+            title?: Array<{ plain_text: string }>;
+            select?: { name: string };
+            multi_select?: Array<{ name: string }>;
+            date?: { start: string; end?: string };
+            number?: number;
+            url?: string;
+            checkbox?: boolean;
+          }
+        >
+      | undefined;
 
     if (!props) return '';
 
@@ -209,7 +211,8 @@ async function fetchNotionRelations(pageId: string, headers: Record<string, stri
         parts.push(`${key}: ${val.checkbox ? 'Yes' : 'No'}`);
       } else if (val.type === 'relation' && val.relation?.length) {
         // Collect relation IDs for deep fetch
-        for (const rel of val.relation.slice(0, 3)) { // max 3 per property
+        for (const rel of val.relation.slice(0, 3)) {
+          // max 3 per property
           relationIds.push({ label: key, id: rel.id });
         }
         parts.push(`${key}: [${val.relation.length} linked pages]`);
@@ -231,7 +234,9 @@ async function fetchNotionRelations(pageId: string, headers: Record<string, stri
           parts.push(`\n--- ${rel.label}: ${linkedTitle || 'Untitled'} ---`);
           if (linkedContent) parts.push(linkedContent);
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     return parts.join('\n');
@@ -297,13 +302,11 @@ async function fetchNotionPageContent(pageId: string, headers: Record<string, st
 export async function filterNotionByRelevance(
   items: ContextItem[],
   taskTitle: string,
-  callAI: (prompt: string) => Promise<string>
+  callAI: (prompt: string) => Promise<string>,
 ): Promise<ContextItem[]> {
   if (items.length <= 2) return items;
 
-  const itemList = items.map((item, i) =>
-    `[${i}] ${item.title}`
-  ).join('\n');
+  const itemList = items.map((item, i) => `[${i}] ${item.title}`).join('\n');
 
   const prompt = `You are filtering Notion search results for relevance to a developer's task.
 
@@ -322,11 +325,12 @@ Be very selective — only include items that are clearly about this specific ta
 
     if (cleaned === 'none' || cleaned === '') return [];
 
-    const indices = cleaned.split(',')
-      .map(s => parseInt(s.trim()))
-      .filter(n => !isNaN(n) && n >= 0 && n < items.length);
+    const indices = cleaned
+      .split(',')
+      .map((s) => parseInt(s.trim()))
+      .filter((n) => !isNaN(n) && n >= 0 && n < items.length);
 
-    return indices.length > 0 ? indices.map(i => items[i]) : items;
+    return indices.length > 0 ? indices.map((i) => items[i]) : items;
   } catch {
     return items;
   }

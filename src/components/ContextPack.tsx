@@ -42,48 +42,58 @@ export function ContextPack({ taskId }: { taskId: string }) {
     let unlisten: (() => void) | null = null;
     let lastDropTime = 0;
 
-    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-    getCurrentWindow().onDragDropEvent((event) => {
-      const payload = event.payload as { type: string; paths?: string[] };
-      if (payload.type === 'enter' || payload.type === 'over') {
-        setIsDragging(true);
-      } else if (payload.type === 'drop') {
-        setIsDragging(false);
+    import('@tauri-apps/api/window')
+      .then(({ getCurrentWindow }) => {
+        getCurrentWindow()
+          .onDragDropEvent((event) => {
+            const payload = event.payload as { type: string; paths?: string[] };
+            if (payload.type === 'enter' || payload.type === 'over') {
+              setIsDragging(true);
+            } else if (payload.type === 'drop') {
+              setIsDragging(false);
 
-        // Debounce: ignore duplicate drop events within 500ms
-        const now = Date.now();
-        if (now - lastDropTime < 500) return;
-        lastDropTime = now;
+              // Debounce: ignore duplicate drop events within 500ms
+              const now = Date.now();
+              if (now - lastDropTime < 500) return;
+              lastDropTime = now;
 
-        const paths = payload.paths || [];
-        const store = useContextPackStore.getState();
-        const existing = store.items[taskId] || [];
-        for (const filePath of paths) {
-          if (existing.some((item) => item.url === filePath)) continue;
-          const fileName = filePath.split('/').pop() || filePath;
-          store.addPin(taskId, {
-            id: `pin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
-            sourceType: 'pin',
-            title: fileName,
-            url: filePath,
-            summary: `File · ${filePath}`,
-            timestamp: new Date().toISOString(),
-            isNew: false,
-            category: 'pinned',
-          } as ContextItem);
-        }
-      } else {
-        setIsDragging(false);
-      }
-    }).then((fn) => { unlisten = fn; });
-    }).catch(() => {}); // Not in Tauri context
+              const paths = payload.paths || [];
+              const store = useContextPackStore.getState();
+              const existing = store.items[taskId] || [];
+              for (const filePath of paths) {
+                if (existing.some((item) => item.url === filePath)) continue;
+                const fileName = filePath.split('/').pop() || filePath;
+                store.addPin(taskId, {
+                  id: `pin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+                  sourceType: 'pin',
+                  title: fileName,
+                  url: filePath,
+                  summary: `File · ${filePath}`,
+                  timestamp: new Date().toISOString(),
+                  isNew: false,
+                  category: 'pinned',
+                } as ContextItem);
+              }
+            } else {
+              setIsDragging(false);
+            }
+          })
+          .then((fn) => {
+            unlisten = fn;
+          });
+      })
+      .catch(() => {}); // Not in Tauri context
 
-    return () => { unlisten?.(); };
+    return () => {
+      unlisten?.();
+    };
   }, [taskId]);
 
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
-  const sortedItems = [...taskItems].sort((a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9));
+  const sortedItems = [...taskItems].sort(
+    (a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9),
+  );
   const filtered = sourceFilter ? sortedItems.filter((i) => i.sourceType === sourceFilter) : sortedItems;
   const newCount = taskItems.filter((i) => i.isNew).length;
   type ServiceType = 'github' | 'notion' | 'slack' | 'other';
@@ -101,14 +111,21 @@ export function ContextPack({ taskId }: { taskId: string }) {
   // Auto-enable search resources when mcpServers change
   useEffect(() => {
     const readyServices = new Set<ServiceType>(
-      mcpServers
-        .filter((s) => s.status === 'ready' && s.serviceType !== 'other')
-        .map((s) => s.serviceType)
+      mcpServers.filter((s) => s.status === 'ready' && s.serviceType !== 'other').map((s) => s.serviceType),
     );
     if (readyServices.size > 0) setSearchResources(readyServices);
   }, [mcpServers]);
 
-  const icon = (t: string) => t === 'github' ? <GitHubIcon size={14} color="#a1a1aa" /> : t === 'slack' ? <SlackIcon size={14} /> : t === 'notion' ? <NotionIcon size={14} color="#a1a1aa" /> : <PinIcon size={14} />;
+  const icon = (t: string) =>
+    t === 'github' ? (
+      <GitHubIcon size={14} color="#a1a1aa" />
+    ) : t === 'slack' ? (
+      <SlackIcon size={14} />
+    ) : t === 'notion' ? (
+      <NotionIcon size={14} color="#a1a1aa" />
+    ) : (
+      <PinIcon size={14} />
+    );
 
   const handleCollect = () => {
     const store = useContextPackStore.getState();
@@ -119,7 +136,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
     }
 
     // Build sources from selected search resources + MCP server tokens
-    const mcpSources: Array<{ type: 'github' | 'slack' | 'notion'; enabled: boolean; token: string; owner?: string; repo?: string }> = [];
+    const mcpSources: Array<{
+      type: 'github' | 'slack' | 'notion';
+      enabled: boolean;
+      token: string;
+      owner?: string;
+      repo?: string;
+    }> = [];
 
     for (const resType of searchResources) {
       if (resType === 'other') continue;
@@ -139,7 +162,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
           try {
             const headers = JSON.parse(env.OPENAPI_MCP_HEADERS);
             token = (headers.Authorization || headers.authorization || '').replace(/^Bearer\s+/i, '');
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
         if (!token) token = Object.values(env).find((v) => v.startsWith('ntn_') || v.startsWith('secret_')) || '';
       } else if (resType === 'slack') {
@@ -153,8 +178,11 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
       // MCP-connected services: always use MCP (no token = MCP path in collectAll)
       mcpSources.push({
-        type: resType, enabled: true, token: '',
-        owner, repo,
+        type: resType,
+        enabled: true,
+        token: '',
+        owner,
+        repo,
         ...(settingsSource?.slackChannel ? { slackChannel: settingsSource.slackChannel } : {}),
         ...(settingsSource?.notionDatabaseId ? { notionDatabaseId: settingsSource.notionDatabaseId } : {}),
       });
@@ -163,13 +191,28 @@ export function ContextPack({ taskId }: { taskId: string }) {
     // Merge with existing configured sources, MCP sources take priority
     const existingSources = store.sources;
     const mergedTypes = new Set(mcpSources.map((s) => s.type));
-    const finalSources = [
-      ...mcpSources,
-      ...existingSources.filter((s) => !mergedTypes.has(s.type)),
-    ];
+    const finalSources = [...mcpSources, ...existingSources.filter((s) => !mergedTypes.has(s.type))];
 
-    console.log('[cortx] collecting with sources:', JSON.stringify(finalSources.map((s) => ({ type: s.type, token: s.token ? 'yes' : 'no', owner: s.owner, repo: s.repo, enabled: s.enabled }))));
-    store.collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title, finalSources as typeof existingSources, collectModel);
+    console.log(
+      '[cortx] collecting with sources:',
+      JSON.stringify(
+        finalSources.map((s) => ({
+          type: s.type,
+          token: s.token ? 'yes' : 'no',
+          owner: s.owner,
+          repo: s.repo,
+          enabled: s.enabled,
+        })),
+      ),
+    );
+    store.collectAll(
+      taskId,
+      task?.branchName || '',
+      project?.slackChannels,
+      task?.title,
+      finalSources as typeof existingSources,
+      collectModel,
+    );
   };
 
   const handleAddKeyword = () => {
@@ -184,22 +227,44 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
   const handleRemoveKeyword = (kw: string) => {
     const current = useContextPackStore.getState().keywords[taskId] || [];
-    useContextPackStore.getState().setKeywords(taskId, current.filter((k) => k !== kw));
+    useContextPackStore.getState().setKeywords(
+      taskId,
+      current.filter((k) => k !== kw),
+    );
   };
 
   const handlePin = () => {
     if (!pinTitle.trim()) return;
-    useContextPackStore.getState().addPin(taskId, { id: `pin-${Date.now().toString(36)}`, sourceType: 'pin', title: pinTitle.trim(), url: pinUrl.trim(), summary: 'Pinned', timestamp: new Date().toISOString(), isNew: false, category: 'pinned' } as ContextItem);
-    setPinUrl(''); setPinTitle(''); setShowPin(false);
+    useContextPackStore
+      .getState()
+      .addPin(taskId, {
+        id: `pin-${Date.now().toString(36)}`,
+        sourceType: 'pin',
+        title: pinTitle.trim(),
+        url: pinUrl.trim(),
+        summary: 'Pinned',
+        timestamp: new Date().toISOString(),
+        isNew: false,
+        category: 'pinned',
+      } as ContextItem);
+    setPinUrl('');
+    setPinTitle('');
+    setShowPin(false);
   };
 
   const handlePreview = async (url: string) => {
     if (!url || loadingPreview) return;
-    setLoadingPreview(true); setPreview(null);
+    setLoadingPreview(true);
+    setPreview(null);
     try {
-      const result = await invoke<{ url: string; title: string; description: string; success: boolean }>('fetch_link_preview', { url });
+      const result = await invoke<{ url: string; title: string; description: string; success: boolean }>(
+        'fetch_link_preview',
+        { url },
+      );
       if (result.success) setPreview({ url: result.url, title: result.title, description: result.description });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setLoadingPreview(false);
   };
 
@@ -209,13 +274,23 @@ export function ContextPack({ taskId }: { taskId: string }) {
     <div className="ctx-pack" style={{ position: 'relative' }}>
       {/* Drop overlay */}
       {isDragging && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10,
-          background: 'rgba(90,165,165,0.08)', border: '2px dashed #5aa5a5',
-          borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            background: 'rgba(90,165,165,0.08)',
+            border: '2px dashed #5aa5a5',
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <div style={{ textAlign: 'center', color: '#7dbdbd' }}>
-            <div style={{ marginBottom: 8 }}><Paperclip size={32} strokeWidth={1.5} /></div>
+            <div style={{ marginBottom: 8 }}>
+              <Paperclip size={32} strokeWidth={1.5} />
+            </div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
             <div style={{ fontSize: 11, color: '#6b6b78', marginTop: 4 }}>They'll be pinned to this task's context</div>
           </div>
@@ -232,19 +307,26 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
         {/* Source info */}
         {project && (
-          <div style={{ fontSize: 11, color: '#6b6b78', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div
+            style={{ fontSize: 11, color: '#6b6b78', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
             <span style={{ width: 8, height: 8, borderRadius: 3, background: project.color }} />
-            {project.githubOwner && project.githubRepo
-              ? <span>{project.githubOwner}/{project.githubRepo}</span>
-              : <span>{project.name}</span>
-            }
+            {project.githubOwner && project.githubRepo ? (
+              <span>
+                {project.githubOwner}/{project.githubRepo}
+              </span>
+            ) : (
+              <span>{project.name}</span>
+            )}
           </div>
         )}
 
         {/* MCP Servers */}
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}>
+            <div
+              style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}
+            >
               MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3d4856' }}>({mcpServers.length})</span>}
             </div>
             <button
@@ -252,11 +334,19 @@ export function ContextPack({ taskId }: { taskId: string }) {
               disabled={mcpLoading}
               className="icon-btn-subtle"
               style={{
-                background: 'none', border: 'none', fontSize: 10, color: '#4d5868',
-                cursor: 'pointer', fontFamily: 'inherit', padding: '2px 6px', borderRadius: 4,
+                background: 'none',
+                border: 'none',
+                fontSize: 10,
+                color: '#4d5868',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                padding: '2px 6px',
+                borderRadius: 4,
               }}
               title="Reload MCP servers from config"
-            >{mcpLoading ? '...' : '↻ Reload'}</button>
+            >
+              {mcpLoading ? '...' : '↻ Reload'}
+            </button>
           </div>
           {mcpServers.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -265,14 +355,24 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 return (
                   <span
                     key={server.name}
-                    onClick={needsAuth && server.authUrl ? () => {
-                      import('@tauri-apps/plugin-shell').then(({ open }) => open(server.authUrl!)).catch(() => {
-                        window.open(server.authUrl, '_blank');
-                      });
-                    } : undefined}
+                    onClick={
+                      needsAuth && server.authUrl
+                        ? () => {
+                            import('@tauri-apps/plugin-shell')
+                              .then(({ open }) => open(server.authUrl!))
+                              .catch(() => {
+                                window.open(server.authUrl, '_blank');
+                              });
+                          }
+                        : undefined
+                    }
                     style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '4px 10px', borderRadius: 6, fontSize: 11,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 11,
                       background: needsAuth ? 'rgba(234,179,8,0.06)' : 'rgba(52,211,153,0.06)',
                       border: `1px solid ${needsAuth ? 'rgba(234,179,8,0.15)' : 'rgba(52,211,153,0.15)'}`,
                       color: needsAuth ? '#eab308' : '#34d399',
@@ -297,36 +397,67 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Related items from other tasks — hidden until semantic search is needed */}
 
         {/* Connected Sources */}
-        {sources.filter(s => s.enabled && s.token).length > 0 && (
+        {sources.filter((s) => s.enabled && s.token).length > 0 && (
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>Connected Sources</div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                color: '#4d5868',
+                marginBottom: 6,
+              }}
+            >
+              Connected Sources
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {sources.filter(s => s.enabled && s.token).map((source, i) => {
-                const sourceIcon = source.type === 'github' ? <GitHubIcon size={12} color="#7dbdbd" /> : source.type === 'slack' ? <SlackIcon size={12} /> : <NotionIcon size={12} color="#7dbdbd" />;
-                const name = source.type === 'github' ? `${source.owner}/${source.repo}` : source.type === 'slack' ? 'Slack' : 'Notion';
-                return (
-                  <span key={i} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '4px 10px', borderRadius: 6,
-                    background: 'rgba(125,189,189,0.06)', border: '1px solid rgba(125,189,189,0.15)',
-                    fontSize: 11, color: '#7dbdbd',
-                  }}>
-                    {sourceIcon} {name}
-                  </span>
-                );
-              })}
+              {sources
+                .filter((s) => s.enabled && s.token)
+                .map((source, i) => {
+                  const sourceIcon =
+                    source.type === 'github' ? (
+                      <GitHubIcon size={12} color="#7dbdbd" />
+                    ) : source.type === 'slack' ? (
+                      <SlackIcon size={12} />
+                    ) : (
+                      <NotionIcon size={12} color="#7dbdbd" />
+                    );
+                  const name =
+                    source.type === 'github'
+                      ? `${source.owner}/${source.repo}`
+                      : source.type === 'slack'
+                        ? 'Slack'
+                        : 'Notion';
+                  return (
+                    <span
+                      key={i}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        background: 'rgba(125,189,189,0.06)',
+                        border: '1px solid rgba(125,189,189,0.15)',
+                        fontSize: 11,
+                        color: '#7dbdbd',
+                      }}
+                    >
+                      {sourceIcon} {name}
+                    </span>
+                  );
+                })}
             </div>
           </div>
         )}
 
         {/* Search Resources */}
         {(() => {
-          const searchableServices = mcpServers.filter(
-            (s) => s.serviceType !== 'other' && s.status === 'ready'
-          );
+          const searchableServices = mcpServers.filter((s) => s.serviceType !== 'other' && s.status === 'ready');
           // Deduplicate by serviceType
           const uniqueServices = searchableServices.filter(
-            (s, i, arr) => arr.findIndex((x) => x.serviceType === s.serviceType) === i
+            (s, i, arr) => arr.findIndex((x) => x.serviceType === s.serviceType) === i,
           );
           if (uniqueServices.length === 0) return null;
 
@@ -339,7 +470,16 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
           return (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868', marginBottom: 6 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  color: '#4d5868',
+                  marginBottom: 6,
+                }}
+              >
                 Search Resources
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -357,15 +497,33 @@ export function ContextPack({ taskId }: { taskId: string }) {
                         });
                       }}
                       style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '5px 12px',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 500,
                         background: checked ? 'rgba(90,165,165,0.08)' : '#1a1f26',
                         border: `1px solid ${checked ? 'rgba(90,165,165,0.25)' : '#242d38'}`,
                         color: checked ? '#7dbdbd' : '#4d5868',
-                        cursor: 'pointer', fontFamily: 'inherit',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
                       }}
                     >
-                      <span style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${checked ? '#7dbdbd' : '#3d4856'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, flexShrink: 0 }}>
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          border: `1.5px solid ${checked ? '#7dbdbd' : '#3d4856'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 8,
+                          flexShrink: 0,
+                        }}
+                      >
                         {checked && '✓'}
                       </span>
                       {serviceIcons[s.serviceType]}
@@ -381,10 +539,18 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Search keywords */}
         <div style={{ marginBottom: 10 }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showKeywords ? 8 : 0 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              marginBottom: showKeywords ? 8 : 0,
+            }}
             onClick={() => setShowKeywords(!showKeywords)}
           >
-            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}>
+            <span
+              style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}
+            >
               Search Keywords ({storedKeywords.length})
             </span>
             <span style={{ fontSize: 10, color: '#4d5868' }}>{showKeywords ? '▾' : '▸'}</span>
@@ -394,40 +560,82 @@ export function ContextPack({ taskId }: { taskId: string }) {
             <div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
                 {storedKeywords.map((kw) => (
-                  <span key={kw} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '3px 8px', borderRadius: 4, fontSize: 11,
-                    background: '#242d38', color: '#a1a1aa',
-                    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-                  }}>
+                  <span
+                    key={kw}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                      background: '#242d38',
+                      color: '#a1a1aa',
+                      fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                    }}
+                  >
                     {kw}
-                    <button onClick={() => handleRemoveKeyword(kw)} style={{
-                      background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer',
-                      fontSize: 12, padding: 0, lineHeight: 1,
-                    }}>×</button>
+                    <button
+                      onClick={() => handleRemoveKeyword(kw)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#4d5868',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        padding: 0,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
                 {storedKeywords.length === 0 && (
-                  <span style={{ fontSize: 11, color: '#4d5868', fontStyle: 'italic' }}>No keywords — branch name will be used</span>
+                  <span style={{ fontSize: 11, color: '#4d5868', fontStyle: 'italic' }}>
+                    No keywords — branch name will be used
+                  </span>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <input
                   value={keywordDraft}
                   onChange={(e) => setKeywordDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKeyword(); } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddKeyword();
+                    }
+                  }}
                   placeholder="e.g. BE-1390, 오토부킹"
                   style={{
-                    flex: 1, background: '#1a1f26', border: '1px solid #242d38', borderRadius: 6,
-                    padding: '5px 10px', fontSize: 11, color: '#e8eef5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                    flex: 1,
+                    background: '#1a1f26',
+                    border: '1px solid #242d38',
+                    borderRadius: 6,
+                    padding: '5px 10px',
+                    fontSize: 11,
+                    color: '#e8eef5',
+                    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     outline: 'none',
                   }}
                 />
-                <button onClick={handleAddKeyword} style={{
-                  padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                  background: '#242d38', border: '1px solid #3d4856', color: '#888895',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>Add</button>
+                <button
+                  onClick={handleAddKeyword}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    background: '#242d38',
+                    border: '1px solid #3d4856',
+                    color: '#888895',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Add
+                </button>
               </div>
             </div>
           )}
@@ -436,15 +644,27 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Actions */}
         <div className="ctx-actions">
           {isCollecting ? (
-            <button className="ctx-btn ctx-btn-collect" onClick={() => useContextPackStore.getState().cancelCollect(taskId)} style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+            <button
+              className="ctx-btn ctx-btn-collect"
+              onClick={() => useContextPackStore.getState().cancelCollect(taskId)}
+              style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+            >
               ✕ Cancel
             </button>
           ) : (
-            <button className="ctx-btn ctx-btn-collect" onClick={handleCollect} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <button
+              className="ctx-btn ctx-btn-collect"
+              onClick={handleCollect}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            >
               <RefreshCw size={13} /> Collect Now
             </button>
           )}
-          <button className="ctx-btn ctx-btn-pin" onClick={() => setShowPin(!showPin)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button
+            className="ctx-btn ctx-btn-pin"
+            onClick={() => setShowPin(!showPin)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
             <Pin size={13} /> Pin
           </button>
           {/* Custom model dropdown */}
@@ -453,37 +673,65 @@ export function ContextPack({ taskId }: { taskId: string }) {
               onClick={() => setShowModelMenu(!showModelMenu)}
               className="icon-btn-subtle"
               style={{
-                background: '#1a1f26', border: '1px solid #242d38', borderRadius: 6,
-                padding: '6px 24px 6px 10px', fontSize: 11, color: '#6b6b78',
-                fontFamily: "'Fira Code', 'JetBrains Mono', monospace", cursor: 'pointer',
-                height: '100%', display: 'flex', alignItems: 'center', gap: 4,
+                background: '#1a1f26',
+                border: '1px solid #242d38',
+                borderRadius: 6,
+                padding: '6px 24px 6px 10px',
+                fontSize: 11,
+                color: '#6b6b78',
+                fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                cursor: 'pointer',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
               title="Model for MCP search (Notion/Slack)"
             >
-              {MODEL_OPTIONS.find(m => m.value === collectModel)?.label ?? 'Haiku'}
+              {MODEL_OPTIONS.find((m) => m.value === collectModel)?.label ?? 'Haiku'}
               <span style={{ fontSize: 8, color: '#4d5868', marginLeft: 4 }}>▼</span>
             </button>
             {showModelMenu && (
               <>
                 <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowModelMenu(false)} />
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
-                  background: '#1e2430', border: '1px solid #2d3748', borderRadius: 8,
-                  padding: '4px 0', minWidth: 110, boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                }}>
-                  {MODEL_OPTIONS.map(m => (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: 4,
+                    zIndex: 100,
+                    background: '#1e2430',
+                    border: '1px solid #2d3748',
+                    borderRadius: 8,
+                    padding: '4px 0',
+                    minWidth: 110,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  {MODEL_OPTIONS.map((m) => (
                     <button
                       key={m.value}
-                      onClick={() => { setCollectModel(m.value); setShowModelMenu(false); }}
+                      onClick={() => {
+                        setCollectModel(m.value);
+                        setShowModelMenu(false);
+                      }}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                        padding: '6px 12px', fontSize: 12, border: 'none', background: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        width: '100%',
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        border: 'none',
+                        background: 'none',
                         color: collectModel === m.value ? '#e879a8' : '#a1a1aa',
-                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", cursor: 'pointer',
+                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                        cursor: 'pointer',
                         fontWeight: collectModel === m.value ? 600 : 400,
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                     >
                       <span style={{ width: 14, textAlign: 'center' }}>{collectModel === m.value ? '✓' : ''}</span>
                       {m.label}
@@ -496,61 +744,89 @@ export function ContextPack({ taskId }: { taskId: string }) {
         </div>
 
         {/* Collection progress */}
-        {collectProgress.length > 0 && (isCollecting || collectProgress.some((p) => p.status === 'done' || p.status === 'error')) && (
-          <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {collectProgress.map((p) => (
-              <div key={p.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
-                  {p.status === 'pending' && <span style={{ color: '#4d5868' }}>○</span>}
-                  {p.status === 'collecting' && <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />}
-                  {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
-                  {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
-                </span>
-                <span style={{ color: p.status === 'collecting' ? '#e8eef5' : '#888895', textTransform: 'capitalize' }}>
-                  {p.type}
-                </span>
-                {p.status === 'done' && (
-                  <span style={{ color: '#4d5868' }}>
-                    — {p.itemCount} items
-                    {p.tokenUsage && (
-                      <span style={{ marginLeft: 6, color: '#3d4856' }}>
-                        (~{p.tokenUsage.input + p.tokenUsage.output} tok)
-                      </span>
+        {collectProgress.length > 0 &&
+          (isCollecting || collectProgress.some((p) => p.status === 'done' || p.status === 'error')) && (
+            <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {collectProgress.map((p) => (
+                <div key={p.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                  <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
+                    {p.status === 'pending' && <span style={{ color: '#4d5868' }}>○</span>}
+                    {p.status === 'collecting' && (
+                      <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
                     )}
+                    {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
+                    {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
                   </span>
-                )}
-                {p.status === 'error' && (
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ color: '#ef4444' }}>— failed</span>
-                    {p.error && (
-                      <span
-                        onClick={() => navigator.clipboard.writeText(p.error || '')}
-                        title="Click to copy"
-                        style={{ color: '#4d5868', fontSize: 10, marginTop: 2, wordBreak: 'break-all', maxWidth: 400, cursor: 'pointer', userSelect: 'text', WebkitUserSelect: 'text' }}
-                      >
-                        {p.error.slice(0, 200)} <span style={{ color: '#3d4856' }}>📋</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-            {/* Total token usage */}
-            {collectProgress.some((p) => p.tokenUsage) && (
-              <div style={{ fontSize: 10, color: '#3d4856', marginTop: 4, textAlign: 'right' }}>
-                Total: ~{collectProgress.reduce((sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0), 0)} tokens
-              </div>
-            )}
-          </div>
-        )}
+                  <span
+                    style={{ color: p.status === 'collecting' ? '#e8eef5' : '#888895', textTransform: 'capitalize' }}
+                  >
+                    {p.type}
+                  </span>
+                  {p.status === 'done' && (
+                    <span style={{ color: '#4d5868' }}>
+                      — {p.itemCount} items
+                      {p.tokenUsage && (
+                        <span style={{ marginLeft: 6, color: '#3d4856' }}>
+                          (~{p.tokenUsage.input + p.tokenUsage.output} tok)
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {p.status === 'error' && (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ color: '#ef4444' }}>— failed</span>
+                      {p.error && (
+                        <span
+                          onClick={() => navigator.clipboard.writeText(p.error || '')}
+                          title="Click to copy"
+                          style={{
+                            color: '#4d5868',
+                            fontSize: 10,
+                            marginTop: 2,
+                            wordBreak: 'break-all',
+                            maxWidth: 400,
+                            cursor: 'pointer',
+                            userSelect: 'text',
+                            WebkitUserSelect: 'text',
+                          }}
+                        >
+                          {p.error.slice(0, 200)} <span style={{ color: '#3d4856' }}>📋</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {/* Total token usage */}
+              {collectProgress.some((p) => p.tokenUsage) && (
+                <div style={{ fontSize: 10, color: '#3d4856', marginTop: 4, textAlign: 'right' }}>
+                  Total: ~
+                  {collectProgress.reduce(
+                    (sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0),
+                    0,
+                  )}{' '}
+                  tokens
+                </div>
+              )}
+            </div>
+          )}
 
         {showPin && (
           <div className="ctx-pin-form">
             <input value={pinTitle} onChange={(e) => setPinTitle(e.target.value)} placeholder="Title" />
-            <input value={pinUrl} onChange={(e) => setPinUrl(e.target.value)} placeholder="URL (optional)" style={{ fontFamily: 'Fira Code, JetBrains Mono, monospace', fontSize: 11 }} />
+            <input
+              value={pinUrl}
+              onChange={(e) => setPinUrl(e.target.value)}
+              placeholder="URL (optional)"
+              style={{ fontFamily: 'Fira Code, JetBrains Mono, monospace', fontSize: 11 }}
+            />
             <div className="ctx-pin-actions">
-              <button style={{ background: 'none', color: '#888895' }} onClick={() => setShowPin(false)}>Cancel</button>
-              <button style={{ background: '#5aa5a5', color: '#fff' }} onClick={handlePin}>Pin</button>
+              <button style={{ background: 'none', color: '#888895' }} onClick={() => setShowPin(false)}>
+                Cancel
+              </button>
+              <button style={{ background: '#5aa5a5', color: '#fff' }} onClick={handlePin}>
+                Pin
+              </button>
             </div>
           </div>
         )}
@@ -559,53 +835,84 @@ export function ContextPack({ taskId }: { taskId: string }) {
       </div>
 
       {/* Item count + source filters + clear */}
-      {taskItems.length > 0 && (() => {
-        const sourceCounts: Record<string, number> = {};
-        taskItems.forEach((i) => { sourceCounts[i.sourceType] = (sourceCounts[i.sourceType] || 0) + 1; });
-        const sourceTypes = Object.keys(sourceCounts);
+      {taskItems.length > 0 &&
+        (() => {
+          const sourceCounts: Record<string, number> = {};
+          taskItems.forEach((i) => {
+            sourceCounts[i.sourceType] = (sourceCounts[i.sourceType] || 0) + 1;
+          });
+          const sourceTypes = Object.keys(sourceCounts);
 
-        return (
-          <div className="ctx-filters" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                onClick={() => setSourceFilter(null)}
-                style={{
-                  padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 500,
-                  background: sourceFilter === null ? 'rgba(90,165,165,0.08)' : 'none',
-                  border: sourceFilter === null ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
-                  color: sourceFilter === null ? '#7dbdbd' : '#6b6b78',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >All ({taskItems.length})</button>
-              {sourceTypes.map((st) => (
+          return (
+            <div
+              className="ctx-filters"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
-                  key={st}
-                  onClick={() => setSourceFilter(sourceFilter === st ? null : st)}
+                  onClick={() => setSourceFilter(null)}
                   style={{
-                    padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 500,
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: sourceFilter === st ? 'rgba(90,165,165,0.08)' : 'none',
-                    border: sourceFilter === st ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
-                    color: sourceFilter === st ? '#7dbdbd' : '#6b6b78',
-                    cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontWeight: 500,
+                    background: sourceFilter === null ? 'rgba(90,165,165,0.08)' : 'none',
+                    border: sourceFilter === null ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
+                    color: sourceFilter === null ? '#7dbdbd' : '#6b6b78',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
                   }}
                 >
-                  {icon(st)}
-                  {st} ({sourceCounts[st]})
+                  All ({taskItems.length})
                 </button>
-              ))}
-              {newCount > 0 && <span className="ctx-new-count">{newCount} NEW</span>}
+                {sourceTypes.map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setSourceFilter(sourceFilter === st ? null : st)}
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontSize: 10,
+                      fontWeight: 500,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      background: sourceFilter === st ? 'rgba(90,165,165,0.08)' : 'none',
+                      border: sourceFilter === st ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
+                      color: sourceFilter === st ? '#7dbdbd' : '#6b6b78',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {icon(st)}
+                    {st} ({sourceCounts[st]})
+                  </button>
+                ))}
+                {newCount > 0 && <span className="ctx-new-count">{newCount} NEW</span>}
+              </div>
+              <button
+                onClick={() => useContextPackStore.getState().clearCollected(taskId)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 10,
+                  color: '#4d5868',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Clear collected
+              </button>
             </div>
-            <button
-              onClick={() => useContextPackStore.getState().clearCollected(taskId)}
-              style={{
-                background: 'none', border: 'none', fontSize: 10, color: '#4d5868',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >Clear collected</button>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Link preview */}
       {(preview || loadingPreview) && (
@@ -614,15 +921,38 @@ export function ContextPack({ taskId }: { taskId: string }) {
             <div style={{ fontSize: 11, color: '#6b6b78', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div className="loading-dot" /> Loading preview...
             </div>
-          ) : preview && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>{preview.title || 'No title'}</div>
-                <button onClick={() => setPreview(null)} style={{ background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer', fontSize: 14 }}>×</button>
+          ) : (
+            preview && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>{preview.title || 'No title'}</div>
+                  <button
+                    onClick={() => setPreview(null)}
+                    style={{ background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer', fontSize: 14 }}
+                  >
+                    ×
+                  </button>
+                </div>
+                {preview.description && (
+                  <div style={{ fontSize: 11, color: '#888895', lineHeight: 1.5, marginBottom: 6 }}>
+                    {preview.description.slice(0, 200)}
+                  </div>
+                )}
+                <a
+                  href={preview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 10,
+                    color: '#7dbdbd',
+                    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {preview.url}
+                </a>
               </div>
-              {preview.description && <div style={{ fontSize: 11, color: '#888895', lineHeight: 1.5, marginBottom: 6 }}>{preview.description.slice(0, 200)}</div>}
-              <a href={preview.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#7dbdbd', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", wordBreak: 'break-all' }}>{preview.url}</a>
-            </div>
+            )
           )}
         </div>
       )}
@@ -639,9 +969,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ marginBottom: 12, opacity: 0.3 }}><Paperclip size={28} strokeWidth={1.5} /></div>
+                <div style={{ marginBottom: 12, opacity: 0.3 }}>
+                  <Paperclip size={28} strokeWidth={1.5} />
+                </div>
                 <div style={{ marginBottom: 6 }}>Drop files or URLs here to pin them</div>
-                <div style={{ color: '#4d5868', fontSize: 11 }}>or click "Collect Now" to gather from connected sources</div>
+                <div style={{ color: '#4d5868', fontSize: 11 }}>
+                  or click "Collect Now" to gather from connected sources
+                </div>
               </div>
             )}
           </div>
@@ -652,16 +986,46 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <div className="cp-body">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {item.url ? (
-                    <span className="cp-name" style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#3d4856' }} onClick={() => handlePreview(item.url)}>{item.title}</span>
+                    <span
+                      className="cp-name"
+                      style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#3d4856' }}
+                      onClick={() => handlePreview(item.url)}
+                    >
+                      {item.title}
+                    </span>
                   ) : (
                     <span className="cp-name">{item.title}</span>
                   )}
                   {item.isNew && <span className="cp-new">NEW</span>}
-                  {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#4d5868', flexShrink: 0 }} title="Open in browser">↗</a>}
+                  {item.url && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 10, color: '#4d5868', flexShrink: 0 }}
+                      title="Open in browser"
+                    >
+                      ↗
+                    </a>
+                  )}
                 </div>
                 <div className="cp-sub">{item.summary}</div>
               </div>
-              <button onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)} style={{ background: 'none', border: 'none', color: '#3d4856', cursor: 'pointer', fontSize: 12, position: 'absolute', right: 0, top: 8 }}>×</button>
+              <button
+                onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3d4856',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  position: 'absolute',
+                  right: 0,
+                  top: 8,
+                }}
+              >
+                ×
+              </button>
             </div>
           ))
         )}

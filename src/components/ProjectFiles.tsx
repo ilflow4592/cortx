@@ -22,7 +22,10 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
         command: 'ls -1pa',
       });
       if (!result.success) return [];
-      const items = result.output.trim().split('\n').filter(Boolean)
+      const items = result.output
+        .trim()
+        .split('\n')
+        .filter(Boolean)
         .map((name) => {
           const isDir = name.endsWith('/');
           const cleanName = name.replace(/\/$/, '');
@@ -35,28 +38,35 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
         return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
       });
       return items;
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   }, []);
 
-  useEffect(() => { if (cwd) loadChildren(cwd).then(setRoot); }, [cwd, loadChildren]);
+  useEffect(() => {
+    if (cwd) loadChildren(cwd).then(setRoot);
+  }, [cwd, loadChildren]);
 
-  const toggleDir = useCallback(async (node: TreeNode) => {
-    setSelected(node.path);
-    const newExpanded = new Set(expanded);
-    if (newExpanded.has(node.path)) {
-      newExpanded.delete(node.path);
-    } else {
-      newExpanded.add(node.path);
-      if (!node.loaded) {
-        const children = await loadChildren(node.path);
-        node.children = children;
-        node.loaded = true;
-        setRoot([...root]); // trigger re-render
+  const toggleDir = useCallback(
+    async (node: TreeNode) => {
+      setSelected(node.path);
+      const newExpanded = new Set(expanded);
+      if (newExpanded.has(node.path)) {
+        newExpanded.delete(node.path);
+      } else {
+        newExpanded.add(node.path);
+        if (!node.loaded) {
+          const children = await loadChildren(node.path);
+          node.children = children;
+          node.loaded = true;
+          setRoot([...root]); // trigger re-render
+        }
       }
-    }
-    setExpanded(newExpanded);
+      setExpanded(newExpanded);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadChildren is stable (empty deps)
-  }, [expanded, root]);
+    [expanded, root],
+  );
 
   const openFile = (path: string) => {
     setSelected(path);
@@ -65,21 +75,49 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid #2a3642', fontSize: 11, color: '#8b95a5', fontFamily: "'Fira Code', 'JetBrains Mono', monospace", flexShrink: 0 }}>
+      <div
+        style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid #2a3642',
+          fontSize: 11,
+          color: '#8b95a5',
+          fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+          flexShrink: 0,
+        }}
+      >
         {cwd.split('/').pop() || cwd}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
         {root.map((node) => (
-          <TreeItem key={node.path} node={node} depth={0} expanded={expanded} selected={selected} onToggle={toggleDir} onOpen={openFile} />
+          <TreeItem
+            key={node.path}
+            node={node}
+            depth={0}
+            expanded={expanded}
+            selected={selected}
+            onToggle={toggleDir}
+            onOpen={openFile}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function TreeItem({ node, depth, expanded, selected, onToggle, onOpen }: {
-  node: TreeNode; depth: number; expanded: Set<string>; selected: string;
-  onToggle: (node: TreeNode) => void; onOpen: (path: string) => void;
+function TreeItem({
+  node,
+  depth,
+  expanded,
+  selected,
+  onToggle,
+  onOpen,
+}: {
+  node: TreeNode;
+  depth: number;
+  expanded: Set<string>;
+  selected: string;
+  onToggle: (node: TreeNode) => void;
+  onOpen: (path: string) => void;
 }) {
   const isOpen = expanded.has(node.path);
   const isSelected = selected === node.path;
@@ -87,26 +125,60 @@ function TreeItem({ node, depth, expanded, selected, onToggle, onOpen }: {
   return (
     <>
       <button
-        onClick={() => node.isDir ? onToggle(node) : onOpen(node.path)}
+        onClick={() => (node.isDir ? onToggle(node) : onOpen(node.path))}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: '100%',
           padding: `3px 12px 3px ${12 + depth * 16}px`,
           background: isSelected ? 'rgba(90,165,165,0.08)' : 'none',
-          border: 'none', color: isSelected ? '#e8eef5' : '#c0c8d4', cursor: 'pointer',
-          fontFamily: "'Fira Code', 'JetBrains Mono', monospace", fontSize: 12, textAlign: 'left',
+          border: 'none',
+          color: isSelected ? '#e8eef5' : '#c0c8d4',
+          cursor: 'pointer',
+          fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+          fontSize: 12,
+          textAlign: 'left',
         }}
       >
         {node.isDir ? (
-          <span style={{ color: '#6b7585', width: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{isOpen ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}</span>
+          <span
+            style={{
+              color: '#6b7585',
+              width: 12,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {isOpen ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}
+          </span>
         ) : (
           <span style={{ width: 12, flexShrink: 0 }} />
         )}
-        <span style={{ display: 'flex', alignItems: 'center' }}>{node.isDir ? <Folder size={14} color="#5aa5a5" strokeWidth={1.5} /> : <File size={14} color="#8b95a5" strokeWidth={1.5} />}</span>
+        <span style={{ display: 'flex', alignItems: 'center' }}>
+          {node.isDir ? (
+            <Folder size={14} color="#5aa5a5" strokeWidth={1.5} />
+          ) : (
+            <File size={14} color="#8b95a5" strokeWidth={1.5} />
+          )}
+        </span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
       </button>
-      {node.isDir && isOpen && node.children?.map((child) => (
-        <TreeItem key={child.path} node={child} depth={depth + 1} expanded={expanded} selected={selected} onToggle={onToggle} onOpen={onOpen} />
-      ))}
+      {node.isDir &&
+        isOpen &&
+        node.children?.map((child) => (
+          <TreeItem
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            expanded={expanded}
+            selected={selected}
+            onToggle={onToggle}
+            onOpen={onOpen}
+          />
+        ))}
     </>
   );
 }
