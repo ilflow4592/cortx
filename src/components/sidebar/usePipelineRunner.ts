@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
-import { messageCache, sessionCache, pendingCommands } from '../../utils/chatState';
+import { runPipeline } from '../../utils/pipelineExec';
 
 /**
- * Pipeline runner hook — delegates execution to ClaudeChat's useClaudeSession
- * via pendingCommands, ensuring both Run Pipeline button and chat input go
- * through the exact same code path.
+ * Pipeline runner hook — wraps runPipeline() with UI state tracking
+ * (runningPipelines, askingTasks) for Sidebar display.
  */
 export function usePipelineRunner() {
   const [runningPipelines, setRunningPipelines] = useState<Set<string>>(new Set());
@@ -14,32 +13,36 @@ export function usePipelineRunner() {
   const tasks = useTaskStore((s) => s.tasks);
 
   const runPipelineForTask = (taskId: string, command: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-
     setRunningPipelines((prev) => new Set(prev).add(taskId));
 
-    // Clear previous messages and session — fresh start
-    messageCache.delete(taskId);
-    sessionCache.delete(taskId);
-
-    // Reset timer + set active
-    useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
-
-    // Select this task so ClaudeChat mounts for it
-    useTaskStore.getState().setActiveTask(taskId);
-
-    // Queue the command — ClaudeChat's useClaudeSession will pick it up and execute
-    pendingCommands.set(taskId, command);
+    runPipeline(taskId, command, {
+      onAsking: () => {
+        setAskingTasks((prev) => new Set(prev).add(taskId));
+        const task = tasks.find((t) => t.id === taskId);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Cortx', { body: `${task?.title} — 사용자 입력이 필요합니다` });
+          }
+        } catch {
+          /* ignore */
+        }
+      },
+      onDone: () => {
+        setRunningPipelines((prev) => {
+          const n = new Set(prev);
+          n.delete(taskId);
+          return n;
+        });
+      },
+    });
   };
 
-  // Track running state by watching pipeline/loading status
+  // Clean up stale running state
   useEffect(() => {
     const interval = setInterval(() => {
       const toRemove: string[] = [];
       runningPipelines.forEach((taskId) => {
         const task = tasks.find((t) => t.id === taskId);
-        // Pipeline finished: task went back to waiting, or pipeline disabled, or no longer loading
         if (!task || task.status === 'waiting' || task.status === 'done') {
           toRemove.push(taskId);
         }
@@ -51,27 +54,7 @@ export function usePipelineRunner() {
           return n;
         });
       }
-
-      // Detect question-asking state from messageCache
-      runningPipelines.forEach((taskId) => {
-        const msgs = messageCache.get(taskId) || [];
-        const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
-        if (lastAssistant && isQuestion(lastAssistant.content)) {
-          setAskingTasks((prev) => {
-            if (prev.has(taskId)) return prev;
-            try {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                const task = tasks.find((t) => t.id === taskId);
-                new Notification('Cortx', { body: `${task?.title} — 사용자 입력이 필요합니다` });
-              }
-            } catch {
-              /* ignore */
-            }
-            return new Set(prev).add(taskId);
-          });
-        }
-      });
-    }, 2000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [runningPipelines, tasks]);
 
@@ -90,24 +73,4 @@ export function usePipelineRunner() {
     runPipelineForTask,
     runSelectedPipelines,
   };
-}
-
-function isQuestion(text: string): boolean {
-  const t = text.trim();
-  if (t.endsWith('?') || t.endsWith('\uff1f')) return true;
-  if (
-    /(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요|주세요|해줘)\s*[.?\uff1f]?\s*$/.test(
-      t,
-    )
-  )
-    return true;
-  if (
-    /(?:please confirm|what do you think|should we|would you|do you want|can you|is that correct|right\?|agree\?)\s*[.?]?\s*$/i.test(
-      t,
-    )
-  )
-    return true;
-  const tail = t.slice(-200);
-  if (/(?:Q\d+[.:)]|질문\s*\d+\s*[:.)]).+[?\uff1f]/.test(tail)) return true;
-  return false;
 }
