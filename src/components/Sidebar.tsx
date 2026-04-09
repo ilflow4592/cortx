@@ -242,7 +242,7 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                 <button
                   onClick={() => toggleCollapse(project.id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '12px 16px 12px 22px',
+                    display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '12px 16px 12px 30px',
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontFamily: 'inherit', textAlign: 'left',
                   }}
