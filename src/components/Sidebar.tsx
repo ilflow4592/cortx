@@ -242,13 +242,13 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                 <button
                   onClick={() => toggleCollapse(project.id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 10, flex: 1, padding: '12px 16px',
+                    display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '12px 16px 12px 22px',
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontFamily: 'inherit', textAlign: 'left',
                   }}
                 >
-                  <span style={{ width: 12, height: 12, borderRadius: 4, background: project.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: project.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#a1a1aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{project.name}</span>
                   <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
