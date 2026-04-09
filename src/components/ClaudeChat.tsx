@@ -136,10 +136,27 @@ export function ClaudeChat({ taskId, cwd }: ClaudeChatProps) {
     };
   }, []);
 
+  // Pipeline command priority order
+  const PIPELINE_ORDER: Record<string, number> = {
+    'pipeline:dev-task': 0,
+    'pipeline:dev-implement': 1,
+    'pipeline:dev-review-loop': 2,
+    'pipeline:dev-resume': 3,
+  };
+
   const filteredCommands = showSlashMenu
-    ? slashCommands.filter((cmd) =>
-        cmd.name.toLowerCase().includes(slashFilter.toLowerCase())
-      )
+    ? slashCommands
+        .filter((cmd) => cmd.name.toLowerCase().includes(slashFilter.toLowerCase()))
+        .sort((a, b) => {
+          const aOrder = PIPELINE_ORDER[a.name] ?? 100;
+          const bOrder = PIPELINE_ORDER[b.name] ?? 100;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          // Pipeline commands first, then others alphabetically
+          const aIsPipeline = a.name.startsWith('pipeline:') ? 0 : 1;
+          const bIsPipeline = b.name.startsWith('pipeline:') ? 0 : 1;
+          if (aIsPipeline !== bIsPipeline) return aIsPipeline - bIsPipeline;
+          return a.name.localeCompare(b.name);
+        })
     : [];
 
   // Reset index when filter changes
