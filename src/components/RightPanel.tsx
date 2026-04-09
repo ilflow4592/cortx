@@ -12,6 +12,16 @@ import type { PipelinePhase, PhaseStatus } from '../types/task';
 type UpperTab = 'projects' | 'changes';
 type LowerTab = 'dashboard' | 'worktree' | 'context' | 'history';
 
+const PHASE_MODELS: Record<PipelinePhase, string> = {
+  grill_me: 'Opus',
+  obsidian_save: 'Opus',
+  dev_plan: 'Opus',
+  implement: 'Sonnet',
+  commit_pr: 'Sonnet',
+  review_loop: 'Opus',
+  done: '-',
+};
+
 const PHASE_LABELS: Record<PipelinePhase, string> = {
   grill_me: 'Grill-me',
   obsidian_save: 'Save',
@@ -195,7 +205,17 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
               <>
                 {/* Progress stepper */}
                 <div className="rp-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Progress</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Progress
+                    {pipeline.complexity && (
+                      <span style={{
+                        fontSize: 8, fontWeight: 500, textTransform: 'none', letterSpacing: 0,
+                        padding: '1px 6px', borderRadius: 3,
+                        color: pipeline.complexity === 'Complex' ? '#ef4444' : pipeline.complexity === 'Medium' ? '#f59e0b' : '#34d399',
+                        background: pipeline.complexity === 'Complex' ? 'rgba(239,68,68,0.08)' : pipeline.complexity === 'Medium' ? 'rgba(245,158,11,0.08)' : 'rgba(52,211,153,0.08)',
+                      }}>{pipeline.complexity}</span>
+                    )}
+                  </span>
                   <button
                     onClick={() => setShowResetModal(true)}
                     title="Reset session"
@@ -241,9 +261,17 @@ export function RightPanel({ cwd, branchName, onOpenFile, onOpenDiff, resetKey, 
                       }}>
                         <span style={{ display: 'flex', alignItems: 'center', width: 18, justifyContent: 'center' }}>{phaseIcon(entry.status)}</span>
                         <span style={{
-                          fontSize: 11, color: phaseColor(entry.status), flex: 1,
+                          fontSize: 11, color: phaseColor(entry.status),
                           fontWeight: isActive ? 600 : 400,
                         }}>{PHASE_LABELS[phase]}</span>
+                        {PHASE_MODELS[phase] !== '-' && (
+                          <span style={{
+                            fontSize: 8, color: PHASE_MODELS[phase] === 'Opus' ? '#ab98c7' : '#5aa5a5',
+                            background: PHASE_MODELS[phase] === 'Opus' ? 'rgba(171,152,199,0.08)' : 'rgba(90,165,165,0.08)',
+                            padding: '1px 5px', borderRadius: 3, fontWeight: 500, flexShrink: 0,
+                          }}>{PHASE_MODELS[phase]}</span>
+                        )}
+                        <span style={{ flex: 1 }} />
                         {entry.memo && (
                           <span style={{ fontSize: 9, color: '#4d5868', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {entry.memo}
