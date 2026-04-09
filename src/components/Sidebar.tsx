@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { BarChart3, X, CheckCircle2, Play } from 'lucide-react';
+import { BarChart3, X, CheckCircle2, Play, Square, CheckSquare } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { formatTime } from '../utils/time';
@@ -164,19 +164,18 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
         <span className="sb-title" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input
-            type="checkbox"
-            checked={nonDone.length > 0 && nonDone.every((t) => selectedTasks.has(t.id))}
-            onChange={() => {
+          <span
+            onClick={() => {
               const allSelected = nonDone.every((t) => selectedTasks.has(t.id));
-              if (allSelected) {
-                setSelectedTasks(new Set());
-              } else {
-                setSelectedTasks(new Set(nonDone.map((t) => t.id)));
-              }
+              if (allSelected) setSelectedTasks(new Set());
+              else setSelectedTasks(new Set(nonDone.map((t) => t.id)));
             }}
-            style={{ width: 12, height: 12, accentColor: '#5aa5a5', cursor: 'pointer' }}
-          />
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            {nonDone.length > 0 && nonDone.every((t) => selectedTasks.has(t.id))
+              ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
+              : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+          </span>
           Tasks
         </span>
       </div>
@@ -206,6 +205,22 @@ export function Sidebar({ onShowReport, onEditProject, onAddTaskForProject }: { 
                 >
                   <span style={{ width: 12, height: 12, borderRadius: 4, background: project.color, flexShrink: 0 }} />
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#a1a1aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const allSelected = projTasks.every((t) => selectedTasks.has(t.id));
+                      if (allSelected) {
+                        setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.delete(t.id)); return n; });
+                      } else {
+                        setSelectedTasks((prev) => { const n = new Set(prev); projTasks.forEach((t) => n.add(t.id)); return n; });
+                      }
+                    }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    {projTasks.length > 0 && projTasks.every((t) => selectedTasks.has(t.id))
+                      ? <CheckSquare size={14} color="#5aa5a5" strokeWidth={1.5} />
+                      : <Square size={14} color="#3d4856" strokeWidth={1.5} />}
+                  </span>
                   <span style={{ fontSize: 13, color: '#6b6b78' }}>{projTasks.length}</span>
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
@@ -328,20 +343,18 @@ function TaskRow({ task, isActive, onSelect, onDelete, indent, color, selected, 
 
   return (
     <div className="task-row-wrap" style={{ position: 'relative' }}>
-      <button className={cls} onClick={onSelect} style={{
+      <button className={cls} onClick={() => { onToggleSelect?.(); onSelect(); }} style={{
         ...(indent ? { paddingLeft: 24 } : {}),
         ...(isActive && color ? { borderLeftColor: color, boxShadow: `inset 3px 0 8px -3px ${color}50` } : {}),
       }}>
         <div className="sb-task-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             {onToggleSelect && task.status !== 'done' && (
-              <input
-                type="checkbox"
-                checked={selected || false}
-                onChange={(e) => { e.stopPropagation(); onToggleSelect(); }}
-                onClick={(e) => e.stopPropagation()}
-                style={{ width: 12, height: 12, accentColor: '#5aa5a5', cursor: 'pointer', flexShrink: 0 }}
-              />
+              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {selected
+                  ? <CheckSquare size={15} color="#5aa5a5" strokeWidth={1.5} />
+                  : <Square size={15} color="#3d4856" strokeWidth={1.5} />}
+              </span>
             )}
             <div className={`sb-dot ${dotCls}`} style={{
               ...(color && task.status === 'active' ? { background: color, boxShadow: `0 0 6px ${color}80` } : {}),
