@@ -103,8 +103,15 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
 
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed == "setup:" { current_section = "setup"; continue; }
-        if trimmed == "archive:" { current_section = "archive"; continue; }
+        // Detect any top-level section header (line ending with `:` that's not a list item)
+        if trimmed.ends_with(':') && !trimmed.starts_with("- ") {
+            current_section = match trimmed.trim_end_matches(':') {
+                "setup" => "setup",
+                "archive" => "archive",
+                _ => "",
+            };
+            continue;
+        }
         if trimmed.starts_with("- ") {
             let cmd = trimmed[2..].trim().to_string();
             match current_section {
@@ -115,6 +122,88 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
         }
     }
     Ok(CortxConfig { setup, archive })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_cortx_yaml_extracts_setup_and_archive() {
+        let yaml = r#"
+setup:
+  - npm install
+  - cargo build
+  - echo "ready"
+
+archive:
+  - rm -rf tmp
+  - git clean -fd
+"#;
+        let config = parse_cortx_yaml(yaml).unwrap();
+        assert_eq!(config.setup, vec!["npm install", "cargo build", "echo \"ready\""]);
+        assert_eq!(config.archive, vec!["rm -rf tmp", "git clean -fd"]);
+    }
+
+    #[test]
+    fn parse_cortx_yaml_handles_empty_sections() {
+        let yaml = "setup:\narchive:\n";
+        let config = parse_cortx_yaml(yaml).unwrap();
+        assert!(config.setup.is_empty());
+        assert!(config.archive.is_empty());
+    }
+
+    #[test]
+    fn parse_cortx_yaml_ignores_unknown_sections() {
+        let yaml = r#"
+setup:
+  - npm install
+
+other:
+  - should not appear
+
+archive:
+  - cleanup
+"#;
+        let config = parse_cortx_yaml(yaml).unwrap();
+        assert_eq!(config.setup, vec!["npm install"]);
+        assert_eq!(config.archive, vec!["cleanup"]);
+    }
+
+    #[test]
+    fn extract_meta_finds_title_tag() {
+        let html = "<html><head><title>Hello World</title></head></html>";
+        let result = extract_meta(html, "<title>", "</title>");
+        assert_eq!(result, Some("Hello World".to_string()));
+    }
+
+    #[test]
+    fn extract_meta_returns_none_when_missing() {
+        let html = "<html><head></head></html>";
+        let result = extract_meta(html, "<title>", "</title>");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn extract_meta_attr_finds_og_property() {
+        let html = r#"<meta property="og:title" content="My Page" />"#;
+        let result = extract_meta_attr(html, "og:title");
+        assert_eq!(result, Some("My Page".to_string()));
+    }
+
+    #[test]
+    fn extract_meta_attr_finds_name_attribute() {
+        let html = r#"<meta name="description" content="A great page" />"#;
+        let result = extract_meta_attr(html, "description");
+        assert_eq!(result, Some("A great page".to_string()));
+    }
+
+    #[test]
+    fn extract_meta_attr_returns_none_when_missing() {
+        let html = "<html></html>";
+        let result = extract_meta_attr(html, "og:title");
+        assert_eq!(result, None);
+    }
 }
 
 /// Extract text content between HTML tags (e.g., <title>...</title>).

@@ -77,3 +77,52 @@ pub fn list_mcp_servers() -> Vec<McpServerInfo> {
 
     servers
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_mcp_env_extracts_string_values() {
+        let config = json!({
+            "command": "npx",
+            "env": {
+                "GITHUB_TOKEN": "ghp_xxx",
+                "API_KEY": "sk-yyy"
+            }
+        });
+        let env = parse_mcp_env(&config);
+        assert_eq!(env.get("GITHUB_TOKEN"), Some(&"ghp_xxx".to_string()));
+        assert_eq!(env.get("API_KEY"), Some(&"sk-yyy".to_string()));
+        assert_eq!(env.len(), 2);
+    }
+
+    #[test]
+    fn parse_mcp_env_returns_empty_when_no_env() {
+        let config = json!({ "command": "npx" });
+        let env = parse_mcp_env(&config);
+        assert!(env.is_empty());
+    }
+
+    #[test]
+    fn parse_mcp_env_skips_non_string_values() {
+        let config = json!({
+            "env": {
+                "VALID": "yes",
+                "NUMBER": 42,
+                "OBJECT": { "nested": "value" }
+            }
+        });
+        let env = parse_mcp_env(&config);
+        assert_eq!(env.len(), 1);
+        assert_eq!(env.get("VALID"), Some(&"yes".to_string()));
+    }
+
+    #[test]
+    fn parse_mcp_env_handles_missing_env_key() {
+        let config = json!(null);
+        let env = parse_mcp_env(&config);
+        assert!(env.is_empty());
+    }
+}

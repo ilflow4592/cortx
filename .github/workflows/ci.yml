@@ -27,6 +27,9 @@ jobs:
       - name: TypeScript + Vite build
         run: npm run build
 
+      - name: Vitest
+        run: npm run test
+
   rust:
     runs-on: ubuntu-latest
     steps:
@@ -48,3 +51,7 @@ jobs:
       - name: Format check
         working-directory: src-tauri
         run: cargo fmt --check
+
+      - name: Cargo test
+        working-directory: src-tauri
+        run: cargo test
