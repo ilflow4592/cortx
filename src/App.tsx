@@ -18,6 +18,7 @@ import { CostDashboard } from './components/CostDashboard';
 import { WorktreeCleanup } from './components/WorktreeCleanup';
 import { PipelineConfigEditor } from './components/PipelineConfigEditor';
 import { McpServerManager } from './components/McpServerManager';
+import { SlashCommandBuilder } from './components/SlashCommandBuilder';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -37,6 +38,7 @@ export default function App() {
   const [showWorktreeCleanup, setShowWorktreeCleanup] = useState(false);
   const [pipelineConfigEditor, setPipelineConfigEditor] = useState<{ path: string; name: string } | null>(null);
   const [showMcpManager, setShowMcpManager] = useState(false);
+  const [showSlashBuilder, setShowSlashBuilder] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -311,6 +313,7 @@ export default function App() {
         onShowWorktreeCleanup={() => setShowWorktreeCleanup(true)}
         onEditPipelineConfig={(path, name) => setPipelineConfigEditor({ path, name })}
         onShowMcpManager={() => setShowMcpManager(true)}
+        onShowSlashBuilder={() => setShowSlashBuilder(true)}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
@@ -323,6 +326,12 @@ export default function App() {
         />
       )}
       {showMcpManager && <McpServerManager onClose={() => setShowMcpManager(false)} />}
+      {showSlashBuilder && (() => {
+        const activeTask = useTaskStore.getState().tasks.find((t) => t.id === useTaskStore.getState().activeTaskId);
+        const project = activeTask?.projectId ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId) : null;
+        const cwd = activeTask?.worktreePath || project?.localPath || '';
+        return <SlashCommandBuilder projectCwd={cwd} onClose={() => setShowSlashBuilder(false)} />;
+      })()}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {

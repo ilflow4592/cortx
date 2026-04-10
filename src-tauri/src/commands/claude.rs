@@ -122,6 +122,55 @@ fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source
     }
 }
 
+/// Resolve the absolute .md path for a slash command by name + source.
+/// name format: "pipeline:dev-task" → "pipeline/dev-task.md"
+fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> Result<std::path::PathBuf, String> {
+    let home = std::env::var_os("HOME").ok_or_else(|| "HOME not set".to_string())?;
+    let base = match source {
+        "user" => std::path::Path::new(&home).join(".claude").join("commands"),
+        "project" => {
+            let cwd = project_cwd.ok_or_else(|| "project_cwd required for project source".to_string())?;
+            std::path::Path::new(cwd).join(".claude").join("commands")
+        }
+        _ => return Err(format!("Invalid source: {}", source)),
+    };
+    // Convert colons in name to path separators: "pipeline:dev-task" -> "pipeline/dev-task"
+    let rel = name.replace(':', "/");
+    Ok(base.join(format!("{}.md", rel)))
+}
+
+/// Read the contents of a slash command .md file.
+#[tauri::command]
+pub fn read_slash_command(name: String, source: String, project_cwd: Option<String>) -> Result<String, String> {
+    let path = resolve_command_path(&name, &source, project_cwd.as_deref())?;
+    std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))
+}
+
+/// Write (create or update) a slash command .md file.
+#[tauri::command]
+pub fn write_slash_command(
+    name: String,
+    source: String,
+    content: String,
+    project_cwd: Option<String>,
+) -> Result<(), String> {
+    let path = resolve_command_path(&name, &source, project_cwd.as_deref())?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Mkdir failed: {}", e))?;
+    }
+    std::fs::write(&path, content).map_err(|e| format!("Write failed: {}", e))
+}
+
+/// Delete a slash command .md file.
+#[tauri::command]
+pub fn delete_slash_command(name: String, source: String, project_cwd: Option<String>) -> Result<(), String> {
+    let path = resolve_command_path(&name, &source, project_cwd.as_deref())?;
+    if !path.exists() {
+        return Err(format!("File not found: {}", path.display()));
+    }
+    std::fs::remove_file(&path).map_err(|e| format!("Delete failed: {}", e))
+}
+
 // ── PTY commands ──
 
 /// Spawn an interactive terminal shell (zsh) for the given task ID.

@@ -24,6 +24,7 @@ import {
   Download,
   Upload,
   Server,
+  Slash,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -44,6 +45,7 @@ interface Props {
   onShowWorktreeCleanup: () => void;
   onEditPipelineConfig: (projectPath: string, projectName: string) => void;
   onShowMcpManager: () => void;
+  onShowSlashBuilder: () => void;
 }
 
 export function CommandPalette({
@@ -58,6 +60,7 @@ export function CommandPalette({
   onShowWorktreeCleanup,
   onEditPipelineConfig,
   onShowMcpManager,
+  onShowSlashBuilder,
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
@@ -149,6 +152,7 @@ export function CommandPalette({
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
       { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'delete', 'clean'] },
       { label: 'Manage MCP Servers', keywords: ['mcp', 'server', 'manage', 'claude.json'] },
+      { label: 'Slash Command Builder', keywords: ['slash', 'command', 'builder', 'skill', 'create'] },
       { label: 'Edit Pipeline Config', keywords: ['pipeline', 'config', 'customize', 'phases', 'edit'] },
       { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
@@ -321,6 +325,13 @@ export function CommandPalette({
                       icon={<Server size={14} color="#5aa5a5" strokeWidth={1.5} />}
                       label="Manage MCP Servers"
                       onSelect={() => run(onShowMcpManager)}
+                    />
+                  )}
+                  {showAction('Slash Command Builder') && (
+                    <PaletteItem
+                      icon={<Slash size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      label="Slash Command Builder"
+                      onSelect={() => run(onShowSlashBuilder)}
                     />
                   )}
                   {activeTask && showAction('Edit Pipeline Config') && (
