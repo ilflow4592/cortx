@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
 import { useTaskStore } from '../../stores/taskStore';
-import { messageCache, sessionCache } from '../../utils/chatState';
+import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { useProjectStore } from '../../stores/projectStore';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { ProjectFiles } from '../ProjectFiles';
@@ -370,9 +370,10 @@ export function RightPanel({
                     interrupts: [],
                   });
                   useTaskStore.getState().setTaskStatus(task.id, 'waiting');
-                  // Clear Claude messages and session
+                  // Clear Claude messages, session, and loading state
                   messageCache.delete(task.id);
                   sessionCache.delete(task.id);
+                  loadingCache.delete(task.id);
                   onResetSession?.();
                   setShowResetModal(false);
                 }}
