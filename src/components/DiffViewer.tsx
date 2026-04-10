@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { Plus, Minus, Trash2, RotateCw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 
 type DiffMode = 'branch' | 'staged' | 'unstaged';
@@ -29,6 +30,9 @@ export function DiffViewer({ taskId }: { taskId: string }) {
   const [error, setError] = useState('');
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
 
+  const [busy, setBusy] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState<{ type: 'file' | 'all'; path?: string } | null>(null);
+
   const repoPath = task?.worktreePath || task?.repoPath || '';
 
   useEffect(() => {
@@ -36,6 +40,35 @@ export function DiffViewer({ taskId }: { taskId: string }) {
     loadDiff();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only on repoPath/mode change
   }, [repoPath, mode]);
+
+  // Run a git command and reload the diff afterward
+  const runGit = async (command: string) => {
+    if (!repoPath) return;
+    setBusy(true);
+    try {
+      const result = await invoke<{ success: boolean; error: string }>('run_shell_command', {
+        cwd: repoPath,
+        command,
+      });
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
+      await loadDiff();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const escapePath = (p: string) => `'${p.replace(/'/g, "'\\''")}'`;
+
+  const stageFile = (path: string) => runGit(`git add ${escapePath(path)}`);
+  const unstageFile = (path: string) => runGit(`git restore --staged ${escapePath(path)}`);
+  const discardFile = (path: string) => runGit(`git restore ${escapePath(path)} && git clean -fd ${escapePath(path)} 2>/dev/null || true`);
+  const stageAll = () => runGit('git add -A');
+  const unstageAll = () => runGit('git reset');
+  const discardAll = () => runGit('git checkout -- . && git clean -fd');
 
   const loadDiff = async () => {
     if (!repoPath) return;
@@ -112,19 +145,44 @@ export function DiffViewer({ taskId }: { taskId: string }) {
             {m === 'branch' ? '🌿 Branch' : m === 'staged' ? '📦 Staged' : '📝 Unstaged'}
           </button>
         ))}
-        <button
-          onClick={loadDiff}
-          style={{
-            marginLeft: 'auto',
-            background: 'none',
-            border: 'none',
-            color: '#52525b',
-            cursor: 'pointer',
-            fontSize: 12,
-          }}
-        >
-          🔄 Refresh
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+          {mode === 'unstaged' && stat.length > 0 && (
+            <HeaderButton onClick={stageAll} disabled={busy} color="#34d399" title="Stage all changes">
+              <Plus size={11} strokeWidth={2} /> Stage All
+            </HeaderButton>
+          )}
+          {mode === 'staged' && stat.length > 0 && (
+            <HeaderButton onClick={unstageAll} disabled={busy} color="#eab308" title="Unstage all">
+              <Minus size={11} strokeWidth={2} /> Unstage All
+            </HeaderButton>
+          )}
+          {mode === 'unstaged' && stat.length > 0 && (
+            <HeaderButton
+              onClick={() => setConfirmDiscard({ type: 'all' })}
+              disabled={busy}
+              color="#ef4444"
+              title="Discard all unstaged changes"
+            >
+              <Trash2 size={11} strokeWidth={2} /> Discard All
+            </HeaderButton>
+          )}
+          <button
+            onClick={loadDiff}
+            disabled={busy}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: busy ? '#2a3642' : '#52525b',
+              cursor: busy ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: 4,
+            }}
+            title="Refresh"
+          >
+            <RotateCw size={13} strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -161,31 +219,78 @@ export function DiffViewer({ taskId }: { taskId: string }) {
           const isExpanded = expandedFile === file.path;
           return (
             <div key={`${file.path}-${idx}`}>
-              <button
-                onClick={() => setExpandedFile(isExpanded ? null : file.path)}
+              <div
                 style={{
                   display: 'flex',
                   width: '100%',
                   alignItems: 'center',
                   gap: 8,
                   padding: '6px 16px',
-                  background: 'none',
-                  border: 'none',
                   borderBottom: '1px solid #ffffff06',
                   color: '#a1a1aa',
-                  cursor: 'pointer',
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 11,
-                  textAlign: 'left',
                 }}
               >
-                <span style={{ color: '#52525b' }}>{isExpanded ? '▼' : '▶'}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {file.path}
-                </span>
-                <span style={{ color: '#34d399', flexShrink: 0 }}>+{file.additions}</span>
-                <span style={{ color: '#ef4444', flexShrink: 0 }}>-{file.deletions}</span>
-              </button>
+                <button
+                  onClick={() => setExpandedFile(isExpanded ? null : file.path)}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'none',
+                    border: 'none',
+                    color: '#a1a1aa',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    textAlign: 'left',
+                    minWidth: 0,
+                    padding: 0,
+                  }}
+                >
+                  <span style={{ color: '#52525b', flexShrink: 0 }}>{isExpanded ? '▼' : '▶'}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {file.path}
+                  </span>
+                  <span style={{ color: '#34d399', flexShrink: 0 }}>+{file.additions}</span>
+                  <span style={{ color: '#ef4444', flexShrink: 0 }}>-{file.deletions}</span>
+                </button>
+                {/* Row actions */}
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
+                  {mode === 'unstaged' && (
+                    <>
+                      <RowButton
+                        onClick={() => stageFile(file.path)}
+                        disabled={busy}
+                        color="#34d399"
+                        title="Stage this file"
+                      >
+                        <Plus size={11} strokeWidth={2} />
+                      </RowButton>
+                      <RowButton
+                        onClick={() => setConfirmDiscard({ type: 'file', path: file.path })}
+                        disabled={busy}
+                        color="#ef4444"
+                        title="Discard changes"
+                      >
+                        <Trash2 size={11} strokeWidth={1.5} />
+                      </RowButton>
+                    </>
+                  )}
+                  {mode === 'staged' && (
+                    <RowButton
+                      onClick={() => unstageFile(file.path)}
+                      disabled={busy}
+                      color="#eab308"
+                      title="Unstage this file"
+                    >
+                      <Minus size={11} strokeWidth={2} />
+                    </RowButton>
+                  )}
+                </div>
+              </div>
               {isExpanded && diff && (
                 <div
                   style={{
@@ -228,7 +333,179 @@ export function DiffViewer({ taskId }: { taskId: string }) {
           );
         })}
       </div>
+
+      {/* Confirm discard modal */}
+      {confirmDiscard && (
+        <div
+          onClick={() => setConfirmDiscard(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1400,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 420,
+              maxWidth: '90vw',
+              background: '#0c0c12',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: 10,
+              padding: 20,
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5', marginBottom: 8 }}>
+              {confirmDiscard.type === 'all' ? 'Discard all unstaged changes?' : 'Discard file changes?'}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: '#6b7585',
+                marginBottom: 16,
+                fontFamily: confirmDiscard.type === 'file' ? "'JetBrains Mono', monospace" : 'inherit',
+              }}
+            >
+              {confirmDiscard.type === 'file'
+                ? confirmDiscard.path
+                : 'All uncommitted changes in unstaged files will be lost. This cannot be undone.'}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDiscard(null)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 5,
+                  fontSize: 11,
+                  background: 'none',
+                  border: '1px solid #3d4856',
+                  color: '#8b95a5',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const target = confirmDiscard;
+                  setConfirmDiscard(null);
+                  if (target.type === 'all') {
+                    await discardAll();
+                  } else if (target.path) {
+                    await discardFile(target.path);
+                  }
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 5,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  background: 'rgba(239,68,68,0.12)',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Trash2 size={11} strokeWidth={1.5} /> Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function HeaderButton({
+  onClick,
+  disabled,
+  color,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  color: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '4px 10px',
+        borderRadius: 5,
+        fontSize: 10,
+        fontWeight: 500,
+        background: disabled ? 'rgba(55,65,81,0.2)' : hovered ? `${color}20` : `${color}10`,
+        border: `1px solid ${disabled ? '#1e2530' : `${color}35`}`,
+        color: disabled ? '#3d4856' : color,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        transition: 'all 120ms ease',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function RowButton({
+  onClick,
+  disabled,
+  color,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  color: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 4,
+        background: disabled ? 'transparent' : hovered ? `${color}20` : 'transparent',
+        border: `1px solid ${disabled ? 'transparent' : hovered ? `${color}40` : 'transparent'}`,
+        color: disabled ? '#2a3642' : hovered ? color : '#4d5868',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        transition: 'all 120ms ease',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
