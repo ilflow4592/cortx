@@ -33,6 +33,7 @@ import { runPipeline } from '../utils/pipelineExec';
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
 import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
+import { useT } from '../i18n';
 
 interface Props {
   open: boolean;
@@ -67,6 +68,7 @@ export function CommandPalette({
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
+  const t = useT();
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
@@ -240,7 +242,7 @@ export function CommandPalette({
               autoFocus
               value={search}
               onValueChange={setSearch}
-              placeholder="Search tasks, projects, actions..."
+              placeholder={t('palette.search')}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -280,17 +282,17 @@ export function CommandPalette({
                 textAlign: 'center',
               }}
             >
-              No results found.
+              {t('palette.noResults')}
             </Command.Empty>
 
             {(() => {
               // Define each section as a render function so we can reorder them
               const sectionActions = (
-                <Command.Group key="actions" heading="Actions">
+                <Command.Group key="actions" heading={t('palette.actions')}>
                   {showAction('New Task') && (
                     <PaletteItem
                       icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label="New Task"
+                      label={t('action.newTask')}
                       hint="⌘N"
                       onSelect={() => run(onNewTask)}
                     />
@@ -298,14 +300,14 @@ export function CommandPalette({
                   {showAction('New Project') && (
                     <PaletteItem
                       icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label="New Project"
+                      label={t('action.newProject')}
                       onSelect={() => run(onNewProject)}
                     />
                   )}
                   {showAction('Open Settings') && (
                     <PaletteItem
                       icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Open Settings"
+                      label={t('action.openSettings')}
                       hint="⌘,"
                       onSelect={() => run(onOpenSettings)}
                     />
@@ -313,7 +315,7 @@ export function CommandPalette({
                   {showAction('Daily Report') && (
                     <PaletteItem
                       icon={<FileText size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Daily Report"
+                      label={t('action.dailyReport')}
                       onSelect={() => run(onShowReport)}
                     />
                   )}
@@ -409,7 +411,7 @@ export function CommandPalette({
                   {showAction('Toggle Sidebar') && (
                     <PaletteItem
                       icon={<PanelLeftClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Toggle Sidebar"
+                      label={t('action.toggleSidebar')}
                       hint="⌘B"
                       onSelect={() => run(onToggleSidebar)}
                     />
@@ -417,7 +419,7 @@ export function CommandPalette({
                   {showAction('Toggle Right Panel') && (
                     <PaletteItem
                       icon={<PanelRightClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Toggle Right Panel"
+                      label={t('action.toggleRightPanel')}
                       hint="⌘⇧B"
                       onSelect={() => run(onToggleRightPanel)}
                     />
@@ -518,7 +520,7 @@ export function CommandPalette({
 
               const sectionTasks =
                 filteredTasks.length > 0 ? (
-                  <Command.Group key="tasks" heading="Tasks">
+                  <Command.Group key="tasks" heading={t('palette.tasks')}>
                     {filteredTasks.map((task) => {
                       const project = projects.find((p) => p.id === task.projectId);
                       const dotColor =
@@ -545,7 +547,7 @@ export function CommandPalette({
 
               const sectionProjects =
                 filteredProjects.length > 0 ? (
-                  <Command.Group key="projects" heading="Projects">
+                  <Command.Group key="projects" heading={t('palette.projects')}>
                     {filteredProjects.map((project) => (
                       <PaletteItem
                         key={project.id}
@@ -576,7 +578,7 @@ export function CommandPalette({
 
               const sectionChat =
                 ftsHits.length > 0 ? (
-                  <Command.Group key="chat" heading="Chat Messages">
+                  <Command.Group key="chat" heading={t('palette.chatMessages')}>
                     {ftsHits.map((hit) => {
                       const task = tasks.find((t) => t.id === hit.taskId);
                       if (!task) return null;

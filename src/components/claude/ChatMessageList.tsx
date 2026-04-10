@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Paperclip } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useT } from '../../i18n';
 import type { Message } from './types';
 
 interface ChatMessageListProps {
@@ -30,6 +31,7 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
+  const t = useT();
 
   // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual returns memoized fns by design
   const virtualizer = useVirtualizer({
@@ -69,11 +71,11 @@ export function ChatMessageList({
         <div className="empty-state" style={{ height: '100%' }}>
           <div className="empty-state-inner">
             <div className="empty-state-icon" />
-            <div className="empty-state-title">Claude Code</div>
+            <div className="empty-state-title">{t('empty.claudeCode')}</div>
             <div className="empty-state-sub">
-              Uses your Claude CLI authentication.
+              {t('empty.claudeCode.sub1')}
               <br />
-              No API key or credits needed.
+              {t('empty.claudeCode.sub2')}
               {contextTotalCount > 0 && (
                 <>
                   <br />
@@ -139,7 +141,7 @@ export function ChatMessageList({
           <div className="msg-avatar ai">C</div>
           <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
             <div className="loading-dot" />
-            <span style={{ fontSize: 13, color: 'var(--fg-faint)' }}>Claude is thinking...</span>
+            <span style={{ fontSize: 13, color: 'var(--fg-faint)' }}>{t('chat.thinking')}</span>
           </div>
         </div>
       )}

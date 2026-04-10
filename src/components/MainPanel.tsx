@@ -13,6 +13,7 @@ import { RightPanel } from './right-panel/RightPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';
+import { useT } from '../i18n';
 import type { InterruptReason } from '../types/task';
 
 type Tab = 'claude' | 'terminal' | 'context' | 'editor';
@@ -39,7 +40,8 @@ export function MainPanel({
   const removeTask = useTaskStore((s) => s.removeTask);
   const updateTask = useTaskStore((s) => s.updateTask);
   const projects = useProjectStore((s) => s.projects);
-  const task = tasks.find((t) => t.id === activeTaskId);
+  const t = useT();
+  const task = tasks.find((task) => task.id === activeTaskId);
   const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
@@ -93,8 +95,8 @@ export function MainPanel({
         <div className="empty-state">
           <div className="empty-state-inner">
             <div className="empty-state-icon" />
-            <div className="empty-state-title">No active task</div>
-            <div className="empty-state-sub">Select or create a task to get started</div>
+            <div className="empty-state-title">{t('empty.noActiveTask')}</div>
+            <div className="empty-state-sub">{t('empty.noActiveTask.sub')}</div>
           </div>
         </div>
       </div>
@@ -104,11 +106,11 @@ export function MainPanel({
   const badgeCls = task.status === 'active' ? 'active' : task.status === 'paused' ? 'paused' : 'waiting';
   const statusLabel =
     task.status === 'active'
-      ? 'In Progress'
+      ? t('task.status.active')
       : task.status === 'paused'
-        ? 'Paused'
+        ? t('task.status.paused')
         : task.status === 'waiting'
-          ? 'Waiting'
+          ? t('task.status.waiting')
           : task.status;
 
   const handleStart = () => startTask(task.id);
@@ -194,22 +196,22 @@ export function MainPanel({
           )}
           {task.status === 'waiting' && (
             <button className="mh-btn start" onClick={handleStart}>
-              <Play size={12} strokeWidth={1.5} /> Start
+              <Play size={12} strokeWidth={1.5} /> {t('action.start')}
             </button>
           )}
           {task.status === 'active' && (
             <button className="mh-btn pause" onClick={() => setShowPause(true)}>
-              <Pause size={12} strokeWidth={1.5} /> Pause
+              <Pause size={12} strokeWidth={1.5} /> {t('action.pause')}
             </button>
           )}
           {task.status === 'paused' && (
             <button className="mh-btn resume" onClick={handleResume}>
-              <Play size={12} strokeWidth={1.5} /> Resume
+              <Play size={12} strokeWidth={1.5} /> {t('action.resume')}
             </button>
           )}
           {task.status !== 'done' && (
             <button className="mh-btn done" onClick={handleDone}>
-              <Check size={12} strokeWidth={1.5} /> Done
+              <Check size={12} strokeWidth={1.5} /> {t('action.done')}
             </button>
           )}
           <button

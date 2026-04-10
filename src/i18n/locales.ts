@@ -131,6 +131,40 @@ export const translations = {
     'pipeline.commit_pr': 'PR',
     'pipeline.review_loop': 'Review',
     'pipeline.done': 'Done',
+
+    // New Task Modal
+    'newTask.title': 'New Task',
+    'newTask.taskTitle': 'Task title',
+    'newTask.project': 'Project',
+    'newTask.layer': 'Layer',
+    'newTask.branchName': 'Branch name',
+    'newTask.create': 'Create Task',
+    'newTask.creating': 'Creating...',
+    'newTask.noProject': 'No project',
+
+    // New Project Modal
+    'newProject.title': 'New Project',
+    'newProject.openExisting': 'Open project',
+    'newProject.openExistingDesc': 'Select an existing local folder',
+    'newProject.cloneFromUrl': 'Clone from URL',
+    'newProject.cloneFromUrlDesc': 'Clone a Git repository',
+
+    // Reset Session
+    'reset.title': 'Reset Session',
+    'reset.warning': 'This will clear all messages, session, pipeline state, and discard uncommitted changes. This cannot be undone.',
+    'reset.confirm': 'Reset Session',
+
+    // Crash Recovery
+    'crash.title': 'Interrupted Pipelines Detected',
+    'crash.description': 'These tasks were running when the app was last closed abnormally.',
+    'crash.resume': 'Resume',
+    'crash.cancel': 'Cancel',
+    'crash.dismissAll': 'Dismiss All',
+
+    // Confirmation
+    'confirm.deleteTask': 'Delete this task?',
+    'confirm.deleteProject': 'Delete this project?',
+    'confirm.unsaved': 'You have unsaved changes. Continue?',
   },
 
   ko: {
@@ -250,6 +284,40 @@ export const translations = {
     'pipeline.commit_pr': 'PR',
     'pipeline.review_loop': '리뷰',
     'pipeline.done': '완료',
+
+    // New Task Modal
+    'newTask.title': '새 작업',
+    'newTask.taskTitle': '작업 제목',
+    'newTask.project': '프로젝트',
+    'newTask.layer': '레이어',
+    'newTask.branchName': '브랜치 이름',
+    'newTask.create': '작업 생성',
+    'newTask.creating': '생성 중...',
+    'newTask.noProject': '프로젝트 없음',
+
+    // New Project Modal
+    'newProject.title': '새 프로젝트',
+    'newProject.openExisting': '프로젝트 열기',
+    'newProject.openExistingDesc': '기존 로컬 폴더 선택',
+    'newProject.cloneFromUrl': 'URL에서 클론',
+    'newProject.cloneFromUrlDesc': 'Git 저장소 클론',
+
+    // Reset Session
+    'reset.title': '세션 리셋',
+    'reset.warning': '모든 메시지, 세션, 파이프라인 상태가 초기화되고 커밋되지 않은 변경사항도 모두 되돌려집니다. 되돌릴 수 없습니다.',
+    'reset.confirm': '세션 리셋',
+
+    // Crash Recovery
+    'crash.title': '중단된 파이프라인이 있습니다',
+    'crash.description': '이 작업들은 앱이 비정상 종료될 때 실행 중이었습니다.',
+    'crash.resume': '재개',
+    'crash.cancel': '취소',
+    'crash.dismissAll': '모두 취소',
+
+    // Confirmation
+    'confirm.deleteTask': '이 작업을 삭제하시겠습니까?',
+    'confirm.deleteProject': '이 프로젝트를 삭제하시겠습니까?',
+    'confirm.unsaved': '저장되지 않은 변경사항이 있습니다. 계속하시겠습니까?',
   },
 } as const;
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowUp, Square, Paperclip } from 'lucide-react';
+import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
 
 // Pipeline command priority order for the slash menu
@@ -39,6 +40,7 @@ export function ChatInput({
   const [slashFilter, setSlashFilter] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
   const slashMenuRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   const filteredCommands = showSlashMenu
     ? slashCommands
@@ -159,7 +161,7 @@ export function ChatInput({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
-        placeholder="Send a message or type / for commands..."
+        placeholder={t('chat.placeholder')}
         rows={1}
         style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
         onInput={(e) => {
