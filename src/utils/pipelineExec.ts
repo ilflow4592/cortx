@@ -9,6 +9,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { messageCache, sessionCache, loadingCache } from './chatState';
+import { recordEvent } from '../services/telemetry';
 import type { PipelinePhase, PipelinePhaseEntry } from '../types/task';
 
 interface PipelineCallbacks {
@@ -33,6 +34,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const reqId = `claude-${taskId}-${Date.now()}`;
 
   callbacks?.onRunning?.();
+  recordEvent('action', 'pipeline.start', { command, hasProject: !!proj });
 
   // Clear previous messages and session — fresh start
   messageCache.delete(taskId);
@@ -383,6 +385,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   }
 
   loadingCache.set(taskId, false);
+  recordEvent('action', 'pipeline.done', { command });
   callbacks?.onDone?.();
 }
 

@@ -25,6 +25,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: { componentStack?: string | null }) {
     console.error(`[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ''}]`, error, info);
+    // Report to telemetry (no-op if telemetry is disabled)
+    import('../services/telemetry')
+      .then(({ recordCrash }) => recordCrash(error, this.props.label))
+      .catch(() => {});
   }
 
   reset = () => this.setState({ error: null });

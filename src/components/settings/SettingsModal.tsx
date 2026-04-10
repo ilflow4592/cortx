@@ -3,9 +3,10 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { AIProviderSettings } from './AIProviderSettings';
 import { SourcesSettings } from './SourcesSettings';
 import { AppearanceSettings } from './AppearanceSettings';
+import { TelemetrySettings } from './TelemetrySettings';
 import { useT } from '../../i18n';
 
-type STab = 'ai' | 'sources' | 'appearance';
+type STab = 'ai' | 'sources' | 'appearance' | 'telemetry';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const sources = useContextPackStore((s) => s.sources);
@@ -34,6 +35,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           >
             🎨 {t('settings.appearance')}
           </button>
+          <button
+            className={`modal-tab ${tab === 'telemetry' ? 'active' : ''}`}
+            onClick={() => setTab('telemetry')}
+          >
+            📊 Telemetry
+          </button>
         </div>
         <div className="modal-body">
           {tab === 'ai' && <AIProviderSettings />}
@@ -46,6 +53,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             />
           )}
           {tab === 'appearance' && <AppearanceSettings />}
+          {tab === 'telemetry' && <TelemetrySettings />}
         </div>
       </div>
     </div>

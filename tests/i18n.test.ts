@@ -14,8 +14,7 @@ describe('i18n translate()', () => {
   });
 
   it('falls back to English if key missing in target language', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = translate('ko' as any, 'common.save');
+    const result = translate('ko', 'common.save');
     // 'common.save' exists in both, so ko version returned
     expect(result).toBe('저장');
   });

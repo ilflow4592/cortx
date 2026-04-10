@@ -27,6 +27,10 @@ export interface Settings {
   ollamaUrl: string;
   theme: Theme;
   language: Language;
+  /** Opt-in local telemetry. Default OFF. */
+  telemetryEnabled: boolean;
+  /** Optional remote endpoint for flushing collected events. Empty = local only. */
+  telemetryEndpoint: string;
 }
 
 /** Settings + 액션을 합친 스토어 전체 타입 */
@@ -51,6 +55,8 @@ const defaults: Settings = {
   ollamaUrl: 'http://localhost:11434',
   theme: 'dark',
   language: initialLang,
+  telemetryEnabled: false,
+  telemetryEndpoint: '',
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -74,6 +80,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
           ollamaUrl: next.ollamaUrl,
           theme: next.theme,
           language: next.language,
+          telemetryEnabled: next.telemetryEnabled,
+          telemetryEndpoint: next.telemetryEndpoint,
         }),
       );
       return next;

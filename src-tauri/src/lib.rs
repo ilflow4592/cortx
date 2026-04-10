@@ -24,6 +24,12 @@ pub fn run() {
             sql: include_str!("../migrations/002_fts_search.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
+        tauri_plugin_sql::Migration {
+            version: 3,
+            description: "add telemetry events table",
+            sql: include_str!("../migrations/003_telemetry.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
