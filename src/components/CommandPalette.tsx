@@ -88,7 +88,17 @@ export function CommandPalette({
 
   // Manual filtering since shouldFilter={false}
   const searchLower = search.trim().toLowerCase();
-  const matchesSearch = (text: string) => !searchLower || text.toLowerCase().includes(searchLower);
+  /**
+   * Word-prefix match: matches if any word (split by whitespace, hyphens,
+   * underscores, parens, dots, colons) in the text starts with the search
+   * query. Prevents false positives like "ex" matching "ex" inside "execute"
+   * or "context".
+   */
+  const matchesSearch = (text: string) => {
+    if (!searchLower) return true;
+    const words = text.toLowerCase().split(/[\s\-_/()[\].,:]+/).filter(Boolean);
+    return words.some((w) => w.startsWith(searchLower));
+  };
 
   const filteredTasks = useMemo(() => {
     if (!searchLower) return tasks;
@@ -122,7 +132,7 @@ export function CommandPalette({
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
       { label: 'Import Tasks from JSON', keywords: ['import', 'json', 'load', 'restore'] },
       { label: 'Toggle Sidebar', keywords: ['sidebar', 'panel', 'toggle'] },
-      { label: 'Toggle Right Panel', keywords: ['right', 'panel', 'context', 'toggle'] },
+      { label: 'Toggle Right Panel', keywords: ['right', 'panel', 'toggle'] },
     ],
     [],
   );
@@ -355,7 +365,7 @@ export function CommandPalette({
                   return keywords.some((k) => matchesSearch(k));
                 };
 
-                if (matchCurrent('Run Pipeline', ['run', 'pipeline', 'dev-task', 'start', 'execute'])) {
+                if (matchCurrent('Run Pipeline', ['run', 'pipeline', 'dev-task', 'start'])) {
                   currentTaskItems.push(
                     <PaletteItem
                       key="run-pipeline"
