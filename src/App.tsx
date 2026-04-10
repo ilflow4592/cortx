@@ -11,6 +11,7 @@ import { Onboarding } from './components/Onboarding';
 import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
+import { useSettingsStore } from './stores/settingsStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
@@ -147,6 +148,12 @@ export default function App() {
       pending.clear();
     };
   }, []);
+
+  // Apply theme to document root
+  const theme = useSettingsStore((s) => s.theme);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme || 'dark');
+  }, [theme]);
 
   // Timer
   useEffect(() => {

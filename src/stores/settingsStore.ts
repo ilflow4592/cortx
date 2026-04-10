@@ -10,6 +10,8 @@ import { create } from 'zustand';
 export type AIProvider = 'claude' | 'openai' | 'ollama';
 /** 인증 방식: API Key 직접 입력 또는 OAuth 토큰 */
 export type AuthMethod = 'api-key' | 'oauth';
+/** 앱 테마 */
+export type Theme = 'dark' | 'midnight' | 'light';
 
 /** 설정 값 인터페이스 (순수 데이터만, 액션 제외) */
 export interface Settings {
@@ -21,6 +23,7 @@ export interface Settings {
   oauthRefreshToken: string;
   modelId: string;
   ollamaUrl: string;
+  theme: Theme;
 }
 
 /** Settings + 액션을 합친 스토어 전체 타입 */
@@ -40,6 +43,7 @@ const defaults: Settings = {
   oauthRefreshToken: '',
   modelId: 'claude-sonnet-4-20250514',
   ollamaUrl: 'http://localhost:11434',
+  theme: 'dark',
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -61,6 +65,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
           oauthRefreshToken: next.oauthRefreshToken,
           modelId: next.modelId,
           ollamaUrl: next.ollamaUrl,
+          theme: next.theme,
         }),
       );
       return next;

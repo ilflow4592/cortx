@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { AIProviderSettings } from './AIProviderSettings';
 import { SourcesSettings } from './SourcesSettings';
+import { AppearanceSettings } from './AppearanceSettings';
 
-type STab = 'ai' | 'sources';
+type STab = 'ai' | 'sources' | 'appearance';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const sources = useContextPackStore((s) => s.sources);
@@ -25,6 +26,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
             📦 Context Sources
           </button>
+          <button
+            className={`modal-tab ${tab === 'appearance' ? 'active' : ''}`}
+            onClick={() => setTab('appearance')}
+          >
+            🎨 Appearance
+          </button>
         </div>
         <div className="modal-body">
           {tab === 'ai' && <AIProviderSettings />}
@@ -36,6 +43,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onRemove={(i) => useContextPackStore.getState().removeSource(i)}
             />
           )}
+          {tab === 'appearance' && <AppearanceSettings />}
         </div>
       </div>
     </div>
