@@ -41,6 +41,7 @@ export function StatusBar({
         >
           ⌘⇧B panel
         </span>
+        <span>⌘K palette</span>
         <span>⌘⇧P pause</span>
         <span>⌘⇧R resume</span>
       </div>

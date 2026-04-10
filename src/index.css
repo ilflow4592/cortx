@@ -1831,3 +1831,20 @@ body {
   justify-content: center;
   gap: 10px;
 }
+
+/* ── Command Palette (cmdk) ── */
+[cmdk-group-heading] {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #4d5868;
+  padding: 10px 12px 4px;
+}
+[cmdk-item][data-selected='true'] {
+  background: rgba(90, 165, 165, 0.12);
+  color: #e8eef5;
+}
+[cmdk-item][data-selected='true'] span {
+  color: #e8eef5;
+}

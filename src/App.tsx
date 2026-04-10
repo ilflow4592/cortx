@@ -12,6 +12,7 @@ import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CommandPalette } from './components/CommandPalette';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -25,6 +26,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [isResizing, setIsResizing] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -135,6 +137,12 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Cmd+K / Ctrl+K → command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+        return;
+      }
       if (e.metaKey && e.key === 'b' && !e.shiftKey) {
         e.preventDefault();
         setShowSidebar((v) => !v);
@@ -270,6 +278,16 @@ export default function App() {
         onToggleSidebar={() => setShowSidebar((v) => !v)}
         showRightPanel={showRightPanel}
         onToggleRightPanel={() => setShowRightPanel((v) => !v)}
+      />
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onNewTask={() => setShowNewTask(true)}
+        onNewProject={() => setShowNewProject(true)}
+        onOpenSettings={() => setShowSettings(true)}
+        onToggleSidebar={() => setShowSidebar((v) => !v)}
+        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
+        onShowReport={() => setShowReport(true)}
       />
       {showNewTask && (
         <NewTaskModal
