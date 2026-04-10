@@ -19,6 +19,7 @@ import { WorktreeCleanup } from './components/WorktreeCleanup';
 import { PipelineConfigEditor } from './components/PipelineConfigEditor';
 import { McpServerManager } from './components/McpServerManager';
 import { SlashCommandBuilder } from './components/SlashCommandBuilder';
+import { UpdateChecker } from './components/UpdateChecker';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -39,6 +40,7 @@ export default function App() {
   const [pipelineConfigEditor, setPipelineConfigEditor] = useState<{ path: string; name: string } | null>(null);
   const [showMcpManager, setShowMcpManager] = useState(false);
   const [showSlashBuilder, setShowSlashBuilder] = useState(false);
+  const [showUpdateChecker, setShowUpdateChecker] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -314,6 +316,7 @@ export default function App() {
         onEditPipelineConfig={(path, name) => setPipelineConfigEditor({ path, name })}
         onShowMcpManager={() => setShowMcpManager(true)}
         onShowSlashBuilder={() => setShowSlashBuilder(true)}
+        onCheckForUpdates={() => setShowUpdateChecker(true)}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
@@ -332,6 +335,7 @@ export default function App() {
         const cwd = activeTask?.worktreePath || project?.localPath || '';
         return <SlashCommandBuilder projectCwd={cwd} onClose={() => setShowSlashBuilder(false)} />;
       })()}
+      {showUpdateChecker && <UpdateChecker onClose={() => setShowUpdateChecker(false)} />}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {

@@ -25,6 +25,7 @@ import {
   Upload,
   Server,
   Slash,
+  ArrowUp,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -46,6 +47,7 @@ interface Props {
   onEditPipelineConfig: (projectPath: string, projectName: string) => void;
   onShowMcpManager: () => void;
   onShowSlashBuilder: () => void;
+  onCheckForUpdates: () => void;
 }
 
 export function CommandPalette({
@@ -61,6 +63,7 @@ export function CommandPalette({
   onEditPipelineConfig,
   onShowMcpManager,
   onShowSlashBuilder,
+  onCheckForUpdates,
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
@@ -153,6 +156,7 @@ export function CommandPalette({
       { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'delete', 'clean'] },
       { label: 'Manage MCP Servers', keywords: ['mcp', 'server', 'manage', 'claude.json'] },
       { label: 'Slash Command Builder', keywords: ['slash', 'command', 'builder', 'skill', 'create'] },
+      { label: 'Check for Updates', keywords: ['update', 'upgrade', 'version', 'check'] },
       { label: 'Edit Pipeline Config', keywords: ['pipeline', 'config', 'customize', 'phases', 'edit'] },
       { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
@@ -332,6 +336,13 @@ export function CommandPalette({
                       icon={<Slash size={14} color="#5aa5a5" strokeWidth={1.5} />}
                       label="Slash Command Builder"
                       onSelect={() => run(onShowSlashBuilder)}
+                    />
+                  )}
+                  {showAction('Check for Updates') && (
+                    <PaletteItem
+                      icon={<ArrowUp size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      label="Check for Updates"
+                      onSelect={() => run(onCheckForUpdates)}
                     />
                   )}
                   {activeTask && showAction('Edit Pipeline Config') && (
