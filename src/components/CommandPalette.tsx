@@ -2,7 +2,7 @@
  * Cmd+K command palette — fuzzy-searchable global command launcher.
  * Lists tasks, projects, actions, and pipeline triggers in one searchable UI.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
 import { invoke } from '@tauri-apps/api/core';
 import {
@@ -19,11 +19,13 @@ import {
   Pause,
   RotateCcw,
   Square,
+  MessageSquare,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { runPipeline } from '../utils/pipelineExec';
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
+import { searchAll, type SearchHit } from '../services/db';
 
 interface Props {
   open: boolean;
@@ -47,6 +49,7 @@ export function CommandPalette({
   onShowReport,
 }: Props) {
   const [search, setSearch] = useState('');
+  const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
@@ -57,9 +60,68 @@ export function CommandPalette({
 
   // Reset search when reopened
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on visibility toggle, not cascading
-    if (open) setSearch('');
+    if (open) {
+      setSearch('');
+      setFtsHits([]);
+    }
   }, [open]);
+
+  // Debounced full-text search
+  useEffect(() => {
+    if (!search.trim() || search.length < 2) {
+      setFtsHits([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      searchAll(search, 30)
+        .then((hits) => setFtsHits(hits.filter((h) => h.kind === 'message')))
+        .catch(() => setFtsHits([]));
+    }, 150);
+    return () => clearTimeout(handle);
+  }, [search]);
+
+  // Manual filtering since shouldFilter={false}
+  const searchLower = search.trim().toLowerCase();
+  const matchesSearch = (text: string) => !searchLower || text.toLowerCase().includes(searchLower);
+
+  const filteredTasks = useMemo(() => {
+    if (!searchLower) return tasks;
+    return tasks.filter((task) => {
+      const project = projects.find((p) => p.id === task.projectId);
+      return (
+        matchesSearch(task.title) ||
+        matchesSearch(task.branchName || '') ||
+        matchesSearch(project?.name || '')
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, projects, searchLower]);
+
+  const filteredProjects = useMemo(() => {
+    if (!searchLower) return projects;
+    return projects.filter(
+      (p) => matchesSearch(p.name) || matchesSearch(p.githubRepo) || matchesSearch(p.githubOwner),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, searchLower]);
+
+  const actionItems: { label: string; keywords?: string[] }[] = useMemo(
+    () => [
+      { label: 'New Task', keywords: ['new', 'task', 'create', 'add'] },
+      { label: 'New Project', keywords: ['new', 'project', 'create', 'folder'] },
+      { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
+      { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
+      { label: 'Toggle Sidebar', keywords: ['sidebar', 'panel', 'toggle'] },
+      { label: 'Toggle Right Panel', keywords: ['right', 'panel', 'context', 'toggle'] },
+    ],
+    [],
+  );
+  const showAction = (label: string) => {
+    if (!searchLower) return true;
+    const item = actionItems.find((a) => a.label === label);
+    if (matchesSearch(label)) return true;
+    return item?.keywords?.some((k) => matchesSearch(k)) ?? false;
+  };
 
   // Esc to close
   useEffect(() => {
@@ -113,7 +175,7 @@ export function CommandPalette({
           flexDirection: 'column',
         }}
       >
-        <Command label="Command Palette" shouldFilter>
+        <Command label="Command Palette" shouldFilter={false}>
           <div
             style={{
               display: 'flex',
@@ -173,40 +235,52 @@ export function CommandPalette({
 
             {/* ── Actions ── */}
             <Command.Group heading="Actions">
-              <PaletteItem
-                icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
-                label="New Task"
-                hint="⌘N"
-                onSelect={() => run(onNewTask)}
-              />
-              <PaletteItem
-                icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
-                label="New Project"
-                onSelect={() => run(onNewProject)}
-              />
-              <PaletteItem
-                icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                label="Open Settings"
-                hint="⌘,"
-                onSelect={() => run(onOpenSettings)}
-              />
-              <PaletteItem
-                icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                label="Daily Report"
-                onSelect={() => run(onShowReport)}
-              />
-              <PaletteItem
-                icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                label="Toggle Sidebar"
-                hint="⌘B"
-                onSelect={() => run(onToggleSidebar)}
-              />
-              <PaletteItem
-                icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                label="Toggle Right Panel"
-                hint="⌘⇧B"
-                onSelect={() => run(onToggleRightPanel)}
-              />
+              {showAction('New Task') && (
+                <PaletteItem
+                  icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
+                  label="New Task"
+                  hint="⌘N"
+                  onSelect={() => run(onNewTask)}
+                />
+              )}
+              {showAction('New Project') && (
+                <PaletteItem
+                  icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
+                  label="New Project"
+                  onSelect={() => run(onNewProject)}
+                />
+              )}
+              {showAction('Open Settings') && (
+                <PaletteItem
+                  icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Open Settings"
+                  hint="⌘,"
+                  onSelect={() => run(onOpenSettings)}
+                />
+              )}
+              {showAction('Daily Report') && (
+                <PaletteItem
+                  icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Daily Report"
+                  onSelect={() => run(onShowReport)}
+                />
+              )}
+              {showAction('Toggle Sidebar') && (
+                <PaletteItem
+                  icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Toggle Sidebar"
+                  hint="⌘B"
+                  onSelect={() => run(onToggleSidebar)}
+                />
+              )}
+              {showAction('Toggle Right Panel') && (
+                <PaletteItem
+                  icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Toggle Right Panel"
+                  hint="⌘⇧B"
+                  onSelect={() => run(onToggleRightPanel)}
+                />
+              )}
             </Command.Group>
 
             {/* ── Active Task Actions ── */}
@@ -271,9 +345,9 @@ export function CommandPalette({
             )}
 
             {/* ── Tasks ── */}
-            {tasks.length > 0 && (
+            {filteredTasks.length > 0 && (
               <Command.Group heading="Tasks">
-                {tasks.map((task) => {
+                {filteredTasks.map((task) => {
                   const project = projects.find((p) => p.id === task.projectId);
                   const dotColor =
                     task.status === 'active'
@@ -297,10 +371,76 @@ export function CommandPalette({
               </Command.Group>
             )}
 
+            {/* ── Chat Messages (FTS) ── */}
+            {ftsHits.length > 0 && (
+              <Command.Group heading="Chat Messages">
+                {ftsHits.map((hit) => {
+                  const task = tasks.find((t) => t.id === hit.taskId);
+                  if (!task) return null;
+                  const project = projects.find((p) => p.id === task.projectId);
+                  // Strip HTML mark tags for display (cmdk value should be plain text)
+                  const plainSnippet = hit.snippet.replace(/<\/?mark>/g, '');
+                  return (
+                    <Command.Item
+                      key={`fts-${hit.messageId}`}
+                      value={`msg-${hit.messageId}-${search}`}
+                      onSelect={() => run(() => setActiveTask(hit.taskId))}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 12,
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        color: '#c0c8d4',
+                      }}
+                    >
+                      <MessageSquare
+                        size={12}
+                        color="#7dbdbd"
+                        strokeWidth={1.5}
+                        style={{ flexShrink: 0, marginTop: 2 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: '#6b7585',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {task.title}
+                          {project && <span style={{ color: '#3d4856' }}> · {project.name}</span>}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: '#8b95a5',
+                            marginTop: 2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}
+                          dangerouslySetInnerHTML={{ __html: hit.snippet }}
+                        />
+                        {/* Hidden value for cmdk matching — the plain text */}
+                        <span style={{ display: 'none' }}>{plainSnippet}</span>
+                      </div>
+                    </Command.Item>
+                  );
+                })}
+              </Command.Group>
+            )}
+
             {/* ── Projects ── */}
-            {projects.length > 0 && (
+            {filteredProjects.length > 0 && (
               <Command.Group heading="Projects">
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <PaletteItem
                     key={project.id}
                     icon={

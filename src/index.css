@@ -1848,3 +1848,11 @@ body {
 [cmdk-item][data-selected='true'] span {
   color: #e8eef5;
 }
+
+/* FTS snippet highlight in command palette */
+[cmdk-item] mark {
+  background: rgba(125, 189, 189, 0.25);
+  color: #b5e5e5;
+  padding: 0 2px;
+  border-radius: 2px;
+}

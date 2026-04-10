@@ -11,12 +11,20 @@ pub fn run() {
     let pty_manager: SharedPtyManager = Arc::new(Mutex::new(PtyManager::new()));
 
     // SQLite migrations — defines the schema for tasks, projects, chat messages, and interrupts
-    let migrations = vec![tauri_plugin_sql::Migration {
-        version: 1,
-        description: "create initial schema",
-        sql: include_str!("../migrations/001_initial_schema.sql"),
-        kind: tauri_plugin_sql::MigrationKind::Up,
-    }];
+    let migrations = vec![
+        tauri_plugin_sql::Migration {
+            version: 1,
+            description: "create initial schema",
+            sql: include_str!("../migrations/001_initial_schema.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 2,
+            description: "add full-text search index",
+            sql: include_str!("../migrations/002_fts_search.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .manage(pty_manager)
