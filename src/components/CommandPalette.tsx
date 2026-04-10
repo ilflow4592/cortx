@@ -233,242 +233,247 @@ export function CommandPalette({
               No results found.
             </Command.Empty>
 
-            {/* ── Actions ── */}
-            {/* ── Active Task Actions (only when no search, kept as contextual shortcuts) ── */}
-            {activeTask && !searchLower && (
-              <Command.Group heading={`Current Task: ${activeTask.title}`}>
-                <PaletteItem
-                  icon={<Play size={14} color="#34d399" strokeWidth={1.5} />}
-                  label="Run Pipeline (/pipeline:dev-task)"
-                  onSelect={() =>
-                    run(() => {
-                      runPipeline(activeTask.id, '/pipeline:dev-task');
-                    })
-                  }
-                />
-                {loadingCache.get(activeTask.id) && (
-                  <PaletteItem
-                    icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
-                    label="Stop Claude Process (kill running pipeline)"
-                    onSelect={() =>
-                      run(() => {
-                        // Kill any running Claude process for this task
-                        invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
-                        // Reset chat + pipeline + timer (same as red Stop button in chat)
-                        messageCache.delete(activeTask.id);
-                        sessionCache.delete(activeTask.id);
-                        loadingCache.delete(activeTask.id);
-                        useTaskStore.getState().updateTask(activeTask.id, {
-                          status: 'waiting',
-                          pipeline: undefined,
-                          elapsedSeconds: 0,
-                        });
-                      })
-                    }
-                  />
-                )}
-                {activeTask.status === 'active' && (
-                  <PaletteItem
-                    icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
-                    label="Pause Current Task (timer only)"
-                    hint="⌘⇧P"
-                    onSelect={() =>
-                      run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
-                    }
-                  />
-                )}
-                {activeTask.status === 'paused' && (
-                  <PaletteItem
-                    icon={<RotateCcw size={14} color="#34d399" strokeWidth={1.5} />}
-                    label="Resume Current Task"
-                    hint="⌘⇧R"
-                    onSelect={() => run(() => resumeTask(activeTask.id))}
-                  />
-                )}
-                {activeTask.status !== 'done' && (
-                  <PaletteItem
-                    icon={<CheckCircle2 size={14} color="#5aa5a5" strokeWidth={1.5} />}
-                    label="Mark as Done"
-                    onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
-                  />
-                )}
-              </Command.Group>
-            )}
-
-            {/* ── Projects ── */}
-            {filteredProjects.length > 0 && (
-              <Command.Group heading="Projects">
-                {filteredProjects.map((project) => (
-                  <PaletteItem
-                    key={project.id}
-                    icon={
-                      <span
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 3,
-                          background: project.color,
-                          display: 'inline-block',
-                        }}
-                      />
-                    }
-                    label={project.name}
-                    hint={project.localPath || project.githubRepo}
-                    keywords={[project.name, project.githubRepo, project.githubOwner]}
-                    onSelect={() =>
-                      run(() => {
-                        // Find first task of this project and activate
-                        const firstTask = tasks.find((t) => t.projectId === project.id);
-                        if (firstTask) setActiveTask(firstTask.id);
-                      })
-                    }
-                  />
-                ))}
-              </Command.Group>
-            )}
-
-            {/* ── Tasks ── */}
-            {filteredTasks.length > 0 && (
-              <Command.Group heading="Tasks">
-                {filteredTasks.map((task) => {
-                  const project = projects.find((p) => p.id === task.projectId);
-                  const dotColor =
-                    task.status === 'active'
-                      ? '#34d399'
-                      : task.status === 'paused'
-                        ? '#eab308'
-                        : task.status === 'done'
-                          ? '#5aa5a5'
-                          : '#3d4856';
-                  return (
+            {(() => {
+              // Define each section as a render function so we can reorder them
+              const sectionActions = (
+                <Command.Group key="actions" heading="Actions">
+                  {showAction('New Task') && (
                     <PaletteItem
-                      key={task.id}
-                      icon={<Circle size={10} fill={dotColor} stroke="none" />}
-                      label={task.title}
-                      hint={project?.name || (task.branchName ? task.branchName : undefined)}
-                      keywords={[task.title, task.branchName, project?.name || '']}
-                      onSelect={() => run(() => setActiveTask(task.id))}
+                      icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
+                      label="New Task"
+                      hint="⌘N"
+                      onSelect={() => run(onNewTask)}
                     />
-                  );
-                })}
-              </Command.Group>
-            )}
+                  )}
+                  {showAction('New Project') && (
+                    <PaletteItem
+                      icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
+                      label="New Project"
+                      onSelect={() => run(onNewProject)}
+                    />
+                  )}
+                  {showAction('Open Settings') && (
+                    <PaletteItem
+                      icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Open Settings"
+                      hint="⌘,"
+                      onSelect={() => run(onOpenSettings)}
+                    />
+                  )}
+                  {showAction('Daily Report') && (
+                    <PaletteItem
+                      icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Daily Report"
+                      onSelect={() => run(onShowReport)}
+                    />
+                  )}
+                  {showAction('Toggle Sidebar') && (
+                    <PaletteItem
+                      icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Toggle Sidebar"
+                      hint="⌘B"
+                      onSelect={() => run(onToggleSidebar)}
+                    />
+                  )}
+                  {showAction('Toggle Right Panel') && (
+                    <PaletteItem
+                      icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Toggle Right Panel"
+                      hint="⌘⇧B"
+                      onSelect={() => run(onToggleRightPanel)}
+                    />
+                  )}
+                </Command.Group>
+              );
 
-            {/* ── Chat Messages (FTS) ── */}
-            {ftsHits.length > 0 && (
-              <Command.Group heading="Chat Messages">
-                {ftsHits.map((hit) => {
-                  const task = tasks.find((t) => t.id === hit.taskId);
-                  if (!task) return null;
-                  const project = projects.find((p) => p.id === task.projectId);
-                  // Strip HTML mark tags for display (cmdk value should be plain text)
-                  const plainSnippet = hit.snippet.replace(/<\/?mark>/g, '');
-                  return (
-                    <Command.Item
-                      key={`fts-${hit.messageId}`}
-                      value={`msg-${hit.messageId}-${search}`}
-                      onSelect={() => run(() => setActiveTask(hit.taskId))}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        padding: '8px 12px',
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        color: '#c0c8d4',
-                      }}
-                    >
-                      <MessageSquare
-                        size={12}
-                        color="#7dbdbd"
-                        strokeWidth={1.5}
-                        style={{ flexShrink: 0, marginTop: 2 }}
+              const sectionCurrentTask =
+                activeTask && !searchLower ? (
+                  <Command.Group key="current" heading={`Current Task: ${activeTask.title}`}>
+                    <PaletteItem
+                      icon={<Play size={14} color="#34d399" strokeWidth={1.5} />}
+                      label="Run Pipeline (/pipeline:dev-task)"
+                      onSelect={() =>
+                        run(() => {
+                          runPipeline(activeTask.id, '/pipeline:dev-task');
+                        })
+                      }
+                    />
+                    {loadingCache.get(activeTask.id) && (
+                      <PaletteItem
+                        icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
+                        label="Stop Claude Process (kill running pipeline)"
+                        onSelect={() =>
+                          run(() => {
+                            invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
+                            messageCache.delete(activeTask.id);
+                            sessionCache.delete(activeTask.id);
+                            loadingCache.delete(activeTask.id);
+                            useTaskStore.getState().updateTask(activeTask.id, {
+                              status: 'waiting',
+                              pipeline: undefined,
+                              elapsedSeconds: 0,
+                            });
+                          })
+                        }
                       />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
+                    )}
+                    {activeTask.status === 'active' && (
+                      <PaletteItem
+                        icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
+                        label="Pause Current Task (timer only)"
+                        hint="⌘⇧P"
+                        onSelect={() =>
+                          run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
+                        }
+                      />
+                    )}
+                    {activeTask.status === 'paused' && (
+                      <PaletteItem
+                        icon={<RotateCcw size={14} color="#34d399" strokeWidth={1.5} />}
+                        label="Resume Current Task"
+                        hint="⌘⇧R"
+                        onSelect={() => run(() => resumeTask(activeTask.id))}
+                      />
+                    )}
+                    {activeTask.status !== 'done' && (
+                      <PaletteItem
+                        icon={<CheckCircle2 size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                        label="Mark as Done"
+                        onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
+                      />
+                    )}
+                  </Command.Group>
+                ) : null;
+
+              const sectionTasks =
+                filteredTasks.length > 0 ? (
+                  <Command.Group key="tasks" heading="Tasks">
+                    {filteredTasks.map((task) => {
+                      const project = projects.find((p) => p.id === task.projectId);
+                      const dotColor =
+                        task.status === 'active'
+                          ? '#34d399'
+                          : task.status === 'paused'
+                            ? '#eab308'
+                            : task.status === 'done'
+                              ? '#5aa5a5'
+                              : '#3d4856';
+                      return (
+                        <PaletteItem
+                          key={task.id}
+                          icon={<Circle size={10} fill={dotColor} stroke="none" />}
+                          label={task.title}
+                          hint={project?.name || (task.branchName ? task.branchName : undefined)}
+                          keywords={[task.title, task.branchName, project?.name || '']}
+                          onSelect={() => run(() => setActiveTask(task.id))}
+                        />
+                      );
+                    })}
+                  </Command.Group>
+                ) : null;
+
+              const sectionProjects =
+                filteredProjects.length > 0 ? (
+                  <Command.Group key="projects" heading="Projects">
+                    {filteredProjects.map((project) => (
+                      <PaletteItem
+                        key={project.id}
+                        icon={
+                          <span
+                            style={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: 3,
+                              background: project.color,
+                              display: 'inline-block',
+                            }}
+                          />
+                        }
+                        label={project.name}
+                        hint={project.localPath || project.githubRepo}
+                        keywords={[project.name, project.githubRepo, project.githubOwner]}
+                        onSelect={() =>
+                          run(() => {
+                            const firstTask = tasks.find((t) => t.projectId === project.id);
+                            if (firstTask) setActiveTask(firstTask.id);
+                          })
+                        }
+                      />
+                    ))}
+                  </Command.Group>
+                ) : null;
+
+              const sectionChat =
+                ftsHits.length > 0 ? (
+                  <Command.Group key="chat" heading="Chat Messages">
+                    {ftsHits.map((hit) => {
+                      const task = tasks.find((t) => t.id === hit.taskId);
+                      if (!task) return null;
+                      const project = projects.find((p) => p.id === task.projectId);
+                      const plainSnippet = hit.snippet.replace(/<\/?mark>/g, '');
+                      return (
+                        <Command.Item
+                          key={`fts-${hit.messageId}`}
+                          value={`msg-${hit.messageId}-${search}`}
+                          onSelect={() => run(() => setActiveTask(hit.taskId))}
                           style={{
-                            fontSize: 11,
-                            color: '#6b7585',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 12,
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            color: '#c0c8d4',
                           }}
                         >
-                          {task.title}
-                          {project && <span style={{ color: '#3d4856' }}> · {project.name}</span>}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: '#8b95a5',
-                            marginTop: 2,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                          }}
-                          dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                        />
-                        {/* Hidden value for cmdk matching — the plain text */}
-                        <span style={{ display: 'none' }}>{plainSnippet}</span>
-                      </div>
-                    </Command.Item>
-                  );
-                })}
-              </Command.Group>
-            )}
+                          <MessageSquare
+                            size={12}
+                            color="#7dbdbd"
+                            strokeWidth={1.5}
+                            style={{ flexShrink: 0, marginTop: 2 }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: '#6b7585',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {task.title}
+                              {project && <span style={{ color: '#3d4856' }}> · {project.name}</span>}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: '#8b95a5',
+                                marginTop: 2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: hit.snippet }}
+                            />
+                            <span style={{ display: 'none' }}>{plainSnippet}</span>
+                          </div>
+                        </Command.Item>
+                      );
+                    })}
+                  </Command.Group>
+                ) : null;
 
-            {/* ── Actions (moved to bottom) ── */}
-            <Command.Group heading="Actions">
-              {showAction('New Task') && (
-                <PaletteItem
-                  icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
-                  label="New Task"
-                  hint="⌘N"
-                  onSelect={() => run(onNewTask)}
-                />
-              )}
-              {showAction('New Project') && (
-                <PaletteItem
-                  icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
-                  label="New Project"
-                  onSelect={() => run(onNewProject)}
-                />
-              )}
-              {showAction('Open Settings') && (
-                <PaletteItem
-                  icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Open Settings"
-                  hint="⌘,"
-                  onSelect={() => run(onOpenSettings)}
-                />
-              )}
-              {showAction('Daily Report') && (
-                <PaletteItem
-                  icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Daily Report"
-                  onSelect={() => run(onShowReport)}
-                />
-              )}
-              {showAction('Toggle Sidebar') && (
-                <PaletteItem
-                  icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Toggle Sidebar"
-                  hint="⌘B"
-                  onSelect={() => run(onToggleSidebar)}
-                />
-              )}
-              {showAction('Toggle Right Panel') && (
-                <PaletteItem
-                  icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Toggle Right Panel"
-                  hint="⌘⇧B"
-                  onSelect={() => run(onToggleRightPanel)}
-                />
-              )}
-            </Command.Group>
+              // Empty search: Actions → Current Task → Tasks → Projects
+              // With search:   Projects → Tasks → Chat Messages → Actions
+              if (!searchLower) {
+                return [sectionActions, sectionCurrentTask, sectionTasks, sectionProjects];
+              }
+              return [sectionProjects, sectionTasks, sectionChat, sectionActions];
+            })()}
           </Command.List>
         </Command>
       </div>
