@@ -14,6 +14,7 @@ import { useProjectStore } from './stores/projectStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
+import { CostDashboard } from './components/CostDashboard';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -29,6 +30,7 @@ export default function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showCrashRecovery, setShowCrashRecovery] = useState(false);
+  const [showCostDashboard, setShowCostDashboard] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -299,8 +301,10 @@ export default function App() {
         onToggleSidebar={() => setShowSidebar((v) => !v)}
         onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         onShowReport={() => setShowReport(true)}
+        onShowCostDashboard={() => setShowCostDashboard(true)}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
+      {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {
