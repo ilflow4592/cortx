@@ -183,13 +183,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const activityId = `${reqId}-activity`;
 
   type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
-  let loadingCleared = false;
   const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
-    // Turn off loading indicator once real content starts arriving
-    if (!loadingCleared) {
-      loadingCleared = true;
-      loadingCache.set(taskId, false);
-    }
+    // loadingCache stays true throughout the pipeline so the Stop button
+    // remains visible. The "Claude is thinking..." indicator is hidden
+    // automatically in ChatMessageList when any assistant/activity message exists.
     const cached = messageCache.get(taskId) || [];
     messageCache.set(taskId, updater(cached));
   };

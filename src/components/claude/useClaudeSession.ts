@@ -156,7 +156,7 @@ export function useClaudeSession(
         setMessagesRaw([]);
         messagesRef.current = [];
       }
-    }, 1000);
+    }, 300);
     return () => clearInterval(interval);
   }, [taskId, messages.length, loading]);
 
@@ -395,6 +395,9 @@ export function useClaudeSession(
     if (currentReqIdRef.current) {
       invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
     }
+    // Also kill any Claude process associated with this task (covers runPipeline path
+    // which doesn't populate currentReqIdRef)
+    invoke('claude_stop_task', { taskId }).catch(() => {});
     unlistenRefs.current.forEach((fn) => fn());
     unlistenRefs.current = [];
     setMessages([]);
@@ -429,9 +432,10 @@ export function useClaudeSession(
     }
 
     // Pipeline commands → delegate to shared pipelineExec (same path as Run Pipeline button)
-    // Do NOT set loading — pipelineExec manages its own activity messages via messageCache.
-    // The messageCache sync interval will pick up messages and render them.
+    // Set loading immediately so Stop button appears without waiting for interval sync.
+    // pipelineExec also sets loadingCache at start and clears it on completion.
     if (text.startsWith('/pipeline:')) {
+      setLoading(true);
       runPipeline(taskId, text);
       return;
     }

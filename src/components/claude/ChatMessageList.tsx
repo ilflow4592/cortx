@@ -134,7 +134,7 @@ export function ChatMessageList({
         })}
       </div>
 
-      {loading && (
+      {loading && !messages.some((m) => m.role === 'assistant' || m.role === 'activity') && (
         <div className="msg">
           <div className="msg-avatar ai">C</div>
           <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
