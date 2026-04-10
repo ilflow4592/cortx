@@ -69,7 +69,35 @@ cd cortx
 ./setup.sh
 ```
 
-The setup script installs Node.js, Rust, Ollama, Qdrant, npm dependencies, and builds the `.dmg`.
+### What `setup.sh` installs automatically
+
+- Homebrew
+- Node.js 22
+- Rust (via rustup)
+- Ollama + `nomic-embed-text` embedding model
+- Qdrant container (if Docker is already installed)
+- npm dependencies
+- Cortx `.dmg` build (optional — asks before building)
+
+### What you need to install manually
+
+Two things require manual installation because they need GUI setup or OAuth login:
+
+**1. Docker Desktop** (required for Qdrant — semantic search)
+
+```bash
+brew install --cask docker
+open -a Docker  # launch once to accept the license
+```
+
+**2. Claude CLI** (required for Claude Code integration)
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude login  # opens browser for OAuth
+```
+
+After installing both, re-run `./setup.sh` — it will detect them and finish the Qdrant container setup.
 
 ## Development
 
