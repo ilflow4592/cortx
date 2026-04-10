@@ -30,7 +30,6 @@ import { runPipeline } from '../utils/pipelineExec';
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
 import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
-import { invalidatePipelineConfig } from '../services/pipelineConfig';
 
 interface Props {
   open: boolean;
@@ -42,6 +41,7 @@ interface Props {
   onToggleRightPanel: () => void;
   onShowReport: () => void;
   onShowWorktreeCleanup: () => void;
+  onEditPipelineConfig: (projectPath: string, projectName: string) => void;
 }
 
 export function CommandPalette({
@@ -54,6 +54,7 @@ export function CommandPalette({
   onToggleRightPanel,
   onShowReport,
   onShowWorktreeCleanup,
+  onEditPipelineConfig,
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
@@ -316,7 +317,7 @@ export function CommandPalette({
                       icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
                       label="Edit Pipeline Config"
                       onSelect={() =>
-                        run(async () => {
+                        run(() => {
                           const project = activeTask.projectId
                             ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId)
                             : null;
@@ -324,27 +325,7 @@ export function CommandPalette({
                             alert('Current task has no project with a local path');
                             return;
                           }
-                          try {
-                            // Create .cortx dir and pipeline.json if missing, then open in default editor
-                            const templ = JSON.stringify(
-                              {
-                                names: { grill_me: 'Grill-me', dev_plan: 'Dev Plan', implement: 'Implement' },
-                                models: { implement: 'Sonnet' },
-                                hidden: [],
-                              },
-                              null,
-                              2,
-                            );
-                            const b64 = btoa(unescape(encodeURIComponent(templ)));
-                            await invoke('run_shell_command', {
-                              cwd: project.localPath,
-                              command: `mkdir -p .cortx && [ -f .cortx/pipeline.json ] || echo '${b64}' | base64 -d > .cortx/pipeline.json; open .cortx/pipeline.json`,
-                            });
-                            // Invalidate cache so next task switch reloads
-                            invalidatePipelineConfig(project.localPath);
-                          } catch (err) {
-                            alert(`Failed to open pipeline config: ${err}`);
-                          }
+                          onEditPipelineConfig(project.localPath, project.name);
                         })
                       }
                     />

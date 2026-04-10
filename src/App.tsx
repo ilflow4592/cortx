@@ -16,6 +16,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
 import { CostDashboard } from './components/CostDashboard';
 import { WorktreeCleanup } from './components/WorktreeCleanup';
+import { PipelineConfigEditor } from './components/PipelineConfigEditor';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -33,6 +34,7 @@ export default function App() {
   const [showCrashRecovery, setShowCrashRecovery] = useState(false);
   const [showCostDashboard, setShowCostDashboard] = useState(false);
   const [showWorktreeCleanup, setShowWorktreeCleanup] = useState(false);
+  const [pipelineConfigEditor, setPipelineConfigEditor] = useState<{ path: string; name: string } | null>(null);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -305,10 +307,18 @@ export default function App() {
         onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         onShowReport={() => setShowReport(true)}
         onShowWorktreeCleanup={() => setShowWorktreeCleanup(true)}
+        onEditPipelineConfig={(path, name) => setPipelineConfigEditor({ path, name })}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
       {showWorktreeCleanup && <WorktreeCleanup onClose={() => setShowWorktreeCleanup(false)} />}
+      {pipelineConfigEditor && (
+        <PipelineConfigEditor
+          projectPath={pipelineConfigEditor.path}
+          projectName={pipelineConfigEditor.name}
+          onClose={() => setPipelineConfigEditor(null)}
+        />
+      )}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {
