@@ -5,7 +5,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { ClaudeChat } from './claude/ClaudeChat';
 import { TerminalView } from './TerminalView';
-import { ContextPack } from './ContextPack';
+import { ContextPack } from './context/ContextPack';
 import { CodeEditor } from './CodeEditor';
 import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';

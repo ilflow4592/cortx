@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Pin, Paperclip } from 'lucide-react';
-import { useContextPackStore } from '../stores/contextPackStore';
-import { useTaskStore } from '../stores/taskStore';
-import { useProjectStore } from '../stores/projectStore';
 import { invoke } from '@tauri-apps/api/core';
-import type { ContextItem } from '../types/contextPack';
-import { GitHubIcon, SlackIcon, NotionIcon, McpIcon, PinIcon } from './SourceIcons';
+import { useContextPackStore } from '../../stores/contextPackStore';
+import { useTaskStore } from '../../stores/taskStore';
+import { useProjectStore } from '../../stores/projectStore';
+import type { ContextItem } from '../../types/contextPack';
+import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
+import { McpStatusBar } from './McpStatusBar';
+import { ContextItemCard } from './ContextItemCard';
+import { PinDialog } from './PinDialog';
+import { CollectProgress } from './CollectProgress';
 
 const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
   { value: 'claude-sonnet-4-6', label: 'Sonnet' },
   { value: 'claude-opus-4-6', label: 'Opus' },
 ];
+
+type ServiceType = 'github' | 'notion' | 'slack' | 'other';
+
+function sourceIcon(t: string) {
+  if (t === 'github') return <GitHubIcon size={14} color="#a1a1aa" />;
+  if (t === 'slack') return <SlackIcon size={14} />;
+  if (t === 'notion') return <NotionIcon size={14} color="#a1a1aa" />;
+  return <PinIcon size={14} />;
+}
 
 export function ContextPack({ taskId }: { taskId: string }) {
   const isCollecting = useContextPackStore((s) => s.collecting[taskId] || false);
@@ -31,11 +44,12 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
   const [collectModel, setCollectModel] = useState('claude-haiku-4-5-20251001');
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [pinUrl, setPinUrl] = useState('');
-  const [pinTitle, setPinTitle] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<{ url: string; title: string; description: string } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+
+  const mcpServers = useContextPackStore((s) => s.mcpServers);
+  const [searchResources, setSearchResources] = useState<Set<ServiceType>>(new Set(['github']));
 
   // Tauri native file drop handler
   useEffect(() => {
@@ -89,19 +103,6 @@ export function ContextPack({ taskId }: { taskId: string }) {
     };
   }, [taskId]);
 
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
-  const sortedItems = [...taskItems].sort(
-    (a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9),
-  );
-  const filtered = sourceFilter ? sortedItems.filter((i) => i.sourceType === sourceFilter) : sortedItems;
-  const newCount = taskItems.filter((i) => i.isNew).length;
-  type ServiceType = 'github' | 'notion' | 'slack' | 'other';
-
-  const mcpServers = useContextPackStore((s) => s.mcpServers);
-  const mcpLoading = useContextPackStore((s) => s.mcpLoading);
-  const [searchResources, setSearchResources] = useState<Set<ServiceType>>(new Set(['github']));
-
   useEffect(() => {
     // Clear this task's progress on mount
     const store = useContextPackStore.getState();
@@ -116,16 +117,13 @@ export function ContextPack({ taskId }: { taskId: string }) {
     if (readyServices.size > 0) setSearchResources(readyServices);
   }, [mcpServers]);
 
-  const icon = (t: string) =>
-    t === 'github' ? (
-      <GitHubIcon size={14} color="#a1a1aa" />
-    ) : t === 'slack' ? (
-      <SlackIcon size={14} />
-    ) : t === 'notion' ? (
-      <NotionIcon size={14} color="#a1a1aa" />
-    ) : (
-      <PinIcon size={14} />
-    );
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
+  const sortedItems = [...taskItems].sort(
+    (a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9),
+  );
+  const filtered = sourceFilter ? sortedItems.filter((i) => i.sourceType === sourceFilter) : sortedItems;
+  const newCount = taskItems.filter((i) => i.isNew).length;
 
   const handleCollect = () => {
     const store = useContextPackStore.getState();
@@ -233,25 +231,6 @@ export function ContextPack({ taskId }: { taskId: string }) {
     );
   };
 
-  const handlePin = () => {
-    if (!pinTitle.trim()) return;
-    useContextPackStore
-      .getState()
-      .addPin(taskId, {
-        id: `pin-${Date.now().toString(36)}`,
-        sourceType: 'pin',
-        title: pinTitle.trim(),
-        url: pinUrl.trim(),
-        summary: 'Pinned',
-        timestamp: new Date().toISOString(),
-        isNew: false,
-        category: 'pinned',
-      } as ContextItem);
-    setPinUrl('');
-    setPinTitle('');
-    setShowPin(false);
-  };
-
   const handlePreview = async (url: string) => {
     if (!url || loadingPreview) return;
     setLoadingPreview(true);
@@ -321,136 +300,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
           </div>
         )}
 
-        {/* MCP Servers */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div
-              style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}
-            >
-              MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3d4856' }}>({mcpServers.length})</span>}
-            </div>
-            <button
-              onClick={() => useContextPackStore.getState().loadMcpServers()}
-              disabled={mcpLoading}
-              className="icon-btn-subtle"
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: 10,
-                color: '#4d5868',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                padding: '2px 6px',
-                borderRadius: 4,
-              }}
-              title="Reload MCP servers from config"
-            >
-              {mcpLoading ? '...' : '↻ Reload'}
-            </button>
-          </div>
-          {mcpServers.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {mcpServers.map((server) => {
-                const needsAuth = server.status === 'auth-needed';
-                return (
-                  <span
-                    key={server.name}
-                    onClick={
-                      needsAuth && server.authUrl
-                        ? () => {
-                            import('@tauri-apps/plugin-shell')
-                              .then(({ open }) => open(server.authUrl!))
-                              .catch(() => {
-                                window.open(server.authUrl, '_blank');
-                              });
-                          }
-                        : undefined
-                    }
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      fontSize: 11,
-                      background: needsAuth ? 'rgba(234,179,8,0.06)' : 'rgba(52,211,153,0.06)',
-                      border: `1px solid ${needsAuth ? 'rgba(234,179,8,0.15)' : 'rgba(52,211,153,0.15)'}`,
-                      color: needsAuth ? '#eab308' : '#34d399',
-                      cursor: needsAuth ? 'pointer' : 'default',
-                    }}
-                    title={needsAuth ? `Click to authenticate ${server.name}` : `${server.name} — ready`}
-                  >
-                    <McpIcon size={12} />
-                    {server.name}
-                    {needsAuth && <span style={{ fontSize: 9 }}>⚠</span>}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, color: '#3d4856', fontStyle: 'italic' }}>No MCP servers configured</div>
-          )}
-        </div>
-
-        {/* Vector DB status + Find related — hidden until enough cross-task data exists */}
-
-        {/* Related items from other tasks — hidden until semantic search is needed */}
-
-        {/* Connected Sources */}
-        {sources.filter((s) => s.enabled && s.token).length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                color: '#4d5868',
-                marginBottom: 6,
-              }}
-            >
-              Connected Sources
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {sources
-                .filter((s) => s.enabled && s.token)
-                .map((source, i) => {
-                  const sourceIcon =
-                    source.type === 'github' ? (
-                      <GitHubIcon size={12} color="#7dbdbd" />
-                    ) : source.type === 'slack' ? (
-                      <SlackIcon size={12} />
-                    ) : (
-                      <NotionIcon size={12} color="#7dbdbd" />
-                    );
-                  const name =
-                    source.type === 'github'
-                      ? `${source.owner}/${source.repo}`
-                      : source.type === 'slack'
-                        ? 'Slack'
-                        : 'Notion';
-                  return (
-                    <span
-                      key={i}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '4px 10px',
-                        borderRadius: 6,
-                        background: 'rgba(125,189,189,0.06)',
-                        border: '1px solid rgba(125,189,189,0.15)',
-                        fontSize: 11,
-                        color: '#7dbdbd',
-                      }}
-                    >
-                      {sourceIcon} {name}
-                    </span>
-                  );
-                })}
-            </div>
-          </div>
-        )}
+        <McpStatusBar sources={sources} />
 
         {/* Search Resources */}
         {(() => {
@@ -743,93 +593,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
           </div>
         </div>
 
-        {/* Collection progress */}
-        {collectProgress.length > 0 &&
-          (isCollecting || collectProgress.some((p) => p.status === 'done' || p.status === 'error')) && (
-            <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {collectProgress.map((p) => (
-                <div key={p.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                  <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
-                    {p.status === 'pending' && <span style={{ color: '#4d5868' }}>○</span>}
-                    {p.status === 'collecting' && (
-                      <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-                    )}
-                    {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
-                    {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
-                  </span>
-                  <span
-                    style={{ color: p.status === 'collecting' ? '#e8eef5' : '#888895', textTransform: 'capitalize' }}
-                  >
-                    {p.type}
-                  </span>
-                  {p.status === 'done' && (
-                    <span style={{ color: '#4d5868' }}>
-                      — {p.itemCount} items
-                      {p.tokenUsage && (
-                        <span style={{ marginLeft: 6, color: '#3d4856' }}>
-                          (~{p.tokenUsage.input + p.tokenUsage.output} tok)
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {p.status === 'error' && (
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ color: '#ef4444' }}>— failed</span>
-                      {p.error && (
-                        <span
-                          onClick={() => navigator.clipboard.writeText(p.error || '')}
-                          title="Click to copy"
-                          style={{
-                            color: '#4d5868',
-                            fontSize: 10,
-                            marginTop: 2,
-                            wordBreak: 'break-all',
-                            maxWidth: 400,
-                            cursor: 'pointer',
-                            userSelect: 'text',
-                            WebkitUserSelect: 'text',
-                          }}
-                        >
-                          {p.error.slice(0, 200)} <span style={{ color: '#3d4856' }}>📋</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {/* Total token usage */}
-              {collectProgress.some((p) => p.tokenUsage) && (
-                <div style={{ fontSize: 10, color: '#3d4856', marginTop: 4, textAlign: 'right' }}>
-                  Total: ~
-                  {collectProgress.reduce(
-                    (sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0),
-                    0,
-                  )}{' '}
-                  tokens
-                </div>
-              )}
-            </div>
-          )}
+        <CollectProgress progress={collectProgress} isCollecting={isCollecting} />
 
-        {showPin && (
-          <div className="ctx-pin-form">
-            <input value={pinTitle} onChange={(e) => setPinTitle(e.target.value)} placeholder="Title" />
-            <input
-              value={pinUrl}
-              onChange={(e) => setPinUrl(e.target.value)}
-              placeholder="URL (optional)"
-              style={{ fontFamily: 'Fira Code, JetBrains Mono, monospace', fontSize: 11 }}
-            />
-            <div className="ctx-pin-actions">
-              <button style={{ background: 'none', color: '#888895' }} onClick={() => setShowPin(false)}>
-                Cancel
-              </button>
-              <button style={{ background: '#5aa5a5', color: '#fff' }} onClick={handlePin}>
-                Pin
-              </button>
-            </div>
-          </div>
-        )}
+        {showPin && <PinDialog taskId={taskId} onClose={() => setShowPin(false)} />}
 
         {lastCol && <div className="ctx-collected-at">Last collected: {new Date(lastCol).toLocaleTimeString()}</div>}
       </div>
@@ -891,7 +657,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       textTransform: 'capitalize',
                     }}
                   >
-                    {icon(st)}
+                    {sourceIcon(st)}
                     {st} ({sourceCounts[st]})
                   </button>
                 ))}
@@ -924,7 +690,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
           ) : (
             preview && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}
+                >
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>{preview.title || 'No title'}</div>
                   <button
                     onClick={() => setPreview(null)}
@@ -981,52 +749,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
           </div>
         ) : (
           filtered.map((item) => (
-            <div key={item.id} className="cp-item" style={{ position: 'relative' }}>
-              <div className="cp-icon">{icon(item.sourceType)}</div>
-              <div className="cp-body">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {item.url ? (
-                    <span
-                      className="cp-name"
-                      style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#3d4856' }}
-                      onClick={() => handlePreview(item.url)}
-                    >
-                      {item.title}
-                    </span>
-                  ) : (
-                    <span className="cp-name">{item.title}</span>
-                  )}
-                  {item.isNew && <span className="cp-new">NEW</span>}
-                  {item.url && (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 10, color: '#4d5868', flexShrink: 0 }}
-                      title="Open in browser"
-                    >
-                      ↗
-                    </a>
-                  )}
-                </div>
-                <div className="cp-sub">{item.summary}</div>
-              </div>
-              <button
-                onClick={() => useContextPackStore.getState().removeItem(taskId, item.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#3d4856',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  position: 'absolute',
-                  right: 0,
-                  top: 8,
-                }}
-              >
-                ×
-              </button>
-            </div>
+            <ContextItemCard key={item.id} taskId={taskId} item={item} onPreview={handlePreview} />
           ))
         )}
       </div>
