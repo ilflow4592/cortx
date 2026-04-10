@@ -9,7 +9,7 @@ import { ContextPack } from './context/ContextPack';
 import { CodeEditor } from './CodeEditor';
 import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';
-import { RightPanel } from './RightPanel';
+import { RightPanel } from './right-panel/RightPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';

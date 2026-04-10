@@ -5,7 +5,7 @@ import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
 import { NewTaskModal } from './components/NewTaskModal';
 import { NewProjectModal } from './components/NewProjectModal';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { DailyReport } from './components/DailyReport';
 import { Onboarding } from './components/Onboarding';
 import { ProjectSettings } from './components/ProjectSettings';
