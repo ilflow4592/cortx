@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Square,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -36,6 +37,7 @@ interface Props {
   onToggleSidebar: () => void;
   onToggleRightPanel: () => void;
   onShowReport: () => void;
+  onShowWorktreeCleanup: () => void;
 }
 
 export function CommandPalette({
@@ -47,6 +49,7 @@ export function CommandPalette({
   onToggleSidebar,
   onToggleRightPanel,
   onShowReport,
+  onShowWorktreeCleanup,
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
@@ -111,6 +114,7 @@ export function CommandPalette({
       { label: 'New Project', keywords: ['new', 'project', 'create', 'folder'] },
       { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
+      { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'prune', 'delete', 'clean'] },
       { label: 'Toggle Sidebar', keywords: ['sidebar', 'panel', 'toggle'] },
       { label: 'Toggle Right Panel', keywords: ['right', 'panel', 'context', 'toggle'] },
     ],
@@ -265,6 +269,13 @@ export function CommandPalette({
                       icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
                       label="Daily Report"
                       onSelect={() => run(onShowReport)}
+                    />
+                  )}
+                  {showAction('Worktree Cleanup') && (
+                    <PaletteItem
+                      icon={<Trash2 size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Worktree Cleanup"
+                      onSelect={() => run(onShowWorktreeCleanup)}
                     />
                   )}
                   {showAction('Toggle Sidebar') && (
