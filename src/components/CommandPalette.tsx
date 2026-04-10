@@ -23,6 +23,7 @@ import {
   Trash2,
   Download,
   Upload,
+  Server,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -42,6 +43,7 @@ interface Props {
   onShowReport: () => void;
   onShowWorktreeCleanup: () => void;
   onEditPipelineConfig: (projectPath: string, projectName: string) => void;
+  onShowMcpManager: () => void;
 }
 
 export function CommandPalette({
@@ -55,6 +57,7 @@ export function CommandPalette({
   onShowReport,
   onShowWorktreeCleanup,
   onEditPipelineConfig,
+  onShowMcpManager,
 }: Props) {
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
@@ -145,6 +148,7 @@ export function CommandPalette({
       { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
       { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'delete', 'clean'] },
+      { label: 'Manage MCP Servers', keywords: ['mcp', 'server', 'manage', 'claude.json'] },
       { label: 'Edit Pipeline Config', keywords: ['pipeline', 'config', 'customize', 'phases', 'edit'] },
       { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
@@ -310,6 +314,13 @@ export function CommandPalette({
                       icon={<Trash2 size={14} color="#a1a1aa" strokeWidth={1.5} />}
                       label="Worktree Cleanup"
                       onSelect={() => run(onShowWorktreeCleanup)}
+                    />
+                  )}
+                  {showAction('Manage MCP Servers') && (
+                    <PaletteItem
+                      icon={<Server size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      label="Manage MCP Servers"
+                      onSelect={() => run(onShowMcpManager)}
                     />
                   )}
                   {activeTask && showAction('Edit Pipeline Config') && (

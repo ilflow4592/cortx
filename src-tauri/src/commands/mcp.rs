@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 /// Information about a configured MCP (Model Context Protocol) server.
 #[derive(Serialize, Deserialize)]
@@ -76,6 +77,93 @@ pub fn list_mcp_servers() -> Vec<McpServerInfo> {
     }
 
     servers
+}
+
+/// Path to ~/.claude.json
+fn claude_json_path() -> Result<std::path::PathBuf, String> {
+    let home = std::env::var_os("HOME").ok_or_else(|| "HOME not set".to_string())?;
+    Ok(std::path::Path::new(&home).join(".claude.json"))
+}
+
+/// Read ~/.claude.json as a JSON Value (returns empty object if missing).
+fn read_claude_json() -> Result<Value, String> {
+    let path = claude_json_path()?;
+    if !path.exists() {
+        return Ok(json!({}));
+    }
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))?;
+    serde_json::from_str(&content).map_err(|e| format!("Parse failed: {}", e))
+}
+
+/// Write a JSON Value back to ~/.claude.json, preserving all other keys.
+fn write_claude_json(value: &Value) -> Result<(), String> {
+    let path = claude_json_path()?;
+    let content = serde_json::to_string_pretty(value).map_err(|e| format!("Serialize failed: {}", e))?;
+    std::fs::write(&path, content).map_err(|e| format!("Write failed: {}", e))
+}
+
+/// Input config for adding/updating an MCP server.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct McpServerInput {
+    pub name: String,
+    /// "stdio" or "http"
+    pub server_type: String,
+    pub command: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub env: Option<std::collections::HashMap<String, String>>,
+    pub url: Option<String>,
+}
+
+/// Add or update an MCP server in ~/.claude.json. Returns the new server count.
+#[tauri::command]
+pub fn upsert_mcp_server(server: McpServerInput) -> Result<usize, String> {
+    let mut root = read_claude_json()?;
+    // Ensure root is an object
+    if !root.is_object() {
+        root = json!({});
+    }
+    let obj = root.as_object_mut().ok_or_else(|| "Root is not an object".to_string())?;
+    // Get or create mcpServers
+    if !obj.contains_key("mcpServers") {
+        obj.insert("mcpServers".to_string(), json!({}));
+    }
+    let mcp = obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()).ok_or_else(|| "mcpServers is not an object".to_string())?;
+
+    let mut cfg = serde_json::Map::new();
+    if server.server_type == "http" {
+        cfg.insert("type".to_string(), json!("http"));
+        cfg.insert("url".to_string(), json!(server.url.unwrap_or_default()));
+    } else {
+        cfg.insert("command".to_string(), json!(server.command.unwrap_or_default()));
+        if let Some(args) = server.args {
+            cfg.insert("args".to_string(), json!(args));
+        }
+    }
+    if let Some(env) = server.env {
+        if !env.is_empty() {
+            cfg.insert("env".to_string(), json!(env));
+        }
+    }
+
+    mcp.insert(server.name, Value::Object(cfg));
+    let count = mcp.len();
+    write_claude_json(&root)?;
+    Ok(count)
+}
+
+/// Remove an MCP server by name from ~/.claude.json. Returns true if removed.
+#[tauri::command]
+pub fn remove_mcp_server(name: String) -> Result<bool, String> {
+    let mut root = read_claude_json()?;
+    let mcp = root.get_mut("mcpServers").and_then(|v| v.as_object_mut());
+    let removed = match mcp {
+        Some(m) => m.remove(&name).is_some(),
+        None => false,
+    };
+    if removed {
+        write_claude_json(&root)?;
+    }
+    Ok(removed)
 }
 
 #[cfg(test)]

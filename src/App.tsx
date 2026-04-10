@@ -17,6 +17,7 @@ import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
 import { CostDashboard } from './components/CostDashboard';
 import { WorktreeCleanup } from './components/WorktreeCleanup';
 import { PipelineConfigEditor } from './components/PipelineConfigEditor';
+import { McpServerManager } from './components/McpServerManager';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -35,6 +36,7 @@ export default function App() {
   const [showCostDashboard, setShowCostDashboard] = useState(false);
   const [showWorktreeCleanup, setShowWorktreeCleanup] = useState(false);
   const [pipelineConfigEditor, setPipelineConfigEditor] = useState<{ path: string; name: string } | null>(null);
+  const [showMcpManager, setShowMcpManager] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -308,6 +310,7 @@ export default function App() {
         onShowReport={() => setShowReport(true)}
         onShowWorktreeCleanup={() => setShowWorktreeCleanup(true)}
         onEditPipelineConfig={(path, name) => setPipelineConfigEditor({ path, name })}
+        onShowMcpManager={() => setShowMcpManager(true)}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
@@ -319,6 +322,7 @@ export default function App() {
           onClose={() => setPipelineConfigEditor(null)}
         />
       )}
+      {showMcpManager && <McpServerManager onClose={() => setShowMcpManager(false)} />}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {
