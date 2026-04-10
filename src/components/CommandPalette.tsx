@@ -380,7 +380,7 @@ export function CommandPalette({
                   return keywords.some((k) => matchesSearch(k));
                 };
 
-                if (matchCurrent('Run Pipeline', ['run', 'pipeline', 'dev-task', 'start'])) {
+                if (matchCurrent('Run Pipeline (/pipeline:dev-task)', ['run', 'pipeline', 'dev-task', 'start'])) {
                   currentTaskItems.push(
                     <PaletteItem
                       key="run-pipeline"
@@ -396,7 +396,7 @@ export function CommandPalette({
                 }
                 if (
                   loadingCache.get(activeTask.id) &&
-                  matchCurrent('Stop Claude Process', ['stop', 'kill', 'abort', 'cancel'])
+                  matchCurrent('Stop Claude Process (kill running pipeline)', ['stop', 'kill', 'abort', 'cancel'])
                 ) {
                   currentTaskItems.push(
                     <PaletteItem
@@ -419,7 +419,7 @@ export function CommandPalette({
                     />,
                   );
                 }
-                if (activeTask.status === 'active' && matchCurrent('Pause Current Task', ['pause', 'timer'])) {
+                if (activeTask.status === 'active' && matchCurrent('Pause Current Task (timer only)', ['pause', 'timer'])) {
                   currentTaskItems.push(
                     <PaletteItem
                       key="pause-task"
