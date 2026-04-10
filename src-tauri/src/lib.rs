@@ -86,6 +86,7 @@ pub fn run() {
             commands::claude::read_slash_command,
             commands::claude::write_slash_command,
             commands::claude::delete_slash_command,
+            commands::claude::open_task_window,
             commands::claude::claude_spawn,
             commands::claude::claude_stop,
             commands::claude::claude_stop_task,

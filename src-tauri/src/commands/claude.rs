@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use crate::pty::SharedPtyManager;
 
 /// A slash command entry for the autocomplete menu in the chat UI.
@@ -169,6 +170,34 @@ pub fn delete_slash_command(name: String, source: String, project_cwd: Option<St
         return Err(format!("File not found: {}", path.display()));
     }
     std::fs::remove_file(&path).map_err(|e| format!("Delete failed: {}", e))
+}
+
+/// Open a new webview window showing a single task in popout mode.
+/// Query params: ?task=<taskId>&mode=popout
+#[tauri::command]
+pub fn open_task_window(task_id: String, task_title: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::WebviewWindowBuilder;
+
+    // Unique label per task so reopening focuses instead of duplicating
+    let label = format!("task-{}", task_id.replace(|c: char| !c.is_alphanumeric(), "-"));
+
+    // If a window with this label already exists, just focus it
+    if let Some(existing) = app.get_webview_window(&label) {
+        existing.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    let url = format!("index.html?task={}&mode=popout", task_id);
+    WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
+        .title(format!("Cortx — {}", task_title))
+        .inner_size(1100.0, 750.0)
+        .min_inner_size(700.0, 500.0)
+        .decorations(true)
+        .resizable(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 // ── PTY commands ──

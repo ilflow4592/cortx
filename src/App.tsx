@@ -21,8 +21,32 @@ import { PipelineConfigEditor } from './components/PipelineConfigEditor';
 import { McpServerManager } from './components/McpServerManager';
 import { SlashCommandBuilder } from './components/SlashCommandBuilder';
 import { UpdateChecker } from './components/UpdateChecker';
+import { TaskPopoutWindow } from './components/TaskPopoutWindow';
+
+// Detect if this window is a task popout (URL query string has ?mode=popout&task=<id>)
+function getPopoutTaskId(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'popout') {
+      const taskId = params.get('task');
+      return taskId || null;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 export default function App() {
+  // Popout window: render a minimal task-only layout and bail out early
+  const popoutTaskId = getPopoutTaskId();
+  if (popoutTaskId) {
+    return <TaskPopoutWindow taskId={popoutTaskId} />;
+  }
+  return <MainApp />;
+}
+
+function MainApp() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskProjectId, setNewTaskProjectId] = useState<string | undefined>(undefined);
   const [showNewProject, setShowNewProject] = useState(false);

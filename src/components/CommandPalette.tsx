@@ -26,6 +26,7 @@ import {
   Server,
   Slash,
   ArrowUp,
+  ExternalLink,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -506,6 +507,23 @@ export function CommandPalette({
                       icon={<CheckCircle2 size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Mark as Done"
                       onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
+                    />,
+                  );
+                }
+                if (matchCurrent('Open in New Window', ['window', 'popout', 'new', 'open'])) {
+                  currentTaskItems.push(
+                    <PaletteItem
+                      key="popout-window"
+                      icon={<ExternalLink size={14} color="var(--indigo)" strokeWidth={1.5} />}
+                      label="Open in New Window"
+                      onSelect={() =>
+                        run(() => {
+                          invoke('open_task_window', {
+                            taskId: activeTask.id,
+                            taskTitle: activeTask.title,
+                          }).catch((err) => alert(`Failed to open window: ${err}`));
+                        })
+                      }
                     />,
                   );
                 }
