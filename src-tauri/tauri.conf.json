@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.anthropic.com https://api.openai.com http://localhost:*; font-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.anthropic.com https://api.openai.com https://platform.claude.com https://console.anthropic.com http://localhost:5173 http://localhost:6333 http://localhost:10000 http://localhost:11434; font-src 'self' data:"
     }
   },
   "bundle": {
