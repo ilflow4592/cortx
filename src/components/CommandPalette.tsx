@@ -30,6 +30,7 @@ import { runPipeline } from '../utils/pipelineExec';
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
 import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
+import { invalidatePipelineConfig } from '../services/pipelineConfig';
 
 interface Props {
   open: boolean;
@@ -143,6 +144,7 @@ export function CommandPalette({
       { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
       { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'delete', 'clean'] },
+      { label: 'Edit Pipeline Config', keywords: ['pipeline', 'config', 'customize', 'phases', 'edit'] },
       { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
       { label: 'Import Tasks from JSON', keywords: ['import', 'json', 'load', 'restore'] },
@@ -307,6 +309,44 @@ export function CommandPalette({
                       icon={<Trash2 size={14} color="#a1a1aa" strokeWidth={1.5} />}
                       label="Worktree Cleanup"
                       onSelect={() => run(onShowWorktreeCleanup)}
+                    />
+                  )}
+                  {activeTask && showAction('Edit Pipeline Config') && (
+                    <PaletteItem
+                      icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      label="Edit Pipeline Config"
+                      onSelect={() =>
+                        run(async () => {
+                          const project = activeTask.projectId
+                            ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId)
+                            : null;
+                          if (!project?.localPath) {
+                            alert('Current task has no project with a local path');
+                            return;
+                          }
+                          try {
+                            // Create .cortx dir and pipeline.json if missing, then open in default editor
+                            const templ = JSON.stringify(
+                              {
+                                names: { grill_me: 'Grill-me', dev_plan: 'Dev Plan', implement: 'Implement' },
+                                models: { implement: 'Sonnet' },
+                                hidden: [],
+                              },
+                              null,
+                              2,
+                            );
+                            const b64 = btoa(unescape(encodeURIComponent(templ)));
+                            await invoke('run_shell_command', {
+                              cwd: project.localPath,
+                              command: `mkdir -p .cortx && [ -f .cortx/pipeline.json ] || echo '${b64}' | base64 -d > .cortx/pipeline.json; open .cortx/pipeline.json`,
+                            });
+                            // Invalidate cache so next task switch reloads
+                            invalidatePipelineConfig(project.localPath);
+                          } catch (err) {
+                            alert(`Failed to open pipeline config: ${err}`);
+                          }
+                        })
+                      }
                     />
                   )}
                   {activeTask && showAction('Export Current Task (Markdown)') && (

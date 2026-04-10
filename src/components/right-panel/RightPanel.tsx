@@ -12,6 +12,7 @@ import { DashboardTab } from './DashboardTab';
 import { WorktreeTab } from './WorktreeTab';
 import { ContextTab } from './ContextTab';
 import { HistoryTab } from './HistoryTab';
+import { usePipelineConfig } from '../../hooks/usePipelineConfig';
 
 type UpperTab = 'projects' | 'changes';
 type LowerTab = 'dashboard' | 'worktree' | 'context' | 'history';
@@ -38,6 +39,7 @@ export function RightPanel({
   const [showOpenMenu, setShowOpenMenu] = useState(false);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
+  const pipelineConfig = usePipelineConfig(activeTaskId);
   const updateTask = useTaskStore((s) => s.updateTask);
   const projects = useProjectStore((s) => s.projects);
   // Subscribe only to the specific task's data to avoid infinite re-renders
@@ -256,6 +258,7 @@ export function RightPanel({
               pipeline={pipeline}
               cwd={cwd}
               onResetClick={() => setShowResetModal(true)}
+              config={pipelineConfig}
             />
           )}
           {lowerTab === 'worktree' && <WorktreeTab task={task} taskProject={taskProject} />}

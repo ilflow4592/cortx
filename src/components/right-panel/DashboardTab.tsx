@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { PhaseStatus, PipelineState } from '../../types/task';
 import { PHASE_ORDER, PHASE_NAMES, PHASE_MODELS } from '../../constants/pipeline';
+import type { PipelineConfig } from '../../services/pipelineConfig';
 
 function formatTokens(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -48,11 +49,17 @@ export function DashboardTab({
   pipeline,
   cwd,
   onResetClick,
+  config,
 }: {
   pipeline: PipelineState | undefined;
   cwd: string;
   onResetClick: () => void;
+  config?: PipelineConfig;
 }) {
+  const phaseNames = config?.names || PHASE_NAMES;
+  const phaseModels = config?.models || PHASE_MODELS;
+  const hidden = config?.hidden || new Set();
+  const visibleOrder = PHASE_ORDER.filter((p) => !hidden.has(p));
   if (!pipeline?.enabled) {
     return (
       <div
@@ -150,7 +157,7 @@ export function DashboardTab({
           border: '1px solid #1e2530',
         }}
       >
-        {PHASE_ORDER.map((phase, i) => {
+        {visibleOrder.map((phase, i) => {
           const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
           return (
             <span key={phase} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -162,9 +169,9 @@ export function DashboardTab({
                   fontWeight: entry.status === 'in_progress' ? 600 : 400,
                 }}
               >
-                {PHASE_NAMES[phase]}
+                {phaseNames[phase]}
               </span>
-              {i < PHASE_ORDER.length - 1 && (
+              {i < visibleOrder.length - 1 && (
                 <span style={{ color: '#2a3642', fontSize: 9, margin: '0 1px' }}>→</span>
               )}
             </span>
@@ -175,9 +182,10 @@ export function DashboardTab({
       {/* Detail table */}
       <div className="rp-section">Phases</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {PHASE_ORDER.map((phase) => {
+        {visibleOrder.map((phase) => {
           const entry = pipeline.phases[phase] || { status: 'pending' as PhaseStatus };
           const isActive = entry.status === 'in_progress';
+          const model = phaseModels[phase];
           return (
             <div
               key={phase}
@@ -201,22 +209,21 @@ export function DashboardTab({
                   fontWeight: isActive ? 600 : 400,
                 }}
               >
-                {PHASE_NAMES[phase]}
+                {phaseNames[phase]}
               </span>
-              {PHASE_MODELS[phase] !== '-' && (
+              {model !== '-' && (
                 <span
                   style={{
                     fontSize: 8,
-                    color: PHASE_MODELS[phase] === 'Opus' ? '#ab98c7' : '#5aa5a5',
-                    background:
-                      PHASE_MODELS[phase] === 'Opus' ? 'rgba(171,152,199,0.08)' : 'rgba(90,165,165,0.08)',
+                    color: model === 'Opus' ? '#ab98c7' : '#5aa5a5',
+                    background: model === 'Opus' ? 'rgba(171,152,199,0.08)' : 'rgba(90,165,165,0.08)',
                     padding: '1px 5px',
                     borderRadius: 3,
                     fontWeight: 500,
                     flexShrink: 0,
                   }}
                 >
-                  {PHASE_MODELS[phase]}
+                  {model}
                 </span>
               )}
               <span style={{ flex: 1 }} />
