@@ -10,6 +10,7 @@ import { CodeEditor } from './CodeEditor';
 import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './RightPanel';
+import { ErrorBoundary } from './ErrorBoundary';
 import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';
 import type { InterruptReason } from '../types/task';
@@ -355,14 +356,16 @@ export function MainPanel({
               }}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <RightPanel
-                cwd={taskCwd}
-                branchName={task.branchName}
-                onOpenFile={handleOpenFile}
-                onOpenDiff={handleOpenDiff}
-                resetKey={claudeResetKey}
-                onResetSession={() => setClaudeResetKey((k) => k + 1)}
-              />
+              <ErrorBoundary label="RightPanel">
+                <RightPanel
+                  cwd={taskCwd}
+                  branchName={task.branchName}
+                  onOpenFile={handleOpenFile}
+                  onOpenDiff={handleOpenDiff}
+                  resetKey={claudeResetKey}
+                  onResetSession={() => setClaudeResetKey((k) => k + 1)}
+                />
+              </ErrorBoundary>
             </div>
           </div>
         )}

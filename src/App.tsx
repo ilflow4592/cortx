@@ -11,6 +11,7 @@ import { Onboarding } from './components/Onboarding';
 import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -181,15 +182,17 @@ export default function App() {
         }}
       >
         <div style={{ width: sidebarWidth, minWidth: sidebarWidth, height: '100%' }}>
-          <Sidebar
-            onShowReport={() => setShowReport(true)}
-            onAddTask={() => setShowNewTask(true)}
-            onEditProject={(id) => setEditProjectId(id)}
-            onAddTaskForProject={(id) => {
-              setNewTaskProjectId(id);
-              setShowNewTask(true);
-            }}
-          />
+          <ErrorBoundary label="Sidebar">
+            <Sidebar
+              onShowReport={() => setShowReport(true)}
+              onAddTask={() => setShowNewTask(true)}
+              onEditProject={(id) => setEditProjectId(id)}
+              onAddTaskForProject={(id) => {
+                setNewTaskProjectId(id);
+                setShowNewTask(true);
+              }}
+            />
+          </ErrorBoundary>
         </div>
         {showSidebar && (
           <div
@@ -210,7 +213,9 @@ export default function App() {
           />
         )}
       </div>
-      <MainPanel showRightPanel={showRightPanel} onToggleRightPanel={() => setShowRightPanel((v) => !v)} />
+      <ErrorBoundary label="MainPanel">
+        <MainPanel showRightPanel={showRightPanel} onToggleRightPanel={() => setShowRightPanel((v) => !v)} />
+      </ErrorBoundary>
       <StatusBar
         showSidebar={showSidebar}
         onToggleSidebar={() => setShowSidebar((v) => !v)}
