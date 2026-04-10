@@ -29,3 +29,7 @@ src-tauri/target/
 # Env
 .env
 .env.local
+
+# Backup files
+*.bak
+*.tmp
