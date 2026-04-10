@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
+import { invoke } from '@tauri-apps/api/core';
 import {
   CheckCircle2,
   Circle,
@@ -17,10 +18,12 @@ import {
   Search,
   Pause,
   RotateCcw,
+  Square,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { runPipeline } from '../utils/pipelineExec';
+import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 
 interface Props {
   open: boolean;
@@ -218,10 +221,29 @@ export function CommandPalette({
                     })
                   }
                 />
+                <PaletteItem
+                  icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
+                  label="Stop Claude Process (kill running pipeline)"
+                  onSelect={() =>
+                    run(() => {
+                      // Kill any running Claude process for this task
+                      invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
+                      // Reset chat + pipeline + timer (same as red Stop button in chat)
+                      messageCache.delete(activeTask.id);
+                      sessionCache.delete(activeTask.id);
+                      loadingCache.delete(activeTask.id);
+                      useTaskStore.getState().updateTask(activeTask.id, {
+                        status: 'waiting',
+                        pipeline: undefined,
+                        elapsedSeconds: 0,
+                      });
+                    })
+                  }
+                />
                 {activeTask.status === 'active' && (
                   <PaletteItem
                     icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
-                    label="Pause Current Task"
+                    label="Pause Current Task (timer only)"
                     hint="⌘⇧P"
                     onSelect={() =>
                       run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
