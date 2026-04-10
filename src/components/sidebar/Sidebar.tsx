@@ -540,7 +540,7 @@ export function Sidebar({
                 </button>
                 <button
                   className="btn"
-                  style={{ background: '#ef4444', color: '#fff' }}
+                  style={{ background: '#ef4444', color: '#e5e5e5' }}
                   onClick={confirmDeleteProject}
                   onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
                   onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}

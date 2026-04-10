@@ -292,7 +292,7 @@ export function RightPanel({
               boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
             }}
           >
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#f0f4f8', marginBottom: 12 }}>Reset Session</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-primary)', marginBottom: 12 }}>Reset Session</div>
             <div style={{ fontSize: 12, color: 'var(--fg-muted)', lineHeight: 1.7, marginBottom: 8 }}>
               The following will be reset:
             </div>

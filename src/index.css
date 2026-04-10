@@ -550,7 +550,7 @@ body {
 }
 .mh-btn.start {
   background: var(--accent);
-  color: #fff;
+  color: #e5e5e5;
 }
 .mh-btn.start:hover {
   filter: brightness(1.1);
@@ -902,7 +902,7 @@ body {
   background: var(--accent);
   border: none;
   border-radius: 8px;
-  color: #fff;
+  color: #e5e5e5;
   font-size: 14px;
   cursor: pointer;
   display: flex;
@@ -1286,7 +1286,7 @@ body {
 }
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: #e5e5e5;
 }
 .btn-primary:hover {
   filter: brightness(1.1);

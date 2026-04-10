@@ -400,7 +400,7 @@ export function MainPanel({
                 </button>
                 <button
                   className="btn"
-                  style={{ background: '#ef4444', color: '#fff' }}
+                  style={{ background: '#ef4444', color: '#e5e5e5' }}
                   onClick={() => {
                     removeTask(task.id);
                     setShowDeleteConfirm(false);

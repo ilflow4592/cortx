@@ -230,7 +230,7 @@ export function AIProviderSettings() {
                   padding: '12px 16px',
                   borderRadius: 8,
                   background: '#6366f1',
-                  color: '#fff',
+                  color: '#e5e5e5',
                   border: 'none',
                   fontSize: 14,
                   fontWeight: 600,

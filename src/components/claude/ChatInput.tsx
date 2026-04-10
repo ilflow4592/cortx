@@ -218,7 +218,7 @@ export function ChatInput({
           style={{ background: '#ef4444' }}
           title="Stop response"
         >
-          <Square size={14} fill="white" strokeWidth={0} />
+          <Square size={14} fill="#e5e5e5" strokeWidth={0} />
         </button>
       ) : (
         <button className="send-btn" onClick={onSend} disabled={!input.trim()}>
