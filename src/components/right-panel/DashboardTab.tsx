@@ -24,11 +24,11 @@ function phaseIcon(status: PhaseStatus): ReactNode {
     case 'done':
       return <CheckCircle2 size={14} color="#34d399" strokeWidth={2} />;
     case 'in_progress':
-      return <Loader2 size={14} color="#5aa5a5" strokeWidth={2} className="spin" />;
+      return <Loader2 size={14} color="var(--accent)" strokeWidth={2} className="spin" />;
     case 'skipped':
-      return <SkipForward size={14} color="#4d5868" strokeWidth={1.5} />;
+      return <SkipForward size={14} color="var(--fg-faint)" strokeWidth={1.5} />;
     default:
-      return <Circle size={14} color="#3d4856" strokeWidth={1.5} />;
+      return <Circle size={14} color="var(--fg-dim)" strokeWidth={1.5} />;
   }
 }
 
@@ -37,11 +37,11 @@ function phaseColor(status: PhaseStatus): string {
     case 'done':
       return '#34d399';
     case 'in_progress':
-      return '#7dbdbd';
+      return 'var(--accent-bright)';
     case 'skipped':
-      return '#4d5868';
+      return 'var(--fg-faint)';
     default:
-      return '#2a3642';
+      return 'var(--border-strong)';
   }
 }
 
@@ -74,10 +74,10 @@ export function DashboardTab({
         <div style={{ marginBottom: 8, opacity: 0.3 }}>
           <Zap size={24} strokeWidth={1.5} />
         </div>
-        <div style={{ fontSize: 12, color: '#4d5868', marginBottom: 16 }}>No pipeline active</div>
-        <div style={{ fontSize: 10, color: '#3d4856', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12, color: 'var(--fg-faint)', marginBottom: 16 }}>No pipeline active</div>
+        <div style={{ fontSize: 10, color: 'var(--fg-dim)', lineHeight: 1.6 }}>
           Run{' '}
-          <code style={{ background: '#242d38', padding: '1px 5px', borderRadius: 3 }}>
+          <code style={{ background: 'var(--bg-surface-hover)', padding: '1px 5px', borderRadius: 3 }}>
             /pipeline:dev-task
           </code>{' '}
           to start
@@ -129,7 +129,7 @@ export function DashboardTab({
           style={{
             background: 'none',
             border: 'none',
-            color: '#6b7585',
+            color: 'var(--fg-subtle)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -152,9 +152,9 @@ export function DashboardTab({
           gap: 4,
           marginBottom: 16,
           padding: '10px 12px',
-          background: '#1a1f26',
+          background: 'var(--bg-chip)',
           borderRadius: 8,
-          border: '1px solid #1e2530',
+          border: '1px solid var(--border-muted)',
         }}
       >
         {visibleOrder.map((phase, i) => {
@@ -172,7 +172,7 @@ export function DashboardTab({
                 {phaseNames[phase]}
               </span>
               {i < visibleOrder.length - 1 && (
-                <span style={{ color: '#2a3642', fontSize: 9, margin: '0 1px' }}>→</span>
+                <span style={{ color: 'var(--border-strong)', fontSize: 9, margin: '0 1px' }}>→</span>
               )}
             </span>
           );
@@ -195,8 +195,8 @@ export function DashboardTab({
                 gap: 8,
                 padding: '6px 10px',
                 borderRadius: 6,
-                background: isActive ? 'rgba(90,165,165,0.06)' : 'transparent',
-                border: isActive ? '1px solid rgba(90,165,165,0.15)' : '1px solid transparent',
+                background: isActive ? 'var(--accent-bg)' : 'transparent',
+                border: isActive ? '1px solid var(--accent-bg)' : '1px solid transparent',
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', width: 18, justifyContent: 'center' }}>
@@ -215,8 +215,8 @@ export function DashboardTab({
                 <span
                   style={{
                     fontSize: 8,
-                    color: model === 'Opus' ? '#ab98c7' : '#5aa5a5',
-                    background: model === 'Opus' ? 'rgba(171,152,199,0.08)' : 'rgba(90,165,165,0.08)',
+                    color: model === 'Opus' ? '#ab98c7' : 'var(--accent)',
+                    background: model === 'Opus' ? 'rgba(171,152,199,0.08)' : 'var(--accent-bg)',
                     padding: '1px 5px',
                     borderRadius: 3,
                     fontWeight: 500,
@@ -231,7 +231,7 @@ export function DashboardTab({
                 <span
                   style={{
                     fontSize: 9,
-                    color: '#4d5868',
+                    color: 'var(--fg-faint)',
                     maxWidth: 100,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -255,7 +255,7 @@ export function DashboardTab({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#5aa5a5',
+                    color: 'var(--accent)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -270,7 +270,7 @@ export function DashboardTab({
                 <span
                   style={{
                     fontSize: 9,
-                    color: '#4d5868',
+                    color: 'var(--fg-faint)',
                     whiteSpace: 'nowrap',
                     fontFamily: "'Fira Code', monospace",
                   }}
@@ -297,9 +297,9 @@ export function DashboardTab({
               alignItems: 'center',
               padding: '8px 10px',
               marginTop: 8,
-              borderTop: '1px solid #2a3642',
+              borderTop: '1px solid var(--border-strong)',
               fontSize: 10,
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               fontFamily: "'Fira Code', monospace",
             }}
           >

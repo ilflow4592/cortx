@@ -57,8 +57,8 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
               display: 'grid',
               gridTemplateColumns: '1fr 1fr 1fr',
               gap: 1,
-              background: '#141418',
-              borderBottom: '1px solid #141418',
+              background: 'var(--border-subtle)',
+              borderBottom: '1px solid var(--border-subtle)',
             }}
           >
             <StatCard label="Focus Time" value={formatTime(totalFocus)} color="#818cf8" />
@@ -91,8 +91,8 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
                     key={t.id}
                     style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
                   >
-                    <span style={{ color: '#a1a1aa' }}>{t.title}</span>
-                    <span style={{ color: '#3f3f46', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                    <span style={{ color: 'var(--fg-muted)' }}>{t.title}</span>
+                    <span style={{ color: 'var(--fg-faint)', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
                       {formatTime(t.elapsedSeconds)}
                     </span>
                   </div>
@@ -111,7 +111,7 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
                     key={reason}
                     style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
                   >
-                    <span style={{ color: '#a1a1aa' }}>{reasonLabels[reason] || reason}</span>
+                    <span style={{ color: 'var(--fg-muted)' }}>{reasonLabels[reason] || reason}</span>
                     <span style={{ color: '#eab308', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
                       {data.count}× · {formatTime(data.time)}
                     </span>
@@ -123,7 +123,7 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
             {/* Focus bar */}
             <div style={{ marginTop: 16 }}>
               <div className="rp-section">Focus vs Interrupts</div>
-              <div style={{ height: 8, borderRadius: 4, background: '#18181b', overflow: 'hidden', display: 'flex' }}>
+              <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-chip)', overflow: 'hidden', display: 'flex' }}>
                 <div
                   style={{ width: `${focusRatio}%`, background: '#6366f1', borderRadius: 4, transition: 'width 0.3s' }}
                 />
@@ -134,7 +134,7 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
                   display: 'flex',
                   justifyContent: 'space-between',
                   fontSize: 10,
-                  color: '#3f3f46',
+                  color: 'var(--fg-faint)',
                   marginTop: 4,
                 }}
               >
@@ -151,8 +151,8 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
 
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div style={{ background: '#08080c', padding: 16, textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: '#3f3f46', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+    <div style={{ background: 'var(--bg-surface)', padding: 16, textAlign: 'center' }}>
+      <div style={{ fontSize: 10, color: 'var(--fg-faint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
         {label}
       </div>
       <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
@@ -166,14 +166,14 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
       style={{
         flex: 1,
         background: '#0c0c10',
-        border: '1px solid #18181b',
+        border: '1px solid var(--bg-chip)',
         borderRadius: 8,
         padding: '8px 12px',
         textAlign: 'center',
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
-      <div style={{ fontSize: 10, color: '#3f3f46', marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2 }}>{label}</div>
     </div>
   );
 }

@@ -89,7 +89,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
           width: 560,
           maxWidth: '90vw',
           maxHeight: '80vh',
-          background: '#0c0c12',
+          background: 'var(--bg-panel)',
           border: '1px solid #eab30840',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
@@ -102,7 +102,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
         <div
           style={{
             padding: '18px 22px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
@@ -110,8 +110,8 @@ export function CrashRecoveryDialog({ onClose }: Props) {
         >
           <AlertTriangle size={20} color="#eab308" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#e8eef5' }}>중단된 파이프라인이 있습니다</div>
-            <div style={{ fontSize: 11, color: '#6b7585', marginTop: 2 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg-primary)' }}>중단된 파이프라인이 있습니다</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2 }}>
               {interruptedTasks.length}개의 task가 비정상 종료되었습니다. 재개하거나 취소할 수 있습니다.
             </div>
           </div>
@@ -120,7 +120,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
             style={{
               background: 'none',
               border: 'none',
-              color: '#4d5868',
+              color: 'var(--fg-faint)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -141,8 +141,8 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                 style={{
                   padding: 14,
                   marginBottom: 8,
-                  background: '#141821',
-                  border: '1px solid #1e2530',
+                  background: 'var(--bg-surface-hover)',
+                  border: '1px solid var(--border-muted)',
                   borderRadius: 8,
                 }}
               >
@@ -152,7 +152,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                       style={{
                         fontSize: 13,
                         fontWeight: 600,
-                        color: '#e8eef5',
+                        color: 'var(--fg-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -160,7 +160,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                     >
                       {task.title}
                     </div>
-                    <div style={{ fontSize: 11, color: '#6b7585', marginTop: 2, display: 'flex', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2, display: 'flex', gap: 8 }}>
                       {project && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <span
@@ -175,7 +175,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                           {project.name}
                         </span>
                       )}
-                      {task.branchName && <span style={{ color: '#4d5868' }}>{task.branchName}</span>}
+                      {task.branchName && <span style={{ color: 'var(--fg-faint)' }}>{task.branchName}</span>}
                     </div>
                   </div>
                   <div
@@ -221,8 +221,8 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                       borderRadius: 5,
                       fontSize: 11,
                       background: 'none',
-                      border: '1px solid #3d4856',
-                      color: '#8b95a5',
+                      border: '1px solid var(--fg-dim)',
+                      color: 'var(--fg-muted)',
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                     }}
@@ -240,7 +240,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
           <div
             style={{
               padding: '12px 18px',
-              borderTop: '1px solid #1e2530',
+              borderTop: '1px solid var(--border-muted)',
               display: 'flex',
               justifyContent: 'flex-end',
             }}
@@ -252,8 +252,8 @@ export function CrashRecoveryDialog({ onClose }: Props) {
                 borderRadius: 5,
                 fontSize: 11,
                 background: 'none',
-                border: '1px solid #3d4856',
-                color: '#8b95a5',
+                border: '1px solid var(--fg-dim)',
+                color: 'var(--fg-muted)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}

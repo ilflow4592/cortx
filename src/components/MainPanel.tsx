@@ -175,8 +175,8 @@ export function MainPanel({
               className="mh-btn"
               style={{
                 background: 'none',
-                color: '#6b7585',
-                border: '1px solid #2a3642',
+                color: 'var(--fg-subtle)',
+                border: '1px solid var(--border-strong)',
                 borderRadius: 5,
                 padding: '4px 6px',
                 fontSize: 10,
@@ -214,7 +214,7 @@ export function MainPanel({
           )}
           <button
             className="mh-btn"
-            style={{ background: 'none', color: '#3d4856', border: '1px solid #1e2530' }}
+            style={{ background: 'none', color: 'var(--fg-dim)', border: '1px solid var(--border-muted)' }}
             onClick={() => setShowDeleteConfirm(true)}
             title="Delete task"
           >
@@ -223,7 +223,7 @@ export function MainPanel({
           {onToggleRightPanel && (
             <button
               className="mh-btn"
-              style={{ background: 'none', color: '#4d5868', border: '1px solid #1e2530', padding: '4px 8px' }}
+              style={{ background: 'none', color: 'var(--fg-faint)', border: '1px solid var(--border-muted)', padding: '4px 8px' }}
               onClick={onToggleRightPanel}
               title="Toggle right panel ⌘⇧B"
             >
@@ -264,7 +264,7 @@ export function MainPanel({
                 }}
                 style={{
                   marginLeft: 6,
-                  color: '#6b7585',
+                  color: 'var(--fg-subtle)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -343,7 +343,7 @@ export function MainPanel({
               style={{
                 width: 4,
                 cursor: 'col-resize',
-                background: '#2a3642',
+                background: 'var(--border-strong)',
                 flexShrink: 0,
                 opacity: 0,
                 transition: 'opacity 200ms ease',
@@ -388,10 +388,10 @@ export function MainPanel({
               </button>
             </div>
             <div className="modal-body" style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: '#c0c8d4', marginBottom: 8 }}>
-                <strong style={{ color: '#e8eef5' }}>"{task.title}"</strong>
+              <p style={{ fontSize: 14, color: 'var(--fg-secondary)', marginBottom: 8 }}>
+                <strong style={{ color: 'var(--fg-primary)' }}>"{task.title}"</strong>
               </p>
-              <p style={{ fontSize: 13, color: '#6b7585' }}>
+              <p style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>
                 Are you sure you want to delete this task? This action cannot be undone.
               </p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>

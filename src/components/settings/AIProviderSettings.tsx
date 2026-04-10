@@ -166,7 +166,7 @@ export function AIProviderSettings() {
             padding: 16,
             borderRadius: 10,
             background: isConnected ? '#34d39908' : '#0c0c10',
-            border: `1px solid ${isConnected ? '#34d39925' : '#18181b'}`,
+            border: `1px solid ${isConnected ? '#34d39925' : 'var(--bg-chip)'}`,
             marginBottom: 20,
           }}
         >
@@ -187,8 +187,8 @@ export function AIProviderSettings() {
                   <span
                     style={{
                       fontSize: 9,
-                      color: '#3f3f46',
-                      background: '#18181b',
+                      color: 'var(--fg-faint)',
+                      background: 'var(--bg-chip)',
                       padding: '1px 6px',
                       borderRadius: 4,
                     }}
@@ -212,12 +212,12 @@ export function AIProviderSettings() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
                 <span style={{ fontSize: 10 }}>🔒</span>
-                <span style={{ fontSize: 10, color: '#3f3f46' }}>Credentials stored locally only.</span>
+                <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>Credentials stored locally only.</span>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#e4e4e7', marginBottom: 16 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-primary)', marginBottom: 16 }}>
                 Log in with Anthropic
               </div>
 
@@ -271,9 +271,9 @@ export function AIProviderSettings() {
 
               {/* Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0' }}>
-                <div style={{ flex: 1, height: 1, background: '#18181b' }} />
-                <span style={{ fontSize: 10, color: '#3f3f46' }}>or use API key directly</span>
-                <div style={{ flex: 1, height: 1, background: '#18181b' }} />
+                <div style={{ flex: 1, height: 1, background: 'var(--bg-chip)' }} />
+                <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>or use API key directly</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--bg-chip)' }} />
               </div>
 
               {/* API key fallback */}
@@ -301,9 +301,9 @@ export function AIProviderSettings() {
                     fontSize: 12,
                     fontWeight: 600,
                     flexShrink: 0,
-                    background: apiKeyDraft ? '#6366f1' : '#18181b',
+                    background: apiKeyDraft ? '#6366f1' : 'var(--bg-chip)',
                     border: 'none',
-                    color: apiKeyDraft ? '#fff' : '#3f3f46',
+                    color: apiKeyDraft ? '#fff' : 'var(--fg-faint)',
                     cursor: settings.apiKey ? 'pointer' : 'default',
                     fontFamily: 'inherit',
                   }}
@@ -314,7 +314,7 @@ export function AIProviderSettings() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
                 <span style={{ fontSize: 10 }}>🔒</span>
-                <span style={{ fontSize: 10, color: '#3f3f46' }}>
+                <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>
                   Your data will be handled by Anthropic under its terms.
                 </span>
               </div>
@@ -335,7 +335,7 @@ export function AIProviderSettings() {
             padding: 16,
             borderRadius: 10,
             background: isConnected ? '#34d39908' : '#0c0c10',
-            border: `1px solid ${isConnected ? '#34d39925' : '#18181b'}`,
+            border: `1px solid ${isConnected ? '#34d39925' : 'var(--bg-chip)'}`,
             marginBottom: 20,
           }}
         >
@@ -370,7 +370,7 @@ export function AIProviderSettings() {
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#a1a1aa' }}>Connect OpenAI</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)' }}>Connect OpenAI</span>
                 <button
                   type="button"
                   onClick={() => openUrl('https://platform.openai.com/api-keys').catch(() => {})}
@@ -407,9 +407,9 @@ export function AIProviderSettings() {
                     fontSize: 11,
                     fontWeight: 500,
                     flexShrink: 0,
-                    background: '#18181b',
+                    background: 'var(--bg-chip)',
                     border: '1px solid #27272a',
-                    color: '#a1a1aa',
+                    color: 'var(--fg-muted)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                     opacity: settings.apiKey ? 1 : 0.4,
@@ -427,7 +427,7 @@ export function AIProviderSettings() {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
             <span style={{ fontSize: 10 }}>🔒</span>
-            <span style={{ fontSize: 10, color: '#3f3f46' }}>Stored locally. Never sent to Cortx servers.</span>
+            <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>Stored locally. Never sent to Cortx servers.</span>
           </div>
         </div>
       )}
@@ -439,11 +439,11 @@ export function AIProviderSettings() {
             padding: 16,
             borderRadius: 10,
             background: '#0c0c10',
-            border: '1px solid #18181b',
+            border: '1px solid var(--bg-chip)',
             marginBottom: 20,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#a1a1aa', marginBottom: 14 }}>Connect Ollama</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)', marginBottom: 14 }}>Connect Ollama</div>
           <div className="field" style={{ marginBottom: 10 }}>
             <span className="field-label">Ollama URL</span>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -466,9 +466,9 @@ export function AIProviderSettings() {
                   fontSize: 11,
                   fontWeight: 500,
                   flexShrink: 0,
-                  background: '#18181b',
+                  background: 'var(--bg-chip)',
                   border: '1px solid #27272a',
-                  color: '#a1a1aa',
+                  color: 'var(--fg-muted)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}

@@ -108,12 +108,12 @@ export function SourceCard({
               borderRadius: 4,
               fontSize: 9,
               fontWeight: 600,
-              background: isConnected ? 'rgba(52,211,153,0.08)' : '#232330',
-              color: isConnected ? '#34d399' : '#6b6b78',
+              background: isConnected ? 'rgba(52,211,153,0.08)' : 'var(--bg-chip)',
+              color: isConnected ? '#34d399' : 'var(--fg-subtle)',
             }}
           >
             <span
-              style={{ width: 5, height: 5, borderRadius: '50%', background: isConnected ? '#34d399' : '#52525e' }}
+              style={{ width: 5, height: 5, borderRadius: '50%', background: isConnected ? '#34d399' : 'var(--fg-subtle)' }}
             />
             {isConnected ? 'Connected' : 'Not connected'}
           </span>
@@ -221,8 +221,8 @@ export function SourceCard({
               width: '100%',
               padding: '10px 16px',
               borderRadius: 8,
-              background: tokenDraft ? '#6366f1' : '#232330',
-              color: tokenDraft ? '#fff' : '#52525e',
+              background: tokenDraft ? '#6366f1' : 'var(--bg-chip)',
+              color: tokenDraft ? '#fff' : 'var(--fg-subtle)',
               border: 'none',
               fontSize: 13,
               fontWeight: 600,

@@ -5,7 +5,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
     <>
       <div className="rp-section">Search History</div>
       {taskHistory.length === 0 ? (
-        <div style={{ fontSize: 11, color: '#3d4856', padding: '16px 0', textAlign: 'center' }}>
+        <div style={{ fontSize: 11, color: 'var(--fg-dim)', padding: '16px 0', textAlign: 'center' }}>
           No searches yet
         </div>
       ) : (
@@ -25,16 +25,16 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                 style={{
                   padding: '10px 12px',
                   borderRadius: 8,
-                  background: '#1a1f26',
-                  border: '1px solid #1e2530',
+                  background: 'var(--bg-chip)',
+                  border: '1px solid var(--border-muted)',
                 }}
               >
                 {/* Time + duration */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: '#4d5868' }}>
+                  <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>
                     {new Date(entry.timestamp).toLocaleString()}
                   </span>
-                  <span style={{ fontSize: 10, color: '#4d5868' }}>{duration}</span>
+                  <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>{duration}</span>
                 </div>
 
                 {/* Keywords */}
@@ -46,8 +46,8 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                         padding: '1px 6px',
                         borderRadius: 3,
                         fontSize: 10,
-                        background: '#242d38',
-                        color: '#a1a1aa',
+                        background: 'var(--bg-surface-hover)',
+                        color: 'var(--fg-muted)',
                         fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                       }}
                     >
@@ -65,21 +65,21 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                       key={r}
                       style={{
                         fontSize: 9,
-                        color: '#6b6b78',
+                        color: 'var(--fg-subtle)',
                         textTransform: 'capitalize',
                         padding: '1px 5px',
                         borderRadius: 3,
-                        background: '#1e2530',
+                        background: 'var(--border-muted)',
                       }}
                     >
                       {r}
                     </span>
                   ))}
-                  <span style={{ fontSize: 9, color: '#3d4856' }}>|</span>
+                  <span style={{ fontSize: 9, color: 'var(--fg-dim)' }}>|</span>
                   <span
                     style={{
                       fontSize: 9,
-                      color: '#7dbdbd',
+                      color: 'var(--accent-bright)',
                       fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     }}
                   >
@@ -94,7 +94,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
                         <span
                           style={{
-                            color: r.error ? '#ef4444' : r.itemCount > 0 ? '#34d399' : '#4d5868',
+                            color: r.error ? '#ef4444' : r.itemCount > 0 ? '#34d399' : 'var(--fg-faint)',
                             width: 10,
                           }}
                         >
@@ -103,11 +103,11 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                         <span style={{ color: '#888895', textTransform: 'capitalize', width: 50 }}>
                           {r.type}
                         </span>
-                        <span style={{ color: r.error ? '#ef4444' : '#4d5868' }}>
+                        <span style={{ color: r.error ? '#ef4444' : 'var(--fg-faint)' }}>
                           {r.error ? 'failed' : `${r.itemCount} items`}
                         </span>
                         {r.tokenUsage && !r.error && (
-                          <span style={{ color: '#3d4856', marginLeft: 'auto' }}>
+                          <span style={{ color: 'var(--fg-dim)', marginLeft: 'auto' }}>
                             ~{r.tokenUsage.input + r.tokenUsage.output} tok
                           </span>
                         )}
@@ -118,7 +118,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                           title="Click to copy"
                           style={{
                             fontSize: 9,
-                            color: '#4d5868',
+                            color: 'var(--fg-faint)',
                             marginLeft: 16,
                             marginTop: 2,
                             wordBreak: 'break-all',
@@ -127,7 +127,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                             WebkitUserSelect: 'text',
                           }}
                         >
-                          {r.error.slice(0, 150)} <span style={{ color: '#3d4856' }}>📋</span>
+                          {r.error.slice(0, 150)} <span style={{ color: 'var(--fg-dim)' }}>📋</span>
                         </div>
                       )}
                     </div>
@@ -141,13 +141,13 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                     justifyContent: 'space-between',
                     marginTop: 6,
                     paddingTop: 6,
-                    borderTop: '1px solid #1e2530',
+                    borderTop: '1px solid var(--border-muted)',
                     fontSize: 10,
                   }}
                 >
-                  <span style={{ color: '#6b6b78' }}>{entry.totalItems} items total</span>
+                  <span style={{ color: 'var(--fg-subtle)' }}>{entry.totalItems} items total</span>
                   {entry.totalTokens > 0 && (
-                    <span style={{ color: '#3d4856' }}>~{entry.totalTokens} tokens</span>
+                    <span style={{ color: 'var(--fg-dim)' }}>~{entry.totalTokens} tokens</span>
                   )}
                 </div>
               </div>

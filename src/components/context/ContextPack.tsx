@@ -20,9 +20,9 @@ const MODEL_OPTIONS = [
 type ServiceType = 'github' | 'notion' | 'slack' | 'other';
 
 function sourceIcon(t: string) {
-  if (t === 'github') return <GitHubIcon size={14} color="#a1a1aa" />;
+  if (t === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
   if (t === 'slack') return <SlackIcon size={14} />;
-  if (t === 'notion') return <NotionIcon size={14} color="#a1a1aa" />;
+  if (t === 'notion') return <NotionIcon size={14} color="var(--fg-muted)" />;
   return <PinIcon size={14} />;
 }
 
@@ -258,20 +258,20 @@ export function ContextPack({ taskId }: { taskId: string }) {
             position: 'absolute',
             inset: 0,
             zIndex: 10,
-            background: 'rgba(90,165,165,0.08)',
-            border: '2px dashed #5aa5a5',
+            background: 'var(--accent-bg)',
+            border: '2px dashed var(--accent)',
             borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <div style={{ textAlign: 'center', color: '#7dbdbd' }}>
+          <div style={{ textAlign: 'center', color: 'var(--accent-bright)' }}>
             <div style={{ marginBottom: 8 }}>
               <Paperclip size={32} strokeWidth={1.5} />
             </div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
-            <div style={{ fontSize: 11, color: '#6b6b78', marginTop: 4 }}>They'll be pinned to this task's context</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4 }}>They'll be pinned to this task's context</div>
           </div>
         </div>
       )}
@@ -287,7 +287,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
         {/* Source info */}
         {project && (
           <div
-            style={{ fontSize: 11, color: '#6b6b78', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <span style={{ width: 8, height: 8, borderRadius: 3, background: project.color }} />
             {project.githubOwner && project.githubRepo ? (
@@ -326,7 +326,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: 1,
-                  color: '#4d5868',
+                  color: 'var(--fg-faint)',
                   marginBottom: 6,
                 }}
               >
@@ -354,9 +354,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                         borderRadius: 6,
                         fontSize: 11,
                         fontWeight: 500,
-                        background: checked ? 'rgba(90,165,165,0.08)' : '#1a1f26',
-                        border: `1px solid ${checked ? 'rgba(90,165,165,0.25)' : '#242d38'}`,
-                        color: checked ? '#7dbdbd' : '#4d5868',
+                        background: checked ? 'var(--accent-bg)' : 'var(--bg-chip)',
+                        border: `1px solid ${checked ? 'var(--accent-bg)' : 'var(--bg-surface-hover)'}`,
+                        color: checked ? 'var(--accent-bright)' : 'var(--fg-faint)',
                         cursor: 'pointer',
                         fontFamily: 'inherit',
                       }}
@@ -366,7 +366,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                           width: 12,
                           height: 12,
                           borderRadius: 3,
-                          border: `1.5px solid ${checked ? '#7dbdbd' : '#3d4856'}`,
+                          border: `1.5px solid ${checked ? 'var(--accent-bright)' : 'var(--fg-dim)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -399,11 +399,11 @@ export function ContextPack({ taskId }: { taskId: string }) {
             onClick={() => setShowKeywords(!showKeywords)}
           >
             <span
-              style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}
+              style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--fg-faint)' }}
             >
               Search Keywords ({storedKeywords.length})
             </span>
-            <span style={{ fontSize: 10, color: '#4d5868' }}>{showKeywords ? '▾' : '▸'}</span>
+            <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>{showKeywords ? '▾' : '▸'}</span>
           </div>
 
           {showKeywords && (
@@ -419,8 +419,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       padding: '3px 8px',
                       borderRadius: 4,
                       fontSize: 11,
-                      background: '#242d38',
-                      color: '#a1a1aa',
+                      background: 'var(--bg-surface-hover)',
+                      color: 'var(--fg-muted)',
                       fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     }}
                   >
@@ -430,7 +430,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: '#4d5868',
+                        color: 'var(--fg-faint)',
                         cursor: 'pointer',
                         fontSize: 12,
                         padding: 0,
@@ -442,7 +442,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   </span>
                 ))}
                 {storedKeywords.length === 0 && (
-                  <span style={{ fontSize: 11, color: '#4d5868', fontStyle: 'italic' }}>
+                  <span style={{ fontSize: 11, color: 'var(--fg-faint)', fontStyle: 'italic' }}>
                     No keywords — branch name will be used
                   </span>
                 )}
@@ -460,12 +460,12 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   placeholder="e.g. BE-1390, 오토부킹"
                   style={{
                     flex: 1,
-                    background: '#1a1f26',
-                    border: '1px solid #242d38',
+                    background: 'var(--bg-chip)',
+                    border: '1px solid var(--bg-surface-hover)',
                     borderRadius: 6,
                     padding: '5px 10px',
                     fontSize: 11,
-                    color: '#e8eef5',
+                    color: 'var(--fg-primary)',
                     fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     outline: 'none',
                   }}
@@ -477,8 +477,8 @@ export function ContextPack({ taskId }: { taskId: string }) {
                     borderRadius: 6,
                     fontSize: 11,
                     fontWeight: 500,
-                    background: '#242d38',
-                    border: '1px solid #3d4856',
+                    background: 'var(--bg-surface-hover)',
+                    border: '1px solid var(--fg-dim)',
                     color: '#888895',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
@@ -523,12 +523,12 @@ export function ContextPack({ taskId }: { taskId: string }) {
               onClick={() => setShowModelMenu(!showModelMenu)}
               className="icon-btn-subtle"
               style={{
-                background: '#1a1f26',
-                border: '1px solid #242d38',
+                background: 'var(--bg-chip)',
+                border: '1px solid var(--bg-surface-hover)',
                 borderRadius: 6,
                 padding: '6px 24px 6px 10px',
                 fontSize: 11,
-                color: '#6b6b78',
+                color: 'var(--fg-subtle)',
                 fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                 cursor: 'pointer',
                 height: '100%',
@@ -539,7 +539,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
               title="Model for MCP search (Notion/Slack)"
             >
               {MODEL_OPTIONS.find((m) => m.value === collectModel)?.label ?? 'Haiku'}
-              <span style={{ fontSize: 8, color: '#4d5868', marginLeft: 4 }}>▼</span>
+              <span style={{ fontSize: 8, color: 'var(--fg-faint)', marginLeft: 4 }}>▼</span>
             </button>
             {showModelMenu && (
               <>
@@ -575,7 +575,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                         fontSize: 12,
                         border: 'none',
                         background: 'none',
-                        color: collectModel === m.value ? '#e879a8' : '#a1a1aa',
+                        color: collectModel === m.value ? '#e879a8' : 'var(--fg-muted)',
                         fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                         cursor: 'pointer',
                         fontWeight: collectModel === m.value ? 600 : 400,
@@ -628,9 +628,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                     borderRadius: 4,
                     fontSize: 10,
                     fontWeight: 500,
-                    background: sourceFilter === null ? 'rgba(90,165,165,0.08)' : 'none',
-                    border: sourceFilter === null ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
-                    color: sourceFilter === null ? '#7dbdbd' : '#6b6b78',
+                    background: sourceFilter === null ? 'var(--accent-bg)' : 'none',
+                    border: sourceFilter === null ? '1px solid var(--accent-bg)' : '1px solid transparent',
+                    color: sourceFilter === null ? 'var(--accent-bright)' : 'var(--fg-subtle)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}
@@ -649,9 +649,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
-                      background: sourceFilter === st ? 'rgba(90,165,165,0.08)' : 'none',
-                      border: sourceFilter === st ? '1px solid rgba(90,165,165,0.2)' : '1px solid transparent',
-                      color: sourceFilter === st ? '#7dbdbd' : '#6b6b78',
+                      background: sourceFilter === st ? 'var(--accent-bg)' : 'none',
+                      border: sourceFilter === st ? '1px solid var(--accent-bg)' : '1px solid transparent',
+                      color: sourceFilter === st ? 'var(--accent-bright)' : 'var(--fg-subtle)',
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       textTransform: 'capitalize',
@@ -669,7 +669,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   background: 'none',
                   border: 'none',
                   fontSize: 10,
-                  color: '#4d5868',
+                  color: 'var(--fg-faint)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -682,9 +682,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
       {/* Link preview */}
       {(preview || loadingPreview) && (
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e2530', background: '#0f1419', flexShrink: 0 }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-app)', flexShrink: 0 }}>
           {loadingPreview ? (
-            <div style={{ fontSize: 11, color: '#6b6b78', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <div className="loading-dot" /> Loading preview...
             </div>
           ) : (
@@ -693,10 +693,10 @@ export function ContextPack({ taskId }: { taskId: string }) {
                 <div
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>{preview.title || 'No title'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)' }}>{preview.title || 'No title'}</div>
                   <button
                     onClick={() => setPreview(null)}
-                    style={{ background: 'none', border: 'none', color: '#4d5868', cursor: 'pointer', fontSize: 14 }}
+                    style={{ background: 'none', border: 'none', color: 'var(--fg-faint)', cursor: 'pointer', fontSize: 14 }}
                   >
                     ×
                   </button>
@@ -712,7 +712,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   rel="noopener noreferrer"
                   style={{
                     fontSize: 10,
-                    color: '#7dbdbd',
+                    color: 'var(--accent-bright)',
                     fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                     wordBreak: 'break-all',
                   }}
@@ -733,7 +733,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} />
                 <div style={{ fontSize: 13, color: '#888895' }}>Searching via MCP...</div>
-                <div style={{ fontSize: 11, color: '#4d5868' }}>This may take a few seconds</div>
+                <div style={{ fontSize: 11, color: 'var(--fg-faint)' }}>This may take a few seconds</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -741,7 +741,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
                   <Paperclip size={28} strokeWidth={1.5} />
                 </div>
                 <div style={{ marginBottom: 6 }}>Drop files or URLs here to pin them</div>
-                <div style={{ color: '#4d5868', fontSize: 11 }}>
+                <div style={{ color: 'var(--fg-faint)', fontSize: 11 }}>
                   or click "Collect Now" to gather from connected sources
                 </div>
               </div>

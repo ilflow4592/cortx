@@ -216,8 +216,8 @@ export function CommandPalette({
           width: 600,
           maxWidth: '90vw',
           maxHeight: '70vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -232,10 +232,10 @@ export function CommandPalette({
               alignItems: 'center',
               gap: 10,
               padding: '14px 18px',
-              borderBottom: '1px solid #1e2530',
+              borderBottom: '1px solid var(--border-muted)',
             }}
           >
-            <Search size={16} color="#5aa5a5" strokeWidth={1.5} />
+            <Search size={16} color="var(--accent)" strokeWidth={1.5} />
             <Command.Input
               autoFocus
               value={search}
@@ -246,7 +246,7 @@ export function CommandPalette({
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
-                color: '#e8eef5',
+                color: 'var(--fg-primary)',
                 fontSize: 14,
                 fontFamily: 'inherit',
               }}
@@ -254,8 +254,8 @@ export function CommandPalette({
             <span
               style={{
                 fontSize: 10,
-                color: '#3d4856',
-                background: '#141821',
+                color: 'var(--fg-dim)',
+                background: 'var(--bg-surface-hover)',
                 padding: '2px 6px',
                 borderRadius: 4,
                 fontFamily: "'JetBrains Mono', monospace",
@@ -276,7 +276,7 @@ export function CommandPalette({
               style={{
                 padding: '24px 12px',
                 fontSize: 12,
-                color: '#4d5868',
+                color: 'var(--fg-faint)',
                 textAlign: 'center',
               }}
             >
@@ -304,7 +304,7 @@ export function CommandPalette({
                   )}
                   {showAction('Open Settings') && (
                     <PaletteItem
-                      icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Open Settings"
                       hint="⌘,"
                       onSelect={() => run(onOpenSettings)}
@@ -312,42 +312,42 @@ export function CommandPalette({
                   )}
                   {showAction('Daily Report') && (
                     <PaletteItem
-                      icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<FileText size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Daily Report"
                       onSelect={() => run(onShowReport)}
                     />
                   )}
                   {showAction('Worktree Cleanup') && (
                     <PaletteItem
-                      icon={<Trash2 size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<Trash2 size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Worktree Cleanup"
                       onSelect={() => run(onShowWorktreeCleanup)}
                     />
                   )}
                   {showAction('Manage MCP Servers') && (
                     <PaletteItem
-                      icon={<Server size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      icon={<Server size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Manage MCP Servers"
                       onSelect={() => run(onShowMcpManager)}
                     />
                   )}
                   {showAction('Slash Command Builder') && (
                     <PaletteItem
-                      icon={<Slash size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      icon={<Slash size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Slash Command Builder"
                       onSelect={() => run(onShowSlashBuilder)}
                     />
                   )}
                   {showAction('Check for Updates') && (
                     <PaletteItem
-                      icon={<ArrowUp size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      icon={<ArrowUp size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Check for Updates"
                       onSelect={() => run(onCheckForUpdates)}
                     />
                   )}
                   {activeTask && showAction('Edit Pipeline Config') && (
                     <PaletteItem
-                      icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Edit Pipeline Config"
                       onSelect={() =>
                         run(() => {
@@ -408,7 +408,7 @@ export function CommandPalette({
                   )}
                   {showAction('Toggle Sidebar') && (
                     <PaletteItem
-                      icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<PanelLeftClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Toggle Sidebar"
                       hint="⌘B"
                       onSelect={() => run(onToggleSidebar)}
@@ -416,7 +416,7 @@ export function CommandPalette({
                   )}
                   {showAction('Toggle Right Panel') && (
                     <PaletteItem
-                      icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                      icon={<PanelRightClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Toggle Right Panel"
                       hint="⌘⇧B"
                       onSelect={() => run(onToggleRightPanel)}
@@ -501,7 +501,7 @@ export function CommandPalette({
                   currentTaskItems.push(
                     <PaletteItem
                       key="mark-done"
-                      icon={<CheckCircle2 size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      icon={<CheckCircle2 size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Mark as Done"
                       onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
                     />,
@@ -527,8 +527,8 @@ export function CommandPalette({
                           : task.status === 'paused'
                             ? '#eab308'
                             : task.status === 'done'
-                              ? '#5aa5a5'
-                              : '#3d4856';
+                              ? 'var(--accent)'
+                              : 'var(--fg-dim)';
                       return (
                         <PaletteItem
                           key={task.id}
@@ -595,12 +595,12 @@ export function CommandPalette({
                             borderRadius: 6,
                             cursor: 'pointer',
                             fontSize: 12,
-                            color: '#c0c8d4',
+                            color: 'var(--fg-secondary)',
                           }}
                         >
                           <MessageSquare
                             size={12}
-                            color="#7dbdbd"
+                            color="var(--accent-bright)"
                             strokeWidth={1.5}
                             style={{ flexShrink: 0, marginTop: 2 }}
                           />
@@ -608,19 +608,19 @@ export function CommandPalette({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: '#6b7585',
+                                color: 'var(--fg-subtle)',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
                               }}
                             >
                               {task.title}
-                              {project && <span style={{ color: '#3d4856' }}> · {project.name}</span>}
+                              {project && <span style={{ color: 'var(--fg-dim)' }}> · {project.name}</span>}
                             </div>
                             <div
                               style={{
                                 fontSize: 11,
-                                color: '#8b95a5',
+                                color: 'var(--fg-muted)',
                                 marginTop: 2,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -677,7 +677,7 @@ function PaletteItem({
         borderRadius: 6,
         cursor: 'pointer',
         fontSize: 13,
-        color: '#c0c8d4',
+        color: 'var(--fg-secondary)',
       }}
     >
       <span
@@ -697,7 +697,7 @@ function PaletteItem({
         <span
           style={{
             fontSize: 10,
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             fontFamily: "'JetBrains Mono', monospace",
             flexShrink: 0,
           }}

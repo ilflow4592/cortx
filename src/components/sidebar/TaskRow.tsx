@@ -63,9 +63,9 @@ export function TaskRow({
           }}
         >
           {selected ? (
-            <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+            <CheckSquare size={18} color="var(--accent)" strokeWidth={1.5} />
           ) : (
-            <Square size={18} color="#3d4856" strokeWidth={1.5} />
+            <Square size={18} color="var(--fg-dim)" strokeWidth={1.5} />
           )}
         </span>
       )}
@@ -86,8 +86,8 @@ export function TaskRow({
                 ...(isAsking ? { background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.6)' } : {}),
                 ...(isRunning && !isAsking
                   ? {
-                      background: '#5aa5a5',
-                      boxShadow: '0 0 6px rgba(90,165,165,0.6)',
+                      background: 'var(--accent)',
+                      boxShadow: '0 0 6px var(--accent-bg)',
                       animation: 'pulse-glow 1.5s infinite',
                     }
                   : {}),
@@ -121,14 +121,14 @@ export function TaskRow({
             if (activePhase) {
               return (
                 <div
-                  style={{ fontSize: 9, color: '#5aa5a5', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ fontSize: 9, color: 'var(--accent)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}
                 >
                   <span
                     style={{
                       width: 4,
                       height: 4,
                       borderRadius: '50%',
-                      background: '#5aa5a5',
+                      background: 'var(--accent)',
                       animation: 'pulse 1.2s infinite',
                     }}
                   />
@@ -152,9 +152,9 @@ export function TaskRow({
           width: 22,
           height: 22,
           borderRadius: 6,
-          background: '#1e2530',
-          border: '1px solid #2a3642',
-          color: '#4d5868',
+          background: 'var(--border-muted)',
+          border: '1px solid var(--border-strong)',
+          color: 'var(--fg-faint)',
           cursor: 'pointer',
           fontSize: 14,
           fontWeight: 600,
@@ -170,9 +170,9 @@ export function TaskRow({
           e.currentTarget.style.borderColor = '#ef444440';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#1e2530';
-          e.currentTarget.style.color = '#4d5868';
-          e.currentTarget.style.borderColor = '#2a3642';
+          e.currentTarget.style.background = 'var(--border-muted)';
+          e.currentTarget.style.color = 'var(--fg-faint)';
+          e.currentTarget.style.borderColor = 'var(--border-strong)';
         }}
         className="task-delete-btn"
         title="Delete task"
@@ -188,7 +188,7 @@ export function TaskRow({
             right: 0,
             top: '50%',
             transform: 'translateY(-50%)',
-            background: '#1e2530',
+            background: 'var(--border-muted)',
             border: '1px solid #ef444430',
             borderRadius: 8,
             padding: '8px 12px',
@@ -200,7 +200,7 @@ export function TaskRow({
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ fontSize: 11, color: '#e8eef5' }}>{deleting ? 'Deleting...' : 'Delete this task?'}</span>
+          <span style={{ fontSize: 11, color: 'var(--fg-primary)' }}>{deleting ? 'Deleting...' : 'Delete this task?'}</span>
           {!deleting && (
             <>
               <button
@@ -233,7 +233,7 @@ export function TaskRow({
                   borderRadius: 5,
                   fontSize: 11,
                   background: 'none',
-                  border: '1px solid #3d4856',
+                  border: '1px solid var(--fg-dim)',
                   color: '#888895',
                   cursor: 'pointer',
                   fontFamily: 'inherit',

@@ -9,9 +9,9 @@ interface ContextItemCardProps {
 }
 
 function sourceIcon(t: string) {
-  if (t === 'github') return <GitHubIcon size={14} color="#a1a1aa" />;
+  if (t === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
   if (t === 'slack') return <SlackIcon size={14} />;
-  if (t === 'notion') return <NotionIcon size={14} color="#a1a1aa" />;
+  if (t === 'notion') return <NotionIcon size={14} color="var(--fg-muted)" />;
   return <PinIcon size={14} />;
 }
 
@@ -24,7 +24,7 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
           {item.url ? (
             <span
               className="cp-name"
-              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#3d4856' }}
+              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--fg-dim)' }}
               onClick={() => onPreview(item.url)}
             >
               {item.title}
@@ -38,7 +38,7 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 10, color: '#4d5868', flexShrink: 0 }}
+              style={{ fontSize: 10, color: 'var(--fg-faint)', flexShrink: 0 }}
               title="Open in browser"
             >
               ↗
@@ -52,7 +52,7 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
         style={{
           background: 'none',
           border: 'none',
-          color: '#3d4856',
+          color: 'var(--fg-dim)',
           cursor: 'pointer',
           fontSize: 12,
           position: 'absolute',

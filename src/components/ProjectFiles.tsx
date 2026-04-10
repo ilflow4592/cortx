@@ -78,9 +78,9 @@ export function ProjectFiles({ cwd, onOpenFile }: { cwd: string; onOpenFile?: (p
       <div
         style={{
           padding: '8px 16px',
-          borderBottom: '1px solid #2a3642',
+          borderBottom: '1px solid var(--border-strong)',
           fontSize: 11,
-          color: '#8b95a5',
+          color: 'var(--fg-muted)',
           fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
           flexShrink: 0,
         }}
@@ -132,9 +132,9 @@ function TreeItem({
           gap: 6,
           width: '100%',
           padding: `3px 12px 3px ${12 + depth * 16}px`,
-          background: isSelected ? 'rgba(90,165,165,0.08)' : 'none',
+          background: isSelected ? 'var(--accent-bg)' : 'none',
           border: 'none',
-          color: isSelected ? '#e8eef5' : '#c0c8d4',
+          color: isSelected ? 'var(--fg-primary)' : 'var(--fg-secondary)',
           cursor: 'pointer',
           fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
           fontSize: 12,
@@ -144,7 +144,7 @@ function TreeItem({
         {node.isDir ? (
           <span
             style={{
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               width: 12,
               flexShrink: 0,
               display: 'flex',
@@ -159,9 +159,9 @@ function TreeItem({
         )}
         <span style={{ display: 'flex', alignItems: 'center' }}>
           {node.isDir ? (
-            <Folder size={14} color="#5aa5a5" strokeWidth={1.5} />
+            <Folder size={14} color="var(--accent)" strokeWidth={1.5} />
           ) : (
-            <File size={14} color="#8b95a5" strokeWidth={1.5} />
+            <File size={14} color="var(--fg-muted)" strokeWidth={1.5} />
           )}
         </span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>

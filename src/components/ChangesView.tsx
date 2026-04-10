@@ -160,7 +160,7 @@ export function ChangesView({
             alignItems: 'center',
             gap: 8,
             padding: '8px 16px',
-            borderBottom: '1px solid #2a3642',
+            borderBottom: '1px solid var(--border-strong)',
             flexShrink: 0,
           }}
         >
@@ -169,7 +169,7 @@ export function ChangesView({
             style={{
               background: 'none',
               border: 'none',
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -180,7 +180,7 @@ export function ChangesView({
           <span
             style={{
               fontSize: 11,
-              color: '#8b95a5',
+              color: 'var(--fg-muted)',
               fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
               flex: 1,
               overflow: 'hidden',
@@ -194,10 +194,10 @@ export function ChangesView({
             <button
               onClick={() => onOpenFile(`${cwd}/${selectedFile}`)}
               style={{
-                background: '#242d38',
-                border: '1px solid #2a3642',
+                background: 'var(--bg-surface-hover)',
+                border: '1px solid var(--border-strong)',
                 borderRadius: 4,
-                color: '#c0c8d4',
+                color: 'var(--fg-secondary)',
                 cursor: 'pointer',
                 fontSize: 10,
                 padding: '2px 8px',
@@ -221,12 +221,12 @@ export function ChangesView({
             }}
           >
             {diffHunks.length === 0 && (
-              <div style={{ padding: 16, color: '#6b7585', fontSize: 11 }}>No diff available</div>
+              <div style={{ padding: 16, color: 'var(--fg-subtle)', fontSize: 11 }}>No diff available</div>
             )}
             {diffHunks.map((hunk, hi) => (
               <div key={hi}>
                 <div
-                  style={{ padding: '4px 16px', color: '#7dbdbd', background: 'rgba(90,165,165,0.04)', fontSize: 11 }}
+                  style={{ padding: '4px 16px', color: 'var(--accent-bright)', background: 'rgba(90,165,165,0.04)', fontSize: 11 }}
                 >
                   {hunk.header}
                 </div>
@@ -249,7 +249,7 @@ export function ChangesView({
                         width: 48,
                         textAlign: 'right',
                         paddingRight: 12,
-                        color: '#3d4856',
+                        color: 'var(--fg-dim)',
                         flexShrink: 0,
                         userSelect: 'none',
                       }}
@@ -258,7 +258,7 @@ export function ChangesView({
                     </span>
                     <span
                       style={{
-                        color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : '#6b7585',
+                        color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : 'var(--fg-subtle)',
                         whiteSpace: 'pre',
                         overflow: 'hidden',
                       }}
@@ -314,15 +314,15 @@ export function ChangesView({
                       { token: 'constant', foreground: '9876aa' },
                     ],
                     colors: {
-                      'editor.background': '#0f1419',
-                      'editor.foreground': '#c0c8d4',
-                      'editorLineNumber.foreground': '#3d4856',
-                      'editorLineNumber.activeForeground': '#6b7585',
-                      'editor.lineHighlightBackground': '#1e2530',
+                      'editor.background': 'var(--bg-app)',
+                      'editor.foreground': 'var(--fg-secondary)',
+                      'editorLineNumber.foreground': 'var(--fg-dim)',
+                      'editorLineNumber.activeForeground': 'var(--fg-subtle)',
+                      'editor.lineHighlightBackground': 'var(--border-muted)',
                       'editor.lineHighlightBorder': '#00000000',
-                      'editor.selectionBackground': 'rgba(90,165,165,0.15)',
-                      'editorCursor.foreground': '#5aa5a5',
-                      'editorIndentGuide.background': '#2a3642',
+                      'editor.selectionBackground': 'var(--accent-bg)',
+                      'editorCursor.foreground': 'var(--accent)',
+                      'editorIndentGuide.background': 'var(--border-strong)',
                     },
                   });
                 }
@@ -343,12 +343,12 @@ export function ChangesView({
           alignItems: 'center',
           gap: 4,
           padding: '8px 16px',
-          borderBottom: '1px solid #2a3642',
+          borderBottom: '1px solid var(--border-strong)',
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 11, color: '#8b95a5', fontWeight: 500 }}>
-          Changes {changedFiles.length > 0 && <span style={{ color: '#5aa5a5' }}>{changedFiles.length}</span>}
+        <span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>
+          Changes {changedFiles.length > 0 && <span style={{ color: 'var(--accent)' }}>{changedFiles.length}</span>}
         </span>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
           {changedFiles.length > 0 && (
@@ -358,7 +358,7 @@ export function ChangesView({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#6b7585',
+                color: 'var(--fg-subtle)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -373,7 +373,7 @@ export function ChangesView({
             style={{
               background: 'none',
               border: 'none',
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -386,9 +386,9 @@ export function ChangesView({
 
       {/* File list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-        {loading && <div style={{ padding: 16, fontSize: 11, color: '#6b7585' }}>Loading...</div>}
+        {loading && <div style={{ padding: 16, fontSize: 11, color: 'var(--fg-subtle)' }}>Loading...</div>}
         {filteredFiles.length === 0 && !loading && (
-          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: '#6b7585' }}>No changes</div>
+          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: 'var(--fg-subtle)' }}>No changes</div>
         )}
         {filteredFiles.map((file) => {
           const statusColor =
@@ -398,7 +398,7 @@ export function ChangesView({
                 ? '#34d399'
                 : file.status === 'D'
                   ? '#ef4444'
-                  : '#6b7585';
+                  : 'var(--fg-subtle)';
           return (
             <button
               key={file.path}
@@ -412,7 +412,7 @@ export function ChangesView({
                 background: 'none',
                 border: 'none',
                 borderBottom: '1px solid #ffffff06',
-                color: '#c0c8d4',
+                color: 'var(--fg-secondary)',
                 cursor: 'pointer',
                 fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                 fontSize: 11,
@@ -432,7 +432,7 @@ export function ChangesView({
                   onClick={(e) => requestDiscardFile(file.path, e)}
                   title="Discard changes"
                   style={{
-                    color: '#6b7585',
+                    color: 'var(--fg-subtle)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -453,20 +453,20 @@ export function ChangesView({
         <div
           style={{
             padding: '10px 14px',
-            borderTop: '1px solid #2a3642',
+            borderTop: '1px solid var(--border-strong)',
             flexShrink: 0,
-            background: '#1a1f26',
+            background: 'var(--bg-chip)',
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
           }}
         >
-          <span style={{ fontSize: 11, color: '#c0c8d4' }}>
+          <span style={{ fontSize: 11, color: 'var(--fg-secondary)' }}>
             {confirmDiscard.type === 'all'
               ? `Discard all ${changedFiles.length} changes?`
               : `Discard ${confirmDiscard.path?.split('/').pop()}?`}
           </span>
-          <span style={{ fontSize: 10, color: '#6b7585' }}>This cannot be undone.</span>
+          <span style={{ fontSize: 10, color: 'var(--fg-subtle)' }}>This cannot be undone.</span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={executeDiscard}
@@ -491,8 +491,8 @@ export function ChangesView({
                 borderRadius: 5,
                 fontSize: 10,
                 background: 'none',
-                border: '1px solid #3d4856',
-                color: '#8b95a5',
+                border: '1px solid var(--fg-dim)',
+                color: 'var(--fg-muted)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}

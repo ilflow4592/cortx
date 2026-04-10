@@ -96,13 +96,13 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
       </div>
       <div style={{ padding: 8 }}>
         <OptionButton
-          icon={<FolderOpen size={22} strokeWidth={1.5} color="#5aa5a5" />}
+          icon={<FolderOpen size={22} strokeWidth={1.5} color="var(--accent)" />}
           label="Open project"
           desc="Select an existing local folder"
           onClick={handleOpen}
         />
         <OptionButton
-          icon={<Globe size={22} strokeWidth={1.5} color="#5aa5a5" />}
+          icon={<Globe size={22} strokeWidth={1.5} color="var(--accent)" />}
           label="Clone from URL"
           desc="Clone a Git repository"
           onClick={() => onSelect('clone')}
@@ -138,7 +138,7 @@ function OptionButton({
         cursor: 'pointer',
         fontFamily: 'inherit',
         textAlign: 'left',
-        color: '#e4e4e7',
+        color: 'var(--fg-primary)',
         transition: 'background 0.1s',
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = '#12121a')}
@@ -147,7 +147,7 @@ function OptionButton({
       <span style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <div>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 11, color: '#52525b', marginTop: 2 }}>{desc}</div>
+        <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2 }}>{desc}</div>
       </div>
     </button>
   );
@@ -208,10 +208,10 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
               onClick={handleBrowse}
               style={{
                 padding: '0 14px',
-                background: '#18181b',
+                background: 'var(--bg-chip)',
                 border: '1px solid #27272a',
                 borderRadius: 8,
-                color: '#a1a1aa',
+                color: 'var(--fg-muted)',
                 fontSize: 12,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -350,10 +350,10 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
               onClick={handleBrowse}
               style={{
                 padding: '0 14px',
-                background: '#18181b',
+                background: 'var(--bg-chip)',
                 border: '1px solid #27272a',
                 borderRadius: 8,
-                color: '#a1a1aa',
+                color: 'var(--fg-muted)',
                 fontSize: 12,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -364,7 +364,7 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
             </button>
           </div>
           {clonePath && (
-            <div style={{ fontSize: 10, color: '#3f3f46', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
               → {clonePath}
             </div>
           )}

@@ -77,7 +77,7 @@ export function ChatMessageList({
               {contextTotalCount > 0 && (
                 <>
                   <br />
-                  <span style={{ color: '#7dbdbd', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: 'var(--accent-bright)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <Paperclip size={12} strokeWidth={1.5} /> {contextTotalCount} context items
                     {contextFileCount > 0 && ` (${contextFileCount} files)`}
                   </span>{' '}
@@ -85,12 +85,12 @@ export function ChatMessageList({
                 </>
               )}
               <br />
-              <span style={{ color: '#4d5868', fontSize: 11 }}>
+              <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>
                 Type{' '}
                 <code
                   style={{
-                    color: '#7dbdbd',
-                    background: '#242d38',
+                    color: 'var(--accent-bright)',
+                    background: 'var(--bg-surface-hover)',
                     padding: '1px 4px',
                     borderRadius: 3,
                     fontSize: 11,
@@ -139,7 +139,7 @@ export function ChatMessageList({
           <div className="msg-avatar ai">C</div>
           <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
             <div className="loading-dot" />
-            <span style={{ fontSize: 13, color: '#4d5868' }}>Claude is thinking...</span>
+            <span style={{ fontSize: 13, color: 'var(--fg-faint)' }}>Claude is thinking...</span>
           </div>
         </div>
       )}
@@ -167,7 +167,7 @@ const MessageItem = memo(
             gap: 8,
             padding: '4px 16px',
             fontSize: 11,
-            color: '#6b6b78',
+            color: 'var(--fg-subtle)',
           }}
         >
           <div

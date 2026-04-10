@@ -48,27 +48,27 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
         fontSize: 13,
         fontFamily: "'JetBrains Mono', monospace",
         theme: {
-          background: '#0c0c12',
+          background: 'var(--bg-panel)',
           foreground: '#d4d4d8',
           cursor: '#6366f1',
-          cursorAccent: '#06060a',
+          cursorAccent: 'var(--bg-surface)',
           selectionBackground: '#6366f140',
-          black: '#0c0c12',
+          black: 'var(--bg-panel)',
           red: '#ef4444',
           green: '#34d399',
           yellow: '#eab308',
           blue: '#6366f1',
           magenta: '#c084fc',
           cyan: '#67e8f9',
-          white: '#e4e4e7',
-          brightBlack: '#52525b',
+          white: 'var(--fg-primary)',
+          brightBlack: 'var(--fg-subtle)',
           brightRed: '#f87171',
           brightGreen: '#6ee7b7',
           brightYellow: '#fde047',
           brightBlue: '#818cf8',
           brightMagenta: '#d8b4fe',
           brightCyan: '#a5f3fc',
-          brightWhite: '#fafafa',
+          brightWhite: 'var(--fg-primary)',
         },
         cursorBlink: true,
         scrollback: 5000,
@@ -149,7 +149,7 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', padding: 8, background: '#0c0c12', overflow: 'hidden' }}
+      style={{ width: '100%', height: '100%', padding: 8, background: 'var(--bg-panel)', overflow: 'hidden' }}
     />
   );
 }

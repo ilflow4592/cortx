@@ -21,7 +21,7 @@ const THEMES: ThemeOption[] = [
     id: 'midnight',
     label: 'Midnight',
     description: 'Deep black with purple accents',
-    preview: { bg: '#050508', fg: '#e8eef5', accent: '#9f7aea', border: '#242430' },
+    preview: { bg: '#050508', fg: 'var(--fg-primary)', accent: '#9f7aea', border: '#242430' },
   },
   {
     id: 'light',

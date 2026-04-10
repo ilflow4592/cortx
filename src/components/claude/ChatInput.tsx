@@ -174,9 +174,9 @@ export function ChatInput({
           onClick={onClearMessages}
           style={{
             background: 'none',
-            border: '1px solid #2a3642',
+            border: '1px solid var(--border-strong)',
             borderRadius: 6,
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             cursor: 'pointer',
             fontSize: 10,
             padding: '4px 8px',
@@ -197,7 +197,7 @@ export function ChatInput({
         {contextTotalCount > 0 && (
           <span
             style={{
-              color: '#7dbdbd',
+              color: 'var(--accent-bright)',
               marginLeft: 6,
               fontSize: 10,
               display: 'inline-flex',

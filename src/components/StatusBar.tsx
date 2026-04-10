@@ -23,19 +23,19 @@ export function StatusBar({
             {activeTask.title}
           </span>
         ) : (
-          <span style={{ color: '#3d4856' }}>No active task</span>
+          <span style={{ color: 'var(--fg-dim)' }}>No active task</span>
         )}
       </div>
       <div className="sb-r">
         <span
-          style={{ cursor: 'pointer', color: showSidebar ? '#52525b' : '#818cf8' }}
+          style={{ cursor: 'pointer', color: showSidebar ? 'var(--fg-subtle)' : '#818cf8' }}
           onClick={onToggleSidebar}
           title="Toggle sidebar ⌘B"
         >
           ⌘B sidebar
         </span>
         <span
-          style={{ cursor: 'pointer', color: showRightPanel ? '#52525b' : '#818cf8' }}
+          style={{ cursor: 'pointer', color: showRightPanel ? 'var(--fg-subtle)' : '#818cf8' }}
           onClick={onToggleRightPanel}
           title="Toggle right panel ⌘⇧B"
         >

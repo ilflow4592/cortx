@@ -16,9 +16,9 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div
-            style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: '#4d5868' }}
+            style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--fg-faint)' }}
           >
-            MCP Servers {mcpServers.length > 0 && <span style={{ color: '#3d4856' }}>({mcpServers.length})</span>}
+            MCP Servers {mcpServers.length > 0 && <span style={{ color: 'var(--fg-dim)' }}>({mcpServers.length})</span>}
           </div>
           <button
             onClick={() => useContextPackStore.getState().loadMcpServers()}
@@ -28,7 +28,7 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
               background: 'none',
               border: 'none',
               fontSize: 10,
-              color: '#4d5868',
+              color: 'var(--fg-faint)',
               cursor: 'pointer',
               fontFamily: 'inherit',
               padding: '2px 6px',
@@ -79,7 +79,7 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 11, color: '#3d4856', fontStyle: 'italic' }}>No MCP servers configured</div>
+          <div style={{ fontSize: 11, color: 'var(--fg-dim)', fontStyle: 'italic' }}>No MCP servers configured</div>
         )}
       </div>
 
@@ -92,7 +92,7 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
               fontWeight: 600,
               textTransform: 'uppercase',
               letterSpacing: 1,
-              color: '#4d5868',
+              color: 'var(--fg-faint)',
               marginBottom: 6,
             }}
           >
@@ -104,11 +104,11 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
               .map((source, i) => {
                 const sourceIcon =
                   source.type === 'github' ? (
-                    <GitHubIcon size={12} color="#7dbdbd" />
+                    <GitHubIcon size={12} color="var(--accent-bright)" />
                   ) : source.type === 'slack' ? (
                     <SlackIcon size={12} />
                   ) : (
-                    <NotionIcon size={12} color="#7dbdbd" />
+                    <NotionIcon size={12} color="var(--accent-bright)" />
                   );
                 const name =
                   source.type === 'github'
@@ -128,7 +128,7 @@ export function McpStatusBar({ sources }: McpStatusBarProps) {
                       background: 'rgba(125,189,189,0.06)',
                       border: '1px solid rgba(125,189,189,0.15)',
                       fontSize: 11,
-                      color: '#7dbdbd',
+                      color: 'var(--accent-bright)',
                     }}
                   >
                     {sourceIcon} {name}

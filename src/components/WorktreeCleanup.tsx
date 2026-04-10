@@ -212,8 +212,8 @@ export function WorktreeCleanup({ onClose }: Props) {
           width: 760,
           maxWidth: '95vw',
           maxHeight: '85vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -225,16 +225,16 @@ export function WorktreeCleanup({ onClose }: Props) {
         <div
           style={{
             padding: '18px 22px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}
         >
-          <Trash2 size={18} color="#5aa5a5" strokeWidth={1.5} />
+          <Trash2 size={18} color="var(--accent)" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#e8eef5' }}>Worktree Cleanup</div>
-            <div style={{ fontSize: 11, color: '#6b7585', marginTop: 2 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg-primary)' }}>Worktree Cleanup</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2 }}>
               {loading
                 ? 'Scanning...'
                 : `Found ${entries.length} worktrees (${orphanEntries.length} orphan, ${staleEntries.length} stale, ${activeEntries.length} active)`}
@@ -265,7 +265,7 @@ export function WorktreeCleanup({ onClose }: Props) {
           )}
 
           {entries.length === 0 && !loading && (
-            <div style={{ padding: 40, textAlign: 'center', color: '#4d5868', fontSize: 12 }}>
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--fg-faint)', fontSize: 12 }}>
               No worktrees found. Nothing to clean up.
             </div>
           )}
@@ -315,13 +315,13 @@ export function WorktreeCleanup({ onClose }: Props) {
           <div
             style={{
               padding: '14px 22px',
-              borderTop: '1px solid #1e2530',
+              borderTop: '1px solid var(--border-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
           >
-            <div style={{ fontSize: 11, color: '#6b7585' }}>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
               {selectedCount > 0 ? `${selectedCount} selected` : 'No selection'}
             </div>
             <button
@@ -333,8 +333,8 @@ export function WorktreeCleanup({ onClose }: Props) {
                 fontSize: 12,
                 fontWeight: 500,
                 background: selectedCount > 0 ? 'rgba(239,68,68,0.12)' : 'rgba(55,65,81,0.3)',
-                border: `1px solid ${selectedCount > 0 ? 'rgba(239,68,68,0.4)' : '#1e2530'}`,
-                color: selectedCount > 0 ? '#ef4444' : '#4d5868',
+                border: `1px solid ${selectedCount > 0 ? 'rgba(239,68,68,0.4)' : 'var(--border-muted)'}`,
+                color: selectedCount > 0 ? '#ef4444' : 'var(--fg-faint)',
                 cursor: selectedCount > 0 && !deleting ? 'pointer' : 'not-allowed',
                 fontFamily: 'inherit',
                 display: 'flex',
@@ -386,14 +386,14 @@ function CategorySection({
         <span style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {title}
         </span>
-        <span style={{ fontSize: 10, color: '#4d5868' }}>({entries.length})</span>
-        <span style={{ fontSize: 10, color: '#4d5868', flex: 1 }}> · {description}</span>
+        <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>({entries.length})</span>
+        <span style={{ fontSize: 10, color: 'var(--fg-faint)', flex: 1 }}> · {description}</span>
         <button
           onClick={onToggleAll}
           style={{
             background: 'none',
             border: 'none',
-            color: '#6b7585',
+            color: 'var(--fg-subtle)',
             fontSize: 10,
             cursor: 'pointer',
             fontFamily: 'inherit',
@@ -433,8 +433,8 @@ function EntryRow({
         alignItems: 'center',
         gap: 10,
         padding: '8px 12px',
-        background: hovered ? '#141821' : '#0a0e14',
-        border: `1px solid ${entry.selected ? `${accent}40` : '#141821'}`,
+        background: hovered ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+        border: `1px solid ${entry.selected ? `${accent}40` : 'var(--bg-surface-hover)'}`,
         borderRadius: 6,
         cursor: 'pointer',
         transition: 'all 120ms ease',
@@ -450,18 +450,18 @@ function EntryRow({
         <div
           style={{
             fontSize: 12,
-            color: '#c0c8d4',
+            color: 'var(--fg-secondary)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
         >
-          {entry.taskTitle || <span style={{ color: '#6b7585', fontStyle: 'italic' }}>(no task)</span>}
+          {entry.taskTitle || <span style={{ color: 'var(--fg-subtle)', fontStyle: 'italic' }}>(no task)</span>}
         </div>
         <div
           style={{
             fontSize: 10,
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             fontFamily: "'JetBrains Mono', monospace",
             marginTop: 2,
             overflow: 'hidden',
@@ -476,7 +476,7 @@ function EntryRow({
         <div
           style={{
             fontSize: 10,
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             fontFamily: "'JetBrains Mono', monospace",
             flexShrink: 0,
           }}
@@ -497,9 +497,9 @@ function RefreshButton({ onClick, disabled }: { onClick: () => void; disabled: b
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered && !disabled ? 'rgba(90,165,165,0.1)' : 'none',
-        border: `1px solid ${hovered && !disabled ? 'rgba(90,165,165,0.3)' : 'transparent'}`,
-        color: disabled ? '#3d4856' : hovered ? '#7dbdbd' : '#6b7585',
+        background: hovered && !disabled ? 'var(--accent-bg)' : 'none',
+        border: `1px solid ${hovered && !disabled ? 'var(--accent-border)' : 'transparent'}`,
+        color: disabled ? 'var(--fg-dim)' : hovered ? 'var(--accent-bright)' : 'var(--fg-subtle)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -525,7 +525,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',

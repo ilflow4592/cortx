@@ -136,7 +136,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
           alignItems: 'center',
           gap: 4,
           padding: '10px 16px',
-          borderBottom: '1px solid #141418',
+          borderBottom: '1px solid var(--border-subtle)',
           flexShrink: 0,
         }}
       >
@@ -172,7 +172,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
             style={{
               background: 'none',
               border: 'none',
-              color: busy ? '#2a3642' : '#52525b',
+              color: busy ? 'var(--border-strong)' : 'var(--fg-subtle)',
               cursor: busy ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -189,9 +189,9 @@ export function DiffViewer({ taskId }: { taskId: string }) {
       <div
         style={{
           padding: '8px 16px',
-          borderBottom: '1px solid #141418',
+          borderBottom: '1px solid var(--border-subtle)',
           fontSize: 11,
-          color: '#52525b',
+          color: 'var(--fg-subtle)',
           display: 'flex',
           gap: 12,
           flexShrink: 0,
@@ -212,7 +212,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
       {/* File list + diffs */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
         {stat.length === 0 && !loading && (
-          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: '#3f3f46' }}>No changes</div>
+          <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: 'var(--fg-faint)' }}>No changes</div>
         )}
         {stat.map((file, idx) => {
           const diff = diffs.find((d) => d.file === file.path || d.file.endsWith(file.path));
@@ -227,7 +227,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                   gap: 8,
                   padding: '6px 16px',
                   borderBottom: '1px solid #ffffff06',
-                  color: '#a1a1aa',
+                  color: 'var(--fg-muted)',
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 11,
                 }}
@@ -241,7 +241,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                     gap: 8,
                     background: 'none',
                     border: 'none',
-                    color: '#a1a1aa',
+                    color: 'var(--fg-muted)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                     fontSize: 'inherit',
@@ -250,7 +250,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                     padding: 0,
                   }}
                 >
-                  <span style={{ color: '#52525b', flexShrink: 0 }}>{isExpanded ? '▼' : '▶'}</span>
+                  <span style={{ color: 'var(--fg-subtle)', flexShrink: 0 }}>{isExpanded ? '▼' : '▶'}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {file.path}
                   </span>
@@ -294,8 +294,8 @@ export function DiffViewer({ taskId }: { taskId: string }) {
               {isExpanded && diff && (
                 <div
                   style={{
-                    background: '#08080c',
-                    borderBottom: '1px solid #141418',
+                    background: 'var(--bg-surface)',
+                    borderBottom: '1px solid var(--border-subtle)',
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 11,
                     lineHeight: 1.7,
@@ -318,7 +318,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                                 : line.type === 'del'
                                   ? 'rgba(239,68,68,0.06)'
                                   : 'transparent',
-                            color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : '#52525b',
+                            color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : 'var(--fg-subtle)',
                             whiteSpace: 'pre',
                           }}
                         >
@@ -354,19 +354,19 @@ export function DiffViewer({ taskId }: { taskId: string }) {
             style={{
               width: 420,
               maxWidth: '90vw',
-              background: '#0c0c12',
+              background: 'var(--bg-panel)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 10,
               padding: 20,
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5', marginBottom: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>
               {confirmDiscard.type === 'all' ? 'Discard all unstaged changes?' : 'Discard file changes?'}
             </div>
             <div
               style={{
                 fontSize: 11,
-                color: '#6b7585',
+                color: 'var(--fg-subtle)',
                 marginBottom: 16,
                 fontFamily: confirmDiscard.type === 'file' ? "'JetBrains Mono', monospace" : 'inherit',
               }}
@@ -383,8 +383,8 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                   borderRadius: 5,
                   fontSize: 11,
                   background: 'none',
-                  border: '1px solid #3d4856',
-                  color: '#8b95a5',
+                  border: '1px solid var(--fg-dim)',
+                  color: 'var(--fg-muted)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -453,8 +453,8 @@ function HeaderButton({
         fontSize: 10,
         fontWeight: 500,
         background: disabled ? 'rgba(55,65,81,0.2)' : hovered ? `${color}20` : `${color}10`,
-        border: `1px solid ${disabled ? '#1e2530' : `${color}35`}`,
-        color: disabled ? '#3d4856' : color,
+        border: `1px solid ${disabled ? 'var(--border-muted)' : `${color}35`}`,
+        color: disabled ? 'var(--fg-dim)' : color,
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: 'inherit',
         display: 'flex',
@@ -495,7 +495,7 @@ function RowButton({
         borderRadius: 4,
         background: disabled ? 'transparent' : hovered ? `${color}20` : 'transparent',
         border: `1px solid ${disabled ? 'transparent' : hovered ? `${color}40` : 'transparent'}`,
-        color: disabled ? '#2a3642' : hovered ? color : '#4d5868',
+        color: disabled ? 'var(--border-strong)' : hovered ? color : 'var(--fg-faint)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',

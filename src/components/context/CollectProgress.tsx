@@ -21,21 +21,21 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
       {progress.map((p) => (
         <div key={p.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
           <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
-            {p.status === 'pending' && <span style={{ color: '#4d5868' }}>○</span>}
+            {p.status === 'pending' && <span style={{ color: 'var(--fg-faint)' }}>○</span>}
             {p.status === 'collecting' && (
               <div className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
             )}
             {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
             {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
           </span>
-          <span style={{ color: p.status === 'collecting' ? '#e8eef5' : '#888895', textTransform: 'capitalize' }}>
+          <span style={{ color: p.status === 'collecting' ? 'var(--fg-primary)' : '#888895', textTransform: 'capitalize' }}>
             {p.type}
           </span>
           {p.status === 'done' && (
-            <span style={{ color: '#4d5868' }}>
+            <span style={{ color: 'var(--fg-faint)' }}>
               — {p.itemCount} items
               {p.tokenUsage && (
-                <span style={{ marginLeft: 6, color: '#3d4856' }}>
+                <span style={{ marginLeft: 6, color: 'var(--fg-dim)' }}>
                   (~{p.tokenUsage.input + p.tokenUsage.output} tok)
                 </span>
               )}
@@ -49,7 +49,7 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
                   onClick={() => navigator.clipboard.writeText(p.error || '')}
                   title="Click to copy"
                   style={{
-                    color: '#4d5868',
+                    color: 'var(--fg-faint)',
                     fontSize: 10,
                     marginTop: 2,
                     wordBreak: 'break-all',
@@ -59,7 +59,7 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
                     WebkitUserSelect: 'text',
                   }}
                 >
-                  {p.error.slice(0, 200)} <span style={{ color: '#3d4856' }}>📋</span>
+                  {p.error.slice(0, 200)} <span style={{ color: 'var(--fg-dim)' }}>📋</span>
                 </span>
               )}
             </div>
@@ -69,7 +69,7 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
 
       {/* Total token usage */}
       {progress.some((p) => p.tokenUsage) && (
-        <div style={{ fontSize: 10, color: '#3d4856', marginTop: 4, textAlign: 'right' }}>
+        <div style={{ fontSize: 10, color: 'var(--fg-dim)', marginTop: 4, textAlign: 'right' }}>
           Total: ~{totalTokens} tokens
         </div>
       )}

@@ -124,12 +124,12 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#0a0e14',
-        'editor.foreground': '#c0c8d4',
-        'editorLineNumber.foreground': '#3d4856',
-        'editorCursor.foreground': '#7dbdbd',
-        'editor.selectionBackground': '#2a3642',
-        'editor.lineHighlightBackground': '#141821',
+        'editor.background': 'var(--bg-surface)',
+        'editor.foreground': 'var(--fg-secondary)',
+        'editorLineNumber.foreground': 'var(--fg-dim)',
+        'editorCursor.foreground': 'var(--accent-bright)',
+        'editor.selectionBackground': 'var(--border-strong)',
+        'editor.lineHighlightBackground': 'var(--bg-surface-hover)',
       },
     });
     monaco.editor.setTheme('cortx-dark');
@@ -232,8 +232,8 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
           maxWidth: '95vw',
           height: 640,
           maxHeight: '90vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -245,21 +245,21 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
             flexShrink: 0,
           }}
         >
-          <Slash size={16} color="#5aa5a5" strokeWidth={1.5} />
+          <Slash size={16} color="var(--accent)" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>Slash Command Builder</div>
-            <div style={{ fontSize: 10, color: '#4d5868', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>Slash Command Builder</div>
+            <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
               {projectCommands.length} project · {userCommands.length} global
             </div>
           </div>
-          <HoverIconButton onClick={load} disabled={loading || saving} hoverColor="#5aa5a5" title="Reload">
+          <HoverIconButton onClick={load} disabled={loading || saving} hoverColor="var(--accent)" title="Reload">
             <RotateCw size={14} strokeWidth={1.5} />
           </HoverIconButton>
           <CloseButton onClose={onClose} />
@@ -290,7 +290,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
           <div
             style={{
               width: 260,
-              borderRight: '1px solid #1e2530',
+              borderRight: '1px solid var(--border-muted)',
               overflowY: 'auto',
               padding: 10,
               flexShrink: 0,
@@ -324,7 +324,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
             </button>
 
             {loading ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#4d5868', fontSize: 11 }}>Loading...</div>
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--fg-faint)', fontSize: 11 }}>Loading...</div>
             ) : (
               <>
                 <CategoryList
@@ -378,20 +378,20 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                 <div
                   style={{
                     padding: '10px 14px',
-                    borderBottom: '1px solid #1e2530',
+                    borderBottom: '1px solid var(--border-muted)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
                     flexShrink: 0,
                   }}
                 >
-                  <FileCode size={13} color="#5aa5a5" strokeWidth={1.5} />
+                  <FileCode size={13} color="var(--accent)" strokeWidth={1.5} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
                         fontSize: 12,
                         fontWeight: 600,
-                        color: '#e8eef5',
+                        color: 'var(--fg-primary)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: 6,
@@ -404,9 +404,9 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                           fontSize: 9,
                           padding: '1px 5px',
                           borderRadius: 3,
-                          background: selected.source === 'project' ? 'rgba(90,165,165,0.15)' : 'rgba(129,140,248,0.15)',
-                          color: selected.source === 'project' ? '#7dbdbd' : '#818cf8',
-                          border: `1px solid ${selected.source === 'project' ? 'rgba(90,165,165,0.3)' : 'rgba(129,140,248,0.3)'}`,
+                          background: selected.source === 'project' ? 'var(--accent-bg)' : 'rgba(129,140,248,0.15)',
+                          color: selected.source === 'project' ? 'var(--accent-bright)' : '#818cf8',
+                          border: `1px solid ${selected.source === 'project' ? 'var(--accent-border)' : 'rgba(129,140,248,0.3)'}`,
                         }}
                       >
                         {selected.source}
@@ -421,9 +421,9 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                       borderRadius: 5,
                       fontSize: 11,
                       fontWeight: 500,
-                      background: dirty ? 'rgba(90,165,165,0.15)' : 'rgba(55,65,81,0.3)',
-                      border: `1px solid ${dirty ? 'rgba(90,165,165,0.4)' : '#1e2530'}`,
-                      color: dirty ? '#7dbdbd' : '#4d5868',
+                      background: dirty ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
+                      border: `1px solid ${dirty ? 'var(--accent-border)' : 'var(--border-muted)'}`,
+                      color: dirty ? 'var(--accent-bright)' : 'var(--fg-faint)',
                       cursor: dirty && !saving ? 'pointer' : 'not-allowed',
                       fontFamily: 'inherit',
                       display: 'flex',
@@ -433,7 +433,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                   >
                     <Save size={11} strokeWidth={1.5} />
                     {saving ? 'Saving...' : 'Save'}
-                    <span style={{ fontSize: 9, color: '#4d5868', marginLeft: 2 }}>⌘S</span>
+                    <span style={{ fontSize: 9, color: 'var(--fg-faint)', marginLeft: 2 }}>⌘S</span>
                   </button>
                 </div>
                 {/* Monaco editor */}
@@ -464,13 +464,13 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#4d5868',
+                  color: 'var(--fg-faint)',
                   fontSize: 12,
                   flexDirection: 'column',
                   gap: 8,
                 }}
               >
-                <FileCode size={32} strokeWidth={1} color="#2a3642" />
+                <FileCode size={32} strokeWidth={1} color="var(--border-strong)" />
                 Select a command or create a new one
               </div>
             )}
@@ -499,17 +499,17 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 380,
-              background: '#0c0c12',
+              background: 'var(--bg-panel)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 10,
               padding: 18,
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5', marginBottom: 8 }}>Delete command?</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>Delete command?</div>
             <div
               style={{
                 fontSize: 11,
-                color: '#6b7585',
+                color: 'var(--fg-subtle)',
                 marginBottom: 16,
                 fontFamily: "'JetBrains Mono', monospace",
               }}
@@ -524,8 +524,8 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                   borderRadius: 5,
                   fontSize: 11,
                   background: 'none',
-                  border: '1px solid #3d4856',
-                  color: '#8b95a5',
+                  border: '1px solid var(--fg-dim)',
+                  color: 'var(--fg-muted)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -578,7 +578,7 @@ function CategoryList({
         style={{
           fontSize: 9,
           fontWeight: 600,
-          color: '#6b7585',
+          color: 'var(--fg-subtle)',
           textTransform: 'uppercase',
           letterSpacing: 0.5,
           padding: '6px 8px 2px',
@@ -589,7 +589,7 @@ function CategoryList({
       <div
         style={{
           fontSize: 9,
-          color: '#3d4856',
+          color: 'var(--fg-dim)',
           padding: '0 8px 6px',
           fontFamily: "'JetBrains Mono', monospace",
           overflow: 'hidden',
@@ -600,7 +600,7 @@ function CategoryList({
         {description}
       </div>
       {commands.length === 0 && (
-        <div style={{ fontSize: 10, color: '#3d4856', padding: '4px 8px', fontStyle: 'italic' }}>No commands</div>
+        <div style={{ fontSize: 10, color: 'var(--fg-dim)', padding: '4px 8px', fontStyle: 'italic' }}>No commands</div>
       )}
       {commands.map((cmd) => (
         <CommandRow
@@ -640,8 +640,8 @@ function CommandRow({
         gap: 4,
         padding: '6px 8px',
         borderRadius: 5,
-        background: isSelected ? 'rgba(90,165,165,0.1)' : hovered ? '#141821' : 'transparent',
-        border: `1px solid ${isSelected ? 'rgba(90,165,165,0.3)' : 'transparent'}`,
+        background: isSelected ? 'var(--accent-bg)' : hovered ? 'var(--bg-surface-hover)' : 'transparent',
+        border: `1px solid ${isSelected ? 'var(--accent-border)' : 'transparent'}`,
         cursor: 'pointer',
         transition: 'all 120ms ease',
       }}
@@ -654,7 +654,7 @@ function CommandRow({
           minWidth: 0,
           background: 'none',
           border: 'none',
-          color: isSelected ? '#e8eef5' : '#c0c8d4',
+          color: isSelected ? 'var(--fg-primary)' : 'var(--fg-secondary)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 11,
@@ -678,7 +678,7 @@ function CommandRow({
           style={{
             background: 'none',
             border: 'none',
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             cursor: disabled ? 'not-allowed' : 'pointer',
             padding: 2,
             display: 'flex',
@@ -726,8 +726,8 @@ function CreateForm({
         style={{
           width: 360,
           padding: 22,
-          background: '#141821',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-surface-hover)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 10,
         }}
       >
@@ -738,7 +738,7 @@ function CreateForm({
             style={{
               display: 'block',
               fontSize: 10,
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               marginBottom: 4,
               textTransform: 'uppercase',
               letterSpacing: 0.5,
@@ -757,17 +757,17 @@ function CreateForm({
             style={{
               width: '100%',
               padding: '6px 10px',
-              background: '#0a0e14',
-              border: '1px solid #2a3642',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-strong)',
               borderRadius: 5,
-              color: '#e8eef5',
+              color: 'var(--fg-primary)',
               fontSize: 12,
               fontFamily: "'JetBrains Mono', monospace",
               outline: 'none',
             }}
           />
-          <div style={{ fontSize: 9, color: '#4d5868', marginTop: 4 }}>
-            Use <code style={{ color: '#6b7585' }}>:</code> for subgroups (pipeline:dev-task)
+          <div style={{ fontSize: 9, color: 'var(--fg-faint)', marginTop: 4 }}>
+            Use <code style={{ color: 'var(--fg-subtle)' }}>:</code> for subgroups (pipeline:dev-task)
           </div>
         </div>
 
@@ -776,7 +776,7 @@ function CreateForm({
             style={{
               display: 'block',
               fontSize: 10,
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               marginBottom: 4,
               textTransform: 'uppercase',
               letterSpacing: 0.5,
@@ -793,9 +793,9 @@ function CreateForm({
                 padding: '6px 10px',
                 borderRadius: 5,
                 fontSize: 11,
-                background: source === 'project' ? 'rgba(90,165,165,0.15)' : 'none',
-                border: `1px solid ${source === 'project' ? 'rgba(90,165,165,0.4)' : '#2a3642'}`,
-                color: !projectCwd ? '#3d4856' : source === 'project' ? '#7dbdbd' : '#6b7585',
+                background: source === 'project' ? 'var(--accent-bg)' : 'none',
+                border: `1px solid ${source === 'project' ? 'var(--accent-border)' : 'var(--border-strong)'}`,
+                color: !projectCwd ? 'var(--fg-dim)' : source === 'project' ? 'var(--accent-bright)' : 'var(--fg-subtle)',
                 cursor: projectCwd ? 'pointer' : 'not-allowed',
                 fontFamily: 'inherit',
               }}
@@ -810,8 +810,8 @@ function CreateForm({
                 borderRadius: 5,
                 fontSize: 11,
                 background: source === 'user' ? 'rgba(129,140,248,0.15)' : 'none',
-                border: `1px solid ${source === 'user' ? 'rgba(129,140,248,0.4)' : '#2a3642'}`,
-                color: source === 'user' ? '#818cf8' : '#6b7585',
+                border: `1px solid ${source === 'user' ? 'rgba(129,140,248,0.4)' : 'var(--border-strong)'}`,
+                color: source === 'user' ? '#818cf8' : 'var(--fg-subtle)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
@@ -830,8 +830,8 @@ function CreateForm({
               borderRadius: 5,
               fontSize: 11,
               background: 'none',
-              border: '1px solid #3d4856',
-              color: '#8b95a5',
+              border: '1px solid var(--fg-dim)',
+              color: 'var(--fg-muted)',
               cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
             }}
@@ -846,9 +846,9 @@ function CreateForm({
               borderRadius: 5,
               fontSize: 11,
               fontWeight: 500,
-              background: name.trim() ? 'rgba(90,165,165,0.15)' : 'rgba(55,65,81,0.3)',
-              border: `1px solid ${name.trim() ? 'rgba(90,165,165,0.4)' : '#1e2530'}`,
-              color: name.trim() ? '#7dbdbd' : '#4d5868',
+              background: name.trim() ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
+              border: `1px solid ${name.trim() ? 'var(--accent-border)' : 'var(--border-muted)'}`,
+              color: name.trim() ? 'var(--accent-bright)' : 'var(--fg-faint)',
               cursor: name.trim() && !saving ? 'pointer' : 'not-allowed',
               fontFamily: 'inherit',
               display: 'flex',
@@ -889,7 +889,7 @@ function HoverIconButton({
       style={{
         background: !disabled && hovered ? `${hoverColor}15` : 'none',
         border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : 'transparent'}`,
-        color: disabled ? '#3d4856' : hovered ? hoverColor : '#6b7585',
+        color: disabled ? 'var(--fg-dim)' : hovered ? hoverColor : 'var(--fg-subtle)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -914,7 +914,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',

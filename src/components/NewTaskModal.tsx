@@ -191,7 +191,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
               <div
                 style={{
                   fontSize: 11,
-                  color: '#52525e',
+                  color: 'var(--fg-subtle)',
                   marginTop: 2,
                   marginBottom: 4,
                   fontFamily: "'JetBrains Mono', monospace",
@@ -202,9 +202,9 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                 }}
               >
                 <span>{customBranch.trim() || `cortx/${slugify(title)}`}</span>
-                <span style={{ color: '#32323c' }}>·</span>
+                <span style={{ color: 'var(--border-muted)' }}>·</span>
                 <span>.worktrees/{slugify(title)}</span>
-                <span style={{ color: '#32323c' }}>·</span>
+                <span style={{ color: 'var(--border-muted)' }}>·</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   from
                   <span style={{ position: 'relative' }}>
@@ -215,8 +215,8 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                         padding: '2px 8px',
                         borderRadius: 4,
                         fontSize: 11,
-                        background: '#232330',
-                        border: '1px solid #32323c',
+                        background: 'var(--bg-chip)',
+                        border: '1px solid var(--border-muted)',
                         color: '#818cf8',
                         cursor: 'pointer',
                         fontFamily: "'JetBrains Mono', monospace",
@@ -233,8 +233,8 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                           marginTop: 4,
                           zIndex: 50,
                           width: 240,
-                          background: '#16161e',
-                          border: '1px solid #32323c',
+                          background: 'var(--bg-chip)',
+                          border: '1px solid var(--border-muted)',
                           borderRadius: 8,
                           boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
                           overflow: 'hidden',
@@ -251,7 +251,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                               background: 'none',
                               border: 'none',
                               outline: 'none',
-                              color: '#e4e4e7',
+                              color: 'var(--fg-primary)',
                               fontSize: 12,
                               fontFamily: 'inherit',
                             }}
@@ -282,7 +282,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                                   cursor: 'pointer',
                                   fontFamily: "'JetBrains Mono', monospace",
                                   fontSize: 11,
-                                  color: b === (selectedProject.baseBranch || 'main') ? '#e4e4e7' : '#888895',
+                                  color: b === (selectedProject.baseBranch || 'main') ? 'var(--fg-primary)' : '#888895',
                                   textAlign: 'left',
                                 }}
                               >
@@ -314,9 +314,9 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                     borderRadius: 8,
                     fontSize: 11,
                     fontWeight: 500,
-                    border: !projectId ? '1px solid rgba(99,102,241,0.3)' : '1px solid #18181b',
-                    background: !projectId ? 'rgba(99,102,241,0.06)' : '#06060a',
-                    color: !projectId ? '#818cf8' : '#52525b',
+                    border: !projectId ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--bg-chip)',
+                    background: !projectId ? 'rgba(99,102,241,0.06)' : 'var(--bg-surface)',
+                    color: !projectId ? '#818cf8' : 'var(--fg-subtle)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}
@@ -333,8 +333,8 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                       borderRadius: 8,
                       fontSize: 11,
                       fontWeight: 500,
-                      border: projectId === p.id ? `1px solid ${p.color}40` : '1px solid #18181b',
-                      background: projectId === p.id ? `${p.color}0a` : '#06060a',
+                      border: projectId === p.id ? `1px solid ${p.color}40` : '1px solid var(--bg-chip)',
+                      background: projectId === p.id ? `${p.color}0a` : 'var(--bg-surface)',
                       color: projectId === p.id ? p.color : '#71717a',
                       cursor: 'pointer',
                       fontFamily: 'inherit',
@@ -409,8 +409,8 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
                     fontSize: 11,
                     fontWeight: 500,
                     textAlign: 'center',
-                    border: layer === l.value ? `1px solid ${l.color}40` : '1px solid #18181b',
-                    background: layer === l.value ? `${l.color}0a` : '#06060a',
+                    border: layer === l.value ? `1px solid ${l.color}40` : '1px solid var(--bg-chip)',
+                    background: layer === l.value ? `${l.color}0a` : 'var(--bg-surface)',
                     color: layer === l.value ? l.color : '#71717a',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
@@ -440,7 +440,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
               <div className="spinner" />
               <div>
                 <div style={{ fontSize: 12, color: '#d4d4d8', fontWeight: 500 }}>{status || 'Creating task...'}</div>
-                <div style={{ fontSize: 10, color: '#52525e', marginTop: 2 }}>Setting up worktree and environment</div>
+                <div style={{ fontSize: 10, color: 'var(--fg-subtle)', marginTop: 2 }}>Setting up worktree and environment</div>
               </div>
             </div>
           )}

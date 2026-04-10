@@ -14,7 +14,7 @@ function ProjBtn({
   onClick: () => void;
   hoverColor?: string;
 }) {
-  const color = hoverColor || '#a1a1aa';
+  const color = hoverColor || 'var(--fg-muted)';
   return (
     <button
       onClick={(e) => {
@@ -28,7 +28,7 @@ function ProjBtn({
         borderRadius: 6,
         background: 'none',
         border: 'none',
-        color: '#4d5868',
+        color: 'var(--fg-faint)',
         cursor: 'pointer',
         fontSize: 16,
         fontWeight: 500,
@@ -42,7 +42,7 @@ function ProjBtn({
         e.currentTarget.style.background = `${color}15`;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.color = '#4d5868';
+        e.currentTarget.style.color = 'var(--fg-faint)';
         e.currentTarget.style.background = 'none';
       }}
     >
@@ -117,9 +117,9 @@ export function ProjectGroup({
           }}
         >
           {tasks.length > 0 && allSelected ? (
-            <CheckSquare size={18} color="#5aa5a5" strokeWidth={1.5} />
+            <CheckSquare size={18} color="var(--accent)" strokeWidth={1.5} />
           ) : (
-            <Square size={18} color="#3d4856" strokeWidth={1.5} />
+            <Square size={18} color="var(--fg-dim)" strokeWidth={1.5} />
           )}
         </span>
         <button
@@ -142,7 +142,7 @@ export function ProjectGroup({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: '#a1a1aa',
+              color: 'var(--fg-muted)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -151,7 +151,7 @@ export function ProjectGroup({
           >
             {project.name}
           </span>
-          <span style={{ fontSize: 13, color: '#6b6b78' }}>{tasks.length}</span>
+          <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>{tasks.length}</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>
           <ProjBtn
@@ -199,7 +199,7 @@ export function ProjectGroup({
             />
           ))}
           {tasks.length === 0 && (
-            <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: '#2a3642', fontStyle: 'italic' }}>
+            <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: 'var(--border-strong)', fontStyle: 'italic' }}>
               No tasks — click + to add one
             </div>
           )}

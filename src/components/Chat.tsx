@@ -147,7 +147,7 @@ export function Chat({ taskId }: { taskId: string }) {
             <div className="msg-avatar ai">C</div>
             <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
               <div className="loading-dot" />
-              <span style={{ fontSize: 13, color: '#52525b' }}>Thinking...</span>
+              <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>Thinking...</span>
             </div>
           </div>
         )}
@@ -180,7 +180,7 @@ export function Chat({ taskId }: { taskId: string }) {
                 right: 0,
                 marginBottom: 4,
                 background: '#0c0c10',
-                border: '1px solid #18181b',
+                border: '1px solid var(--bg-chip)',
                 borderRadius: 10,
                 padding: 6,
                 zIndex: 20,
@@ -220,7 +220,7 @@ export function Chat({ taskId }: { taskId: string }) {
                       padding: '6px 10px',
                       fontSize: 9,
                       fontWeight: 600,
-                      color: '#3f3f46',
+                      color: 'var(--fg-faint)',
                       textTransform: 'uppercase',
                       letterSpacing: 1,
                     }}
@@ -238,7 +238,7 @@ export function Chat({ taskId }: { taskId: string }) {
                         padding: '6px 10px',
                         background: modelId === m ? 'rgba(99,102,241,0.08)' : 'none',
                         border: 'none',
-                        color: modelId === m ? '#818cf8' : '#a1a1aa',
+                        color: modelId === m ? '#818cf8' : 'var(--fg-muted)',
                         fontSize: 11,
                         cursor: 'pointer',
                         fontFamily: "'JetBrains Mono', monospace",

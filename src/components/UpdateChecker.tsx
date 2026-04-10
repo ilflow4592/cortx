@@ -94,8 +94,8 @@ export function UpdateChecker({ onClose }: Props) {
           width: 520,
           maxWidth: '90vw',
           maxHeight: '85vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -107,14 +107,14 @@ export function UpdateChecker({ onClose }: Props) {
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}
         >
-          <ArrowUp size={18} color="#5aa5a5" strokeWidth={1.5} />
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>Check for Updates</div>
+          <ArrowUp size={18} color="var(--accent)" strokeWidth={1.5} />
+          <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>Check for Updates</div>
           <CloseButton onClose={onClose} />
         </div>
 
@@ -127,7 +127,7 @@ export function UpdateChecker({ onClose }: Props) {
                 alignItems: 'center',
                 gap: 10,
                 padding: '16px 0',
-                color: '#8b95a5',
+                color: 'var(--fg-muted)',
                 fontSize: 12,
               }}
             >
@@ -147,8 +147,8 @@ export function UpdateChecker({ onClose }: Props) {
               }}
             >
               <CheckCircle2 size={40} color="#34d399" strokeWidth={1.5} />
-              <div style={{ fontSize: 14, color: '#e8eef5', fontWeight: 600 }}>You're up to date</div>
-              <div style={{ fontSize: 11, color: '#6b7585', fontFamily: "'JetBrains Mono', monospace" }}>
+              <div style={{ fontSize: 14, color: 'var(--fg-primary)', fontWeight: 600 }}>You're up to date</div>
+              <div style={{ fontSize: 11, color: 'var(--fg-subtle)', fontFamily: "'JetBrains Mono', monospace" }}>
                 Cortx v{info.currentVersion}
               </div>
             </div>
@@ -157,12 +157,12 @@ export function UpdateChecker({ onClose }: Props) {
           {phase === 'available' && info && (
             <>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, color: '#6b7585', marginBottom: 4 }}>New version available</div>
+                <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 4 }}>New version available</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span
                     style={{
                       fontSize: 13,
-                      color: '#6b7585',
+                      color: 'var(--fg-subtle)',
                       fontFamily: "'JetBrains Mono', monospace",
                       textDecoration: 'line-through',
                     }}
@@ -182,19 +182,19 @@ export function UpdateChecker({ onClose }: Props) {
                   </span>
                 </div>
                 {info.releaseDate && (
-                  <div style={{ fontSize: 10, color: '#4d5868', marginTop: 4 }}>Released: {info.releaseDate}</div>
+                  <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4 }}>Released: {info.releaseDate}</div>
                 )}
               </div>
               {info.releaseNotes && (
                 <div
                   style={{
                     padding: 12,
-                    background: '#0a0e14',
-                    border: '1px solid #141821',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--bg-surface-hover)',
                     borderRadius: 6,
                     marginBottom: 14,
                     fontSize: 11,
-                    color: '#c0c8d4',
+                    color: 'var(--fg-secondary)',
                     maxHeight: 240,
                     overflowY: 'auto',
                   }}
@@ -228,13 +228,13 @@ export function UpdateChecker({ onClose }: Props) {
 
           {phase === 'downloading' && (
             <div style={{ padding: '16px 0' }}>
-              <div style={{ fontSize: 12, color: '#8b95a5', marginBottom: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 12, textAlign: 'center' }}>
                 Downloading update...
               </div>
               <div
                 style={{
                   height: 6,
-                  background: '#141821',
+                  background: 'var(--bg-surface-hover)',
                   borderRadius: 3,
                   overflow: 'hidden',
                   marginBottom: 8,
@@ -244,17 +244,17 @@ export function UpdateChecker({ onClose }: Props) {
                   style={{
                     height: '100%',
                     width: progress?.total ? `${progressPct}%` : '40%',
-                    background: '#5aa5a5',
+                    background: 'var(--accent)',
                     transition: 'width 120ms ease',
                   }}
                 />
               </div>
               {progress?.total ? (
-                <div style={{ fontSize: 10, color: '#4d5868', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}>
+                <div style={{ fontSize: 10, color: 'var(--fg-faint)', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}>
                   {(progress.downloaded / 1024 / 1024).toFixed(1)}MB / {(progress.total / 1024 / 1024).toFixed(1)}MB ({progressPct}%)
                 </div>
               ) : (
-                <div style={{ fontSize: 10, color: '#4d5868', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--fg-faint)', textAlign: 'center' }}>
                   {(progress?.downloaded || 0 / 1024 / 1024).toFixed(1)}MB downloaded
                 </div>
               )}
@@ -272,8 +272,8 @@ export function UpdateChecker({ onClose }: Props) {
               }}
             >
               <CheckCircle2 size={40} color="#34d399" strokeWidth={1.5} />
-              <div style={{ fontSize: 14, color: '#e8eef5', fontWeight: 600 }}>Update installed</div>
-              <div style={{ fontSize: 11, color: '#6b7585', textAlign: 'center' }}>
+              <div style={{ fontSize: 14, color: 'var(--fg-primary)', fontWeight: 600 }}>Update installed</div>
+              <div style={{ fontSize: 11, color: 'var(--fg-subtle)', textAlign: 'center' }}>
                 Restart the app to apply the new version.
               </div>
               <button
@@ -318,7 +318,7 @@ export function UpdateChecker({ onClose }: Props) {
                   <div
                     style={{
                       fontSize: 11,
-                      color: '#8b95a5',
+                      color: 'var(--fg-muted)',
                       fontFamily: "'JetBrains Mono', monospace",
                       wordBreak: 'break-word',
                     }}
@@ -327,9 +327,9 @@ export function UpdateChecker({ onClose }: Props) {
                   </div>
                 </div>
               </div>
-              <div style={{ fontSize: 10, color: '#4d5868', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 10, color: 'var(--fg-faint)', lineHeight: 1.6 }}>
                 Make sure the updater is properly configured with a signing public key and that the release endpoint
-                is reachable. See <code style={{ color: '#6b7585' }}>docs/auto-update.md</code>.
+                is reachable. See <code style={{ color: 'var(--fg-subtle)' }}>docs/auto-update.md</code>.
               </div>
               <button
                 onClick={runCheck}
@@ -339,9 +339,9 @@ export function UpdateChecker({ onClose }: Props) {
                   padding: '8px 14px',
                   borderRadius: 6,
                   fontSize: 11,
-                  background: 'rgba(90,165,165,0.1)',
-                  border: '1px solid rgba(90,165,165,0.3)',
-                  color: '#7dbdbd',
+                  background: 'var(--accent-bg)',
+                  border: '1px solid var(--accent-border)',
+                  color: 'var(--accent-bright)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   display: 'flex',
@@ -370,7 +370,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',

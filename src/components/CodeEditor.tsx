@@ -98,9 +98,9 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
           alignItems: 'center',
           gap: 8,
           padding: '6px 12px',
-          borderBottom: '1px solid #2a3642',
+          borderBottom: '1px solid var(--border-strong)',
           flexShrink: 0,
-          background: '#0f1419',
+          background: 'var(--bg-app)',
         }}
       >
         <button
@@ -108,7 +108,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
           style={{
             background: 'none',
             border: 'none',
-            color: '#6b7585',
+            color: 'var(--fg-subtle)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -119,7 +119,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
         <span
           style={{
             fontSize: 11,
-            color: '#8b95a5',
+            color: 'var(--fg-muted)',
             fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -133,10 +133,10 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
           <button
             onClick={saveFile}
             style={{
-              background: '#242d38',
-              border: '1px solid #2a3642',
+              background: 'var(--bg-surface-hover)',
+              border: '1px solid var(--border-strong)',
               borderRadius: 4,
-              color: '#c0c8d4',
+              color: 'var(--fg-secondary)',
               cursor: 'pointer',
               fontSize: 10,
               padding: '2px 8px',
@@ -210,15 +210,15 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
                 { token: 'regexp', foreground: '6a8759' },
               ],
               colors: {
-                'editor.background': '#0f1419',
-                'editor.foreground': '#c0c8d4',
-                'editorLineNumber.foreground': '#3d4856',
-                'editorLineNumber.activeForeground': '#6b7585',
-                'editor.lineHighlightBackground': '#1e2530',
+                'editor.background': 'var(--bg-app)',
+                'editor.foreground': 'var(--fg-secondary)',
+                'editorLineNumber.foreground': 'var(--fg-dim)',
+                'editorLineNumber.activeForeground': 'var(--fg-subtle)',
+                'editor.lineHighlightBackground': 'var(--border-muted)',
                 'editor.lineHighlightBorder': '#00000000',
-                'editor.selectionBackground': 'rgba(90,165,165,0.15)',
-                'editorCursor.foreground': '#5aa5a5',
-                'editorIndentGuide.background': '#2a3642',
+                'editor.selectionBackground': 'var(--accent-bg)',
+                'editorCursor.foreground': 'var(--accent)',
+                'editorIndentGuide.background': 'var(--border-strong)',
               },
             });
           }}

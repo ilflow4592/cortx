@@ -190,8 +190,8 @@ export function McpServerManager({ onClose }: Props) {
           width: 720,
           maxWidth: '95vw',
           maxHeight: '90vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -203,21 +203,21 @@ export function McpServerManager({ onClose }: Props) {
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
             flexShrink: 0,
           }}
         >
-          <Server size={18} color="#5aa5a5" strokeWidth={1.5} />
+          <Server size={18} color="var(--accent)" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>MCP Servers</div>
-            <div style={{ fontSize: 10, color: '#4d5868', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>MCP Servers</div>
+            <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
               ~/.claude.json · {servers.length} configured
             </div>
           </div>
-          <HoverIconButton onClick={load} disabled={loading || saving} hoverColor="#5aa5a5" title="Reload">
+          <HoverIconButton onClick={load} disabled={loading || saving} hoverColor="var(--accent)" title="Reload">
             <RotateCw size={14} strokeWidth={1.5} />
           </HoverIconButton>
           <button
@@ -229,7 +229,7 @@ export function McpServerManager({ onClose }: Props) {
               fontSize: 11,
               background: 'rgba(129,140,248,0.15)',
               border: '1px solid rgba(129,140,248,0.35)',
-              color: adding || editing !== null ? '#4d5868' : '#818cf8',
+              color: adding || editing !== null ? 'var(--fg-faint)' : '#818cf8',
               cursor: adding || editing !== null ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
               display: 'flex',
@@ -263,14 +263,14 @@ export function McpServerManager({ onClose }: Props) {
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-          {loading && <div style={{ color: '#4d5868', fontSize: 12, textAlign: 'center', padding: 32 }}>Loading...</div>}
+          {loading && <div style={{ color: 'var(--fg-faint)', fontSize: 12, textAlign: 'center', padding: 32 }}>Loading...</div>}
 
           {/* Add form */}
           {adding && <DraftForm draft={draft} setDraft={setDraft} onSave={save} onCancel={cancelDraft} saving={saving} isEdit={false} />}
 
           {/* Server list */}
           {!loading && !adding && servers.length === 0 && (
-            <div style={{ color: '#4d5868', fontSize: 12, textAlign: 'center', padding: 32 }}>
+            <div style={{ color: 'var(--fg-faint)', fontSize: 12, textAlign: 'center', padding: 32 }}>
               No MCP servers configured. Click "Add" to create one.
             </div>
           )}
@@ -320,19 +320,19 @@ export function McpServerManager({ onClose }: Props) {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 380,
-              background: '#0c0c12',
+              background: 'var(--bg-panel)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 10,
               padding: 18,
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>
               Remove MCP server?
             </div>
             <div
               style={{
                 fontSize: 11,
-                color: '#6b7585',
+                color: 'var(--fg-subtle)',
                 marginBottom: 16,
                 fontFamily: "'JetBrains Mono', monospace",
               }}
@@ -347,8 +347,8 @@ export function McpServerManager({ onClose }: Props) {
                   borderRadius: 5,
                   fontSize: 11,
                   background: 'none',
-                  border: '1px solid #3d4856',
-                  color: '#8b95a5',
+                  border: '1px solid var(--fg-dim)',
+                  color: 'var(--fg-muted)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -398,24 +398,24 @@ function ServerRow({
       style={{
         padding: 12,
         marginBottom: 8,
-        background: hovered ? '#141821' : '#0a0e14',
-        border: `1px solid ${hovered ? '#2a3642' : '#141821'}`,
+        background: hovered ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+        border: `1px solid ${hovered ? 'var(--border-strong)' : 'var(--bg-surface-hover)'}`,
         borderRadius: 8,
         transition: 'all 120ms ease',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
             {server.name}
             <span
               style={{
                 fontSize: 9,
                 padding: '1px 6px',
                 borderRadius: 3,
-                background: server.server_type === 'http' ? 'rgba(129,140,248,0.15)' : 'rgba(90,165,165,0.15)',
-                color: server.server_type === 'http' ? '#818cf8' : '#7dbdbd',
-                border: `1px solid ${server.server_type === 'http' ? 'rgba(129,140,248,0.3)' : 'rgba(90,165,165,0.3)'}`,
+                background: server.server_type === 'http' ? 'rgba(129,140,248,0.15)' : 'var(--accent-bg)',
+                color: server.server_type === 'http' ? '#818cf8' : 'var(--accent-bright)',
+                border: `1px solid ${server.server_type === 'http' ? 'rgba(129,140,248,0.3)' : 'var(--accent-border)'}`,
               }}
             >
               {server.server_type || 'stdio'}
@@ -424,7 +424,7 @@ function ServerRow({
           <div
             style={{
               fontSize: 10,
-              color: '#6b7585',
+              color: 'var(--fg-subtle)',
               fontFamily: "'JetBrains Mono', monospace",
               marginTop: 4,
               overflow: 'hidden',
@@ -440,7 +440,7 @@ function ServerRow({
             <div
               style={{
                 fontSize: 9,
-                color: '#4d5868',
+                color: 'var(--fg-faint)',
                 marginTop: 4,
                 display: 'flex',
                 gap: 4,
@@ -453,8 +453,8 @@ function ServerRow({
                   style={{
                     padding: '1px 5px',
                     borderRadius: 3,
-                    background: '#1a1f26',
-                    border: '1px solid #2a3642',
+                    background: 'var(--bg-chip)',
+                    border: '1px solid var(--border-strong)',
                     fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
@@ -495,7 +495,7 @@ function DraftForm({
   const labelStyle: React.CSSProperties = {
     display: 'block',
     fontSize: 10,
-    color: '#6b7585',
+    color: 'var(--fg-subtle)',
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -503,10 +503,10 @@ function DraftForm({
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '6px 10px',
-    background: '#0a0e14',
-    border: '1px solid #2a3642',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border-strong)',
     borderRadius: 5,
-    color: '#e8eef5',
+    color: 'var(--fg-primary)',
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
     outline: 'none',
@@ -516,8 +516,8 @@ function DraftForm({
       style={{
         padding: 14,
         marginBottom: 10,
-        background: '#141821',
-        border: '1px solid #2a3642',
+        background: 'var(--bg-surface-hover)',
+        border: '1px solid var(--border-strong)',
         borderRadius: 8,
       }}
     >
@@ -547,9 +547,9 @@ function DraftForm({
                 padding: '5px 14px',
                 borderRadius: 5,
                 fontSize: 11,
-                background: draft.type === t ? 'rgba(90,165,165,0.15)' : 'none',
-                border: `1px solid ${draft.type === t ? 'rgba(90,165,165,0.4)' : '#2a3642'}`,
-                color: draft.type === t ? '#7dbdbd' : '#6b7585',
+                background: draft.type === t ? 'var(--accent-bg)' : 'none',
+                border: `1px solid ${draft.type === t ? 'var(--accent-border)' : 'var(--border-strong)'}`,
+                color: draft.type === t ? 'var(--accent-bright)' : 'var(--fg-subtle)',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
@@ -613,8 +613,8 @@ function DraftForm({
             borderRadius: 5,
             fontSize: 11,
             background: 'none',
-            border: '1px solid #3d4856',
-            color: '#8b95a5',
+            border: '1px solid var(--fg-dim)',
+            color: 'var(--fg-muted)',
             cursor: saving ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit',
           }}
@@ -629,9 +629,9 @@ function DraftForm({
             borderRadius: 5,
             fontSize: 11,
             fontWeight: 500,
-            background: draft.name.trim() ? 'rgba(90,165,165,0.15)' : 'rgba(55,65,81,0.3)',
-            border: `1px solid ${draft.name.trim() ? 'rgba(90,165,165,0.4)' : '#1e2530'}`,
-            color: draft.name.trim() ? '#7dbdbd' : '#4d5868',
+            background: draft.name.trim() ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
+            border: `1px solid ${draft.name.trim() ? 'var(--accent-border)' : 'var(--border-muted)'}`,
+            color: draft.name.trim() ? 'var(--accent-bright)' : 'var(--fg-faint)',
             cursor: draft.name.trim() && !saving ? 'pointer' : 'not-allowed',
             fontFamily: 'inherit',
             display: 'flex',
@@ -671,7 +671,7 @@ function HoverIconButton({
       style={{
         background: !disabled && hovered ? `${hoverColor}15` : 'none',
         border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : 'transparent'}`,
-        color: disabled ? '#3d4856' : hovered ? hoverColor : '#6b7585',
+        color: disabled ? 'var(--fg-dim)' : hovered ? hoverColor : 'var(--fg-subtle)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -712,8 +712,8 @@ function RowIconButton({
         height: 26,
         borderRadius: 5,
         background: !disabled && hovered ? `${hoverColor}15` : 'transparent',
-        border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : '#1e2530'}`,
-        color: disabled ? '#2a3642' : hovered ? hoverColor : '#6b7585',
+        border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : 'var(--border-muted)'}`,
+        color: disabled ? 'var(--border-strong)' : hovered ? hoverColor : 'var(--fg-subtle)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -737,7 +737,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',

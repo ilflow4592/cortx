@@ -97,12 +97,12 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#0a0e14',
-        'editor.foreground': '#c0c8d4',
-        'editorLineNumber.foreground': '#3d4856',
-        'editorCursor.foreground': '#7dbdbd',
-        'editor.selectionBackground': '#2a3642',
-        'editor.lineHighlightBackground': '#141821',
+        'editor.background': 'var(--bg-surface)',
+        'editor.foreground': 'var(--fg-secondary)',
+        'editorLineNumber.foreground': 'var(--fg-dim)',
+        'editorCursor.foreground': 'var(--accent-bright)',
+        'editor.selectionBackground': 'var(--border-strong)',
+        'editor.lineHighlightBackground': 'var(--bg-surface-hover)',
       },
     });
     monaco.editor.setTheme('cortx-dark');
@@ -188,8 +188,8 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
           maxWidth: '95vw',
           height: 600,
           maxHeight: '90vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -201,23 +201,23 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
         <div
           style={{
             padding: '14px 18px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
             flexShrink: 0,
           }}
         >
-          <FileCode size={16} color="#5aa5a5" strokeWidth={1.5} />
+          <FileCode size={16} color="var(--accent)" strokeWidth={1.5} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eef5' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)' }}>
               Pipeline Config {dirty && <span style={{ color: '#eab308', fontSize: 11 }}>● unsaved</span>}
               {saved && <span style={{ color: '#34d399', fontSize: 11 }}>✓ saved</span>}
             </div>
             <div
               style={{
                 fontSize: 10,
-                color: '#4d5868',
+                color: 'var(--fg-faint)',
                 fontFamily: "'JetBrains Mono', monospace",
                 marginTop: 2,
                 overflow: 'hidden',
@@ -236,7 +236,7 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
           >
             <RotateCcw size={14} strokeWidth={1.5} />
           </HoverIconButton>
-          <HoverIconButton onClick={handleRevert} hoverColor="#6b7585" title="Revert unsaved changes" disabled={!dirty}>
+          <HoverIconButton onClick={handleRevert} hoverColor="var(--fg-subtle)" title="Revert unsaved changes" disabled={!dirty}>
             <X size={14} strokeWidth={1.5} />
           </HoverIconButton>
           <button
@@ -247,9 +247,9 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
               borderRadius: 5,
               fontSize: 11,
               fontWeight: 500,
-              background: dirty ? 'rgba(90,165,165,0.15)' : 'rgba(55,65,81,0.3)',
-              border: `1px solid ${dirty ? 'rgba(90,165,165,0.4)' : '#1e2530'}`,
-              color: dirty ? '#7dbdbd' : '#4d5868',
+              background: dirty ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
+              border: `1px solid ${dirty ? 'var(--accent-border)' : 'var(--border-muted)'}`,
+              color: dirty ? 'var(--accent-bright)' : 'var(--fg-faint)',
               cursor: dirty && !saving ? 'pointer' : 'not-allowed',
               fontFamily: 'inherit',
               display: 'flex',
@@ -260,7 +260,7 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
           >
             <Save size={12} strokeWidth={1.5} />
             {saving ? 'Saving...' : 'Save'}
-            <span style={{ fontSize: 9, color: '#4d5868', marginLeft: 4 }}>⌘S</span>
+            <span style={{ fontSize: 9, color: 'var(--fg-faint)', marginLeft: 4 }}>⌘S</span>
           </button>
           <CloseButton onClose={onClose} />
         </div>
@@ -294,7 +294,7 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#4d5868',
+                color: 'var(--fg-faint)',
                 fontSize: 12,
               }}
             >
@@ -330,9 +330,9 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
         <div
           style={{
             padding: '10px 18px',
-            borderTop: '1px solid #1e2530',
+            borderTop: '1px solid var(--border-muted)',
             fontSize: 10,
-            color: '#4d5868',
+            color: 'var(--fg-faint)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -340,8 +340,8 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Prop
           }}
         >
           <div>
-            Supported keys: <code style={{ color: '#6b7585' }}>names</code>,{' '}
-            <code style={{ color: '#6b7585' }}>models</code>, <code style={{ color: '#6b7585' }}>hidden</code>
+            Supported keys: <code style={{ color: 'var(--fg-subtle)' }}>names</code>,{' '}
+            <code style={{ color: 'var(--fg-subtle)' }}>models</code>, <code style={{ color: 'var(--fg-subtle)' }}>hidden</code>
           </div>
           <div>ESC to close · ⌘S to save</div>
         </div>
@@ -374,7 +374,7 @@ function HoverIconButton({
       style={{
         background: !disabled && hovered ? `${hoverColor}15` : 'none',
         border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : 'transparent'}`,
-        color: disabled ? '#3d4856' : hovered ? hoverColor : '#6b7585',
+        color: disabled ? 'var(--fg-dim)' : hovered ? hoverColor : 'var(--fg-subtle)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -399,7 +399,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',

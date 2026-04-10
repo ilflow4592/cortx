@@ -47,9 +47,9 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
           alignItems: 'center',
           gap: 8,
           padding: '6px 12px',
-          borderBottom: '1px solid #2a3642',
+          borderBottom: '1px solid var(--border-strong)',
           flexShrink: 0,
-          background: '#0f1419',
+          background: 'var(--bg-app)',
         }}
       >
         <button
@@ -57,7 +57,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
           style={{
             background: 'none',
             border: 'none',
-            color: '#6b7585',
+            color: 'var(--fg-subtle)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -68,7 +68,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
         <span
           style={{
             fontSize: 11,
-            color: '#8b95a5',
+            color: 'var(--fg-muted)',
             fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -78,7 +78,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
         >
           {relativePath}
         </span>
-        <span style={{ fontSize: 9, color: '#6b7585' }}>Diff</span>
+        <span style={{ fontSize: 9, color: 'var(--fg-subtle)' }}>Diff</span>
       </div>
       <div style={{ flex: 1 }}>
         <MonacoDiffEditor
@@ -120,14 +120,14 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
                 { token: 'constant', foreground: '9876aa' },
               ],
               colors: {
-                'editor.background': '#0f1419',
-                'editor.foreground': '#c0c8d4',
-                'editorLineNumber.foreground': '#3d4856',
-                'editorLineNumber.activeForeground': '#6b7585',
-                'editor.lineHighlightBackground': '#1e2530',
+                'editor.background': 'var(--bg-app)',
+                'editor.foreground': 'var(--fg-secondary)',
+                'editorLineNumber.foreground': 'var(--fg-dim)',
+                'editorLineNumber.activeForeground': 'var(--fg-subtle)',
+                'editor.lineHighlightBackground': 'var(--border-muted)',
                 'editor.lineHighlightBorder': '#00000000',
-                'editor.selectionBackground': 'rgba(90,165,165,0.15)',
-                'editorCursor.foreground': '#5aa5a5',
+                'editor.selectionBackground': 'var(--accent-bg)',
+                'editorCursor.foreground': 'var(--accent)',
                 'diffEditor.insertedTextBackground': '#2a4632',
                 'diffEditor.removedTextBackground': '#4b2228',
                 'diffEditorGutter.insertedLineBackground': '#1e3326',

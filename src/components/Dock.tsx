@@ -70,7 +70,7 @@ export function Dock({
               justifyContent: 'center',
               fontSize: 10,
               fontWeight: 700,
-              color: '#06060a',
+              color: 'var(--bg-surface)',
             }}
           >
             {proj.name.charAt(0).toUpperCase()}

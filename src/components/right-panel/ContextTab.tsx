@@ -3,9 +3,9 @@ import type { ContextItem } from '../../types/contextPack';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
 
 function sourceIcon(type: string): ReactNode {
-  if (type === 'github') return <GitHubIcon size={14} color="#a1a1aa" />;
+  if (type === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
   if (type === 'slack') return <SlackIcon size={14} />;
-  if (type === 'notion') return <NotionIcon size={14} color="#a1a1aa" />;
+  if (type === 'notion') return <NotionIcon size={14} color="var(--fg-muted)" />;
   return <PinIcon size={14} />;
 }
 

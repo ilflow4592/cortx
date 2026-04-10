@@ -43,7 +43,7 @@ export function PinDialog({ taskId, onClose }: PinDialogProps) {
         <button style={{ background: 'none', color: '#888895' }} onClick={onClose}>
           Cancel
         </button>
-        <button style={{ background: '#5aa5a5', color: '#fff' }} onClick={handlePin}>
+        <button style={{ background: 'var(--accent)', color: '#fff' }} onClick={handlePin}>
           Pin
         </button>
       </div>

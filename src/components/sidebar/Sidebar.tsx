@@ -168,7 +168,7 @@ export function Sidebar({
           }
         }}
       >
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#e8eef5' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
         </span>
         <span className="sb-title" style={{ fontSize: 10 }}>
@@ -185,7 +185,7 @@ export function Sidebar({
               justifyContent: 'center',
               textAlign: 'center',
               fontSize: 12,
-              color: '#4d5868',
+              color: 'var(--fg-faint)',
               lineHeight: 1.8,
               padding: 16,
             }}
@@ -223,7 +223,7 @@ export function Sidebar({
         {unassigned.length > 0 && (
           <>
             {projects.length > 0 && (
-              <div className="sb-section" style={{ color: '#2a3642' }}>
+              <div className="sb-section" style={{ color: 'var(--border-strong)' }}>
                 No project
               </div>
             )}
@@ -268,7 +268,7 @@ export function Sidebar({
                   <span
                     style={{
                       fontSize: 13,
-                      color: '#3d4856',
+                      color: 'var(--fg-dim)',
                       textDecoration: 'line-through',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -290,9 +290,9 @@ export function Sidebar({
                     width: 22,
                     height: 22,
                     borderRadius: 6,
-                    background: '#1e2530',
-                    border: '1px solid #2a3642',
-                    color: '#4d5868',
+                    background: 'var(--border-muted)',
+                    border: '1px solid var(--border-strong)',
+                    color: 'var(--fg-faint)',
                     cursor: 'pointer',
                     fontSize: 11,
                     fontWeight: 600,
@@ -308,9 +308,9 @@ export function Sidebar({
                     e.currentTarget.style.borderColor = '#34d39940';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#1e2530';
-                    e.currentTarget.style.color = '#4d5868';
-                    e.currentTarget.style.borderColor = '#2a3642';
+                    e.currentTarget.style.background = 'var(--border-muted)';
+                    e.currentTarget.style.color = 'var(--fg-faint)';
+                    e.currentTarget.style.borderColor = 'var(--border-strong)';
                   }}
                   title="Undo — move back to waiting"
                 >
@@ -333,9 +333,9 @@ export function Sidebar({
               borderRadius: 6,
               fontSize: 11,
               fontWeight: 600,
-              background: 'rgba(90,165,165,0.1)',
-              border: '1px solid rgba(90,165,165,0.2)',
-              color: '#5aa5a5',
+              background: 'var(--accent-bg)',
+              border: '1px solid var(--accent-bg)',
+              color: 'var(--accent)',
               cursor: 'pointer',
               fontFamily: 'inherit',
               display: 'flex',
@@ -345,20 +345,20 @@ export function Sidebar({
               transition: 'all 200ms ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(90,165,165,0.2)';
-              e.currentTarget.style.borderColor = 'rgba(90,165,165,0.4)';
+              e.currentTarget.style.background = 'var(--accent-bg)';
+              e.currentTarget.style.borderColor = 'var(--accent-border)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(90,165,165,0.1)';
-              e.currentTarget.style.borderColor = 'rgba(90,165,165,0.2)';
+              e.currentTarget.style.background = 'var(--accent-bg)';
+              e.currentTarget.style.borderColor = 'var(--accent-bg)';
             }}
           >
             <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedTasks.size})
           </button>
           {showResetConfirm && (
             <div style={{ padding: '8px 0', marginTop: 4 }}>
-              <div style={{ fontSize: 11, color: '#c0c8d4', marginBottom: 6 }}>Reset {selectedTasks.size} tasks?</div>
-              <div style={{ fontSize: 10, color: '#6b7585', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--fg-secondary)', marginBottom: 6 }}>Reset {selectedTasks.size} tasks?</div>
+              <div style={{ fontSize: 10, color: 'var(--fg-subtle)', marginBottom: 8 }}>
                 Pipeline, timer, Claude session, git changes will be cleared.
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -420,8 +420,8 @@ export function Sidebar({
                     borderRadius: 5,
                     fontSize: 10,
                     background: 'none',
-                    border: '1px solid #3d4856',
-                    color: '#8b95a5',
+                    border: '1px solid var(--fg-dim)',
+                    color: 'var(--fg-muted)',
                     cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}
@@ -468,7 +468,7 @@ export function Sidebar({
       )}
 
       {/* Today summary */}
-      <div style={{ borderTop: '1px solid #141418', paddingBottom: 12 }}>
+      <div style={{ borderTop: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
           {onShowReport && (
@@ -478,7 +478,7 @@ export function Sidebar({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#3d4856',
+                color: 'var(--fg-dim)',
                 cursor: 'pointer',
                 fontSize: 10,
                 fontFamily: 'inherit',
@@ -495,7 +495,7 @@ export function Sidebar({
         </div>
         <div className="sb-summary">
           <span>Focus</span>
-          <span className="val" style={{ color: '#7dbdbd' }}>
+          <span className="val" style={{ color: 'var(--accent-bright)' }}>
             {formatTime(totalFocus)}
           </span>
         </div>
@@ -526,10 +526,10 @@ export function Sidebar({
               </button>
             </div>
             <div className="modal-body" style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: '#c0c8d4', marginBottom: 8 }}>
-                <strong style={{ color: '#e8eef5' }}>"{deleteProjectTarget.name}"</strong>
+              <p style={{ fontSize: 14, color: 'var(--fg-secondary)', marginBottom: 8 }}>
+                <strong style={{ color: 'var(--fg-primary)' }}>"{deleteProjectTarget.name}"</strong>
               </p>
-              <p style={{ fontSize: 13, color: '#6b7585' }}>
+              <p style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>
                 {deleteProjectTarget.taskCount > 0
                   ? `This will delete the project and its ${deleteProjectTarget.taskCount} task${deleteProjectTarget.taskCount > 1 ? 's' : ''}. This action cannot be undone.`
                   : 'Are you sure you want to delete this project? This action cannot be undone.'}

@@ -103,9 +103,9 @@ export function RightPanel({
               className="icon-btn-subtle"
               style={{
                 background: 'none',
-                border: '1px solid #2a3642',
+                border: '1px solid var(--border-strong)',
                 borderRadius: 5,
-                color: '#6b7585',
+                color: 'var(--fg-subtle)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -127,8 +127,8 @@ export function RightPanel({
                     right: 0,
                     top: '100%',
                     marginTop: 4,
-                    background: '#1a1f26',
-                    border: '1px solid #2a3642',
+                    background: 'var(--bg-chip)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: 8,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                     padding: 4,
@@ -139,22 +139,22 @@ export function RightPanel({
                   {[
                     {
                       label: 'IntelliJ IDEA',
-                      icon: <Braces size={14} color="#5aa5a5" strokeWidth={1.5} />,
+                      icon: <Braces size={14} color="var(--accent)" strokeWidth={1.5} />,
                       cmd: `open -a "IntelliJ IDEA" "${cwd}"`,
                     },
                     {
                       label: 'VS Code',
-                      icon: <Code2 size={14} color="#5aa5a5" strokeWidth={1.5} />,
+                      icon: <Code2 size={14} color="var(--accent)" strokeWidth={1.5} />,
                       cmd: `open -a "Visual Studio Code" --args "${cwd}"`,
                     },
                     {
                       label: 'Finder',
-                      icon: <FolderOpen size={14} color="#5aa5a5" strokeWidth={1.5} />,
+                      icon: <FolderOpen size={14} color="var(--accent)" strokeWidth={1.5} />,
                       cmd: `open "${cwd}"`,
                     },
                     {
                       label: 'Terminal',
-                      icon: <TerminalSquare size={14} color="#5aa5a5" strokeWidth={1.5} />,
+                      icon: <TerminalSquare size={14} color="var(--accent)" strokeWidth={1.5} />,
                       cmd: `open -a Terminal "${cwd}"`,
                     },
                   ].map((item) => (
@@ -173,14 +173,14 @@ export function RightPanel({
                         background: 'none',
                         border: 'none',
                         borderRadius: 5,
-                        color: '#c0c8d4',
+                        color: 'var(--fg-secondary)',
                         cursor: 'pointer',
                         fontSize: 12,
                         fontFamily: 'inherit',
                         textAlign: 'left',
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(90,165,165,0.08)';
+                        e.currentTarget.style.background = 'var(--accent-bg)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = 'none';
@@ -205,7 +205,7 @@ export function RightPanel({
 
       {/* Drag handle */}
       <div
-        style={{ height: 4, cursor: 'row-resize', background: '#2a3642', flexShrink: 0 }}
+        style={{ height: 4, cursor: 'row-resize', background: 'var(--border-strong)', flexShrink: 0 }}
         onMouseDown={(e) => {
           const startY = e.clientY;
           const panel = e.currentTarget.parentElement;
@@ -284,8 +284,8 @@ export function RightPanel({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#131a21',
-              border: '1px solid #2a3642',
+              background: 'var(--bg-panel-alt)',
+              border: '1px solid var(--border-strong)',
               borderRadius: 12,
               padding: '24px 28px',
               width: 380,
@@ -293,13 +293,13 @@ export function RightPanel({
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 700, color: '#f0f4f8', marginBottom: 12 }}>Reset Session</div>
-            <div style={{ fontSize: 12, color: '#8b95a5', lineHeight: 1.7, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--fg-muted)', lineHeight: 1.7, marginBottom: 8 }}>
               The following will be reset:
             </div>
             <ul
               style={{
                 fontSize: 12,
-                color: '#c0c8d4',
+                color: 'var(--fg-secondary)',
                 lineHeight: 2,
                 paddingLeft: 8,
                 marginBottom: 16,
@@ -307,19 +307,19 @@ export function RightPanel({
               }}
             >
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                 Pipeline progress (all phases)
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                 Task timer (back to 00:00)
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                 Claude conversation context (new session)
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5aa5a5', flexShrink: 0 }} />
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                 Task status (back to Waiting)
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -336,8 +336,8 @@ export function RightPanel({
                   borderRadius: 6,
                   fontSize: 12,
                   background: 'none',
-                  border: '1px solid #3d4856',
-                  color: '#8b95a5',
+                  border: '1px solid var(--fg-dim)',
+                  color: 'var(--fg-muted)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}

@@ -38,7 +38,7 @@ export function SourcesSettings({
                 top: '100%',
                 marginTop: 4,
                 background: '#0c0c10',
-                border: '1px solid #18181b',
+                border: '1px solid var(--bg-chip)',
                 borderRadius: 8,
                 padding: 4,
                 zIndex: 10,
@@ -66,7 +66,7 @@ export function SourcesSettings({
                     padding: '8px 12px',
                     background: 'none',
                     border: 'none',
-                    color: '#a1a1aa',
+                    color: 'var(--fg-muted)',
                     fontSize: 12,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
@@ -81,7 +81,7 @@ export function SourcesSettings({
         </div>
       </div>
       {sources.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '32px 0', fontSize: 12, color: '#3f3f46' }}>
+        <div style={{ textAlign: 'center', padding: '32px 0', fontSize: 12, color: 'var(--fg-faint)' }}>
           No sources configured. Add GitHub, Slack, or Notion.
         </div>
       )}

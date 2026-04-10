@@ -41,7 +41,7 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
                 justifyContent: 'center',
                 fontSize: 13,
                 fontWeight: 700,
-                color: '#06060a',
+                color: 'var(--bg-surface)',
               }}
             >
               {project.name.charAt(0).toUpperCase()}
@@ -76,10 +76,10 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
                 }}
                 style={{
                   padding: '0 14px',
-                  background: '#18181b',
+                  background: 'var(--bg-chip)',
                   border: '1px solid #27272a',
                   borderRadius: 8,
-                  color: '#a1a1aa',
+                  color: 'var(--fg-muted)',
                   fontSize: 12,
                   cursor: 'pointer',
                   fontFamily: 'inherit',
@@ -91,7 +91,7 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
             </div>
           </div>
 
-          <div style={{ height: 1, background: '#141418', margin: '12px 0' }} />
+          <div style={{ height: 1, background: 'var(--border-subtle)', margin: '12px 0' }} />
 
           {/* Base branch */}
           <div className="field">
@@ -106,7 +106,7 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
             />
           </div>
 
-          <div style={{ height: 1, background: '#141418', margin: '12px 0' }} />
+          <div style={{ height: 1, background: 'var(--border-subtle)', margin: '12px 0' }} />
 
           {/* GitHub */}
           <div className="field">
@@ -119,7 +119,7 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
                 onChange={(e) => update({ githubOwner: e.target.value })}
                 placeholder="owner"
               />
-              <span style={{ color: '#3f3f46', alignSelf: 'center', fontSize: 16 }}>/</span>
+              <span style={{ color: 'var(--fg-faint)', alignSelf: 'center', fontSize: 16 }}>/</span>
               <input
                 className="field-input mono"
                 style={{ flex: 1 }}
@@ -182,10 +182,10 @@ function SlackChannelInput({ channels, onChange }: { channels: string[]; onChang
                 gap: 6,
                 padding: '4px 10px',
                 borderRadius: 6,
-                background: '#232330',
-                border: '1px solid #32323c',
+                background: 'var(--bg-chip)',
+                border: '1px solid var(--border-muted)',
                 fontSize: 11,
-                color: '#a1a1aa',
+                color: 'var(--fg-muted)',
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
@@ -195,7 +195,7 @@ function SlackChannelInput({ channels, onChange }: { channels: string[]; onChang
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#52525e',
+                  color: 'var(--fg-subtle)',
                   cursor: 'pointer',
                   fontSize: 12,
                   padding: 0,
@@ -229,9 +229,9 @@ function SlackChannelInput({ channels, onChange }: { channels: string[]; onChang
             padding: '0 14px',
             borderRadius: 8,
             fontSize: 12,
-            background: input.trim() ? '#6366f1' : '#232330',
+            background: input.trim() ? '#6366f1' : 'var(--bg-chip)',
             border: 'none',
-            color: input.trim() ? '#fff' : '#52525e',
+            color: input.trim() ? '#fff' : 'var(--fg-subtle)',
             cursor: input.trim() ? 'pointer' : 'default',
             fontFamily: 'inherit',
           }}
@@ -283,7 +283,7 @@ function BranchPicker({
           alignItems: 'center',
           gap: 6,
           padding: '8px 14px',
-          background: '#18181b',
+          background: 'var(--bg-chip)',
           border: '1px solid #27272a',
           borderRadius: 8,
           color: '#d4d4d8',
@@ -293,7 +293,7 @@ function BranchPicker({
         }}
       >
         {value}
-        <span style={{ fontSize: 10, color: '#52525b', marginLeft: 4 }}>⌃</span>
+        <span style={{ fontSize: 10, color: 'var(--fg-subtle)', marginLeft: 4 }}>⌃</span>
       </button>
 
       {/* Dropdown */}
@@ -317,13 +317,13 @@ function BranchPicker({
           <div
             style={{
               padding: '10px 12px',
-              borderBottom: '1px solid #18181b',
+              borderBottom: '1px solid var(--bg-chip)',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
             }}
           >
-            <span style={{ color: '#3f3f46', fontSize: 14 }}>🔍</span>
+            <span style={{ color: 'var(--fg-faint)', fontSize: 14 }}>🔍</span>
             <input
               autoFocus
               value={search}
@@ -344,7 +344,7 @@ function BranchPicker({
           {/* Branch list */}
           <div style={{ maxHeight: 240, overflowY: 'auto', padding: 4 }}>
             {filtered.length === 0 && (
-              <div style={{ padding: '12px 16px', fontSize: 12, color: '#3f3f46' }}>No branches found</div>
+              <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--fg-faint)' }}>No branches found</div>
             )}
             {filtered.map((b) => (
               <button
@@ -365,7 +365,7 @@ function BranchPicker({
                   cursor: 'pointer',
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 13,
-                  color: value === b ? '#e4e4e7' : '#a1a1aa',
+                  color: value === b ? 'var(--fg-primary)' : 'var(--fg-muted)',
                   textAlign: 'left',
                 }}
                 onMouseEnter={(e) => {

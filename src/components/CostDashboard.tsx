@@ -171,7 +171,7 @@ export function CostDashboard({ onClose }: Props) {
         return {
           id,
           name: project?.name || '(unassigned)',
-          color: project?.color || '#3d4856',
+          color: project?.color || 'var(--fg-dim)',
           ...data,
         };
       })
@@ -207,8 +207,8 @@ export function CostDashboard({ onClose }: Props) {
           width: 900,
           maxWidth: '95vw',
           maxHeight: '90vh',
-          background: '#0c0c12',
-          border: '1px solid #2a3642',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           overflow: 'hidden',
@@ -220,25 +220,25 @@ export function CostDashboard({ onClose }: Props) {
         <div
           style={{
             padding: '18px 22px',
-            borderBottom: '1px solid #1e2530',
+            borderBottom: '1px solid var(--border-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}
         >
-          <DollarSign size={20} color="#5aa5a5" strokeWidth={1.5} />
-          <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: '#e8eef5' }}>Cost Dashboard</div>
+          <DollarSign size={20} color="var(--accent)" strokeWidth={1.5} />
+          <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--fg-primary)' }}>Cost Dashboard</div>
           <div style={{ display: 'flex', gap: 4 }}>
             {(['today', '7d', '30d', 'all'] as Period[]).map((p) => (
               <HoverButton
                 key={p}
                 active={period === p}
                 onClick={() => setPeriod(p)}
-                activeBg="rgba(90,165,165,0.15)"
-                activeBorder="rgba(90,165,165,0.3)"
-                activeColor="#7dbdbd"
-                hoverBg="rgba(90,165,165,0.08)"
-                hoverBorder="rgba(90,165,165,0.2)"
+                activeBg="var(--accent-bg)"
+                activeBorder="var(--accent-border)"
+                activeColor="var(--accent-bright)"
+                hoverBg="var(--accent-bg)"
+                hoverBorder="var(--accent-bg)"
               >
                 {p === 'today' ? 'Today' : p === '7d' ? '7 days' : p === '30d' ? '30 days' : 'All time'}
               </HoverButton>
@@ -251,10 +251,10 @@ export function CostDashboard({ onClose }: Props) {
           {/* Totals cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
             <StatCard
-              icon={<DollarSign size={14} color="#5aa5a5" strokeWidth={1.5} />}
+              icon={<DollarSign size={14} color="var(--accent)" strokeWidth={1.5} />}
               label="Total cost"
               value={formatUsd(totals.cost)}
-              accent="#5aa5a5"
+              accent="var(--accent)"
             />
             <StatCard
               icon={<Zap size={14} color="#818cf8" strokeWidth={1.5} />}
@@ -278,7 +278,7 @@ export function CostDashboard({ onClose }: Props) {
 
           {/* Trend */}
           {trend.length > 0 && (
-            <Section icon={<TrendingUp size={13} color="#5aa5a5" />} title="Daily cost trend">
+            <Section icon={<TrendingUp size={13} color="var(--accent)" />} title="Daily cost trend">
               <div
                 style={{
                   display: 'flex',
@@ -286,9 +286,9 @@ export function CostDashboard({ onClose }: Props) {
                   gap: 4,
                   height: 120,
                   padding: '12px 8px',
-                  background: '#0a0e14',
+                  background: 'var(--bg-surface)',
                   borderRadius: 6,
-                  border: '1px solid #141821',
+                  border: '1px solid var(--bg-surface-hover)',
                 }}
               >
                 {trend.map(([day, cost]) => {
@@ -310,7 +310,7 @@ export function CostDashboard({ onClose }: Props) {
                         style={{
                           width: '100%',
                           height: `${Math.max(heightPct, 2)}%`,
-                          background: 'linear-gradient(to top, #5aa5a5, #7dbdbd)',
+                          background: 'linear-gradient(to top, var(--accent), var(--accent-bright))',
                           borderRadius: '3px 3px 0 0',
                           transition: 'height 200ms ease',
                         }}
@@ -318,7 +318,7 @@ export function CostDashboard({ onClose }: Props) {
                       <div
                         style={{
                           fontSize: 9,
-                          color: '#4d5868',
+                          color: 'var(--fg-faint)',
                           fontFamily: "'JetBrains Mono', monospace",
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
@@ -338,10 +338,10 @@ export function CostDashboard({ onClose }: Props) {
 
           {/* Phase breakdown */}
           {phaseBreakdown.length > 0 && (
-            <Section icon={<Package size={13} color="#5aa5a5" />} title="By pipeline phase">
+            <Section icon={<Package size={13} color="var(--accent)" />} title="By pipeline phase">
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ color: '#4d5868', textAlign: 'left' }}>
+                  <tr style={{ color: 'var(--fg-faint)', textAlign: 'left' }}>
                     <th style={{ padding: '6px 8px', fontWeight: 500 }}>Phase</th>
                     <th style={{ padding: '6px 8px', fontWeight: 500, textAlign: 'right' }}>Input</th>
                     <th style={{ padding: '6px 8px', fontWeight: 500, textAlign: 'right' }}>Output</th>
@@ -351,24 +351,24 @@ export function CostDashboard({ onClose }: Props) {
                 </thead>
                 <tbody>
                   {phaseBreakdown.map(({ phase, input, output, cost }) => (
-                    <tr key={phase} style={{ borderTop: '1px solid #141821' }}>
-                      <td style={{ padding: '8px', color: '#c0c8d4' }}>{PHASE_NAMES[phase]}</td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#8b95a5', fontFamily: 'monospace' }}>
+                    <tr key={phase} style={{ borderTop: '1px solid var(--bg-surface-hover)' }}>
+                      <td style={{ padding: '8px', color: 'var(--fg-secondary)' }}>{PHASE_NAMES[phase]}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}>
                         {formatNum(input)}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#8b95a5', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}>
                         {formatNum(output)}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#7dbdbd', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--accent-bright)', fontFamily: 'monospace' }}>
                         {formatUsd(cost)}
                       </td>
                       <td style={{ padding: '8px' }}>
-                        <div style={{ height: 4, background: '#141821', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: 4, background: 'var(--bg-surface-hover)', borderRadius: 2, overflow: 'hidden' }}>
                           <div
                             style={{
                               height: '100%',
                               width: `${(cost / maxPhaseCost) * 100}%`,
-                              background: '#5aa5a5',
+                              background: 'var(--accent)',
                               borderRadius: 2,
                             }}
                           />
@@ -383,10 +383,10 @@ export function CostDashboard({ onClose }: Props) {
 
           {/* Project breakdown */}
           {projectBreakdown.length > 0 && (
-            <Section icon={<FolderOpen size={13} color="#5aa5a5" />} title="By project">
+            <Section icon={<FolderOpen size={13} color="var(--accent)" />} title="By project">
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ color: '#4d5868', textAlign: 'left' }}>
+                  <tr style={{ color: 'var(--fg-faint)', textAlign: 'left' }}>
                     <th style={{ padding: '6px 8px', fontWeight: 500 }}>Project</th>
                     <th style={{ padding: '6px 8px', fontWeight: 500, textAlign: 'right' }}>Tasks</th>
                     <th style={{ padding: '6px 8px', fontWeight: 500, textAlign: 'right' }}>Cost</th>
@@ -395,8 +395,8 @@ export function CostDashboard({ onClose }: Props) {
                 </thead>
                 <tbody>
                   {projectBreakdown.map(({ id, name, color, count, cost }) => (
-                    <tr key={id} style={{ borderTop: '1px solid #141821' }}>
-                      <td style={{ padding: '8px', color: '#c0c8d4' }}>
+                    <tr key={id} style={{ borderTop: '1px solid var(--bg-surface-hover)' }}>
+                      <td style={{ padding: '8px', color: 'var(--fg-secondary)' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                           <span
                             style={{
@@ -410,14 +410,14 @@ export function CostDashboard({ onClose }: Props) {
                           {name}
                         </span>
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#8b95a5', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}>
                         {count}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', color: '#7dbdbd', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--accent-bright)', fontFamily: 'monospace' }}>
                         {formatUsd(cost)}
                       </td>
                       <td style={{ padding: '8px' }}>
-                        <div style={{ height: 4, background: '#141821', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: 4, background: 'var(--bg-surface-hover)', borderRadius: 2, overflow: 'hidden' }}>
                           <div
                             style={{
                               height: '100%',
@@ -437,7 +437,7 @@ export function CostDashboard({ onClose }: Props) {
 
           {/* Top tasks */}
           {topTasks.length > 0 && (
-            <Section icon={<Zap size={13} color="#5aa5a5" />} title="Top tasks by cost">
+            <Section icon={<Zap size={13} color="var(--accent)" />} title="Top tasks by cost">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {topTasks.map((t) => (
                   <TopTaskRow key={t.taskId} task={t} />
@@ -451,7 +451,7 @@ export function CostDashboard({ onClose }: Props) {
               style={{
                 padding: 40,
                 textAlign: 'center',
-                color: '#4d5868',
+                color: 'var(--fg-faint)',
                 fontSize: 12,
               }}
             >
@@ -481,14 +481,14 @@ function StatCard({
     <div
       style={{
         padding: 14,
-        background: '#0a0e14',
-        border: '1px solid #141821',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--bg-surface-hover)',
         borderRadius: 8,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         {icon}
-        <span style={{ fontSize: 10, color: '#6b7585', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
+        <span style={{ fontSize: 10, color: 'var(--fg-subtle)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 600, color: accent, fontFamily: "'JetBrains Mono', monospace" }}>
         {value}
@@ -508,7 +508,7 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
           marginBottom: 10,
           fontSize: 11,
           fontWeight: 600,
-          color: '#8b95a5',
+          color: 'var(--fg-muted)',
           textTransform: 'uppercase',
           letterSpacing: 0.5,
         }}
@@ -551,8 +551,8 @@ function HoverButton({
         borderRadius: 5,
         fontSize: 11,
         background: active ? activeBg : hovered ? hoverBg : 'none',
-        border: `1px solid ${active ? activeBorder : hovered ? hoverBorder : '#1e2530'}`,
-        color: active ? activeColor : hovered ? '#8b95a5' : '#6b7585',
+        border: `1px solid ${active ? activeBorder : hovered ? hoverBorder : 'var(--border-muted)'}`,
+        color: active ? activeColor : hovered ? 'var(--fg-muted)' : 'var(--fg-subtle)',
         cursor: 'pointer',
         fontFamily: 'inherit',
         transition: 'all 120ms ease',
@@ -573,7 +573,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       style={{
         background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
         border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : '#4d5868',
+        color: hovered ? '#ef4444' : 'var(--fg-faint)',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -600,8 +600,8 @@ function TopTaskRow({ task }: { task: TaskUsage }) {
         alignItems: 'center',
         gap: 10,
         padding: '8px 10px',
-        background: hovered ? '#141821' : '#0a0e14',
-        border: `1px solid ${hovered ? '#2a3642' : '#141821'}`,
+        background: hovered ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+        border: `1px solid ${hovered ? 'var(--border-strong)' : 'var(--bg-surface-hover)'}`,
         borderRadius: 6,
         transition: 'all 120ms ease',
         cursor: 'default',
@@ -611,7 +611,7 @@ function TopTaskRow({ task }: { task: TaskUsage }) {
         <div
           style={{
             fontSize: 12,
-            color: hovered ? '#e8eef5' : '#c0c8d4',
+            color: hovered ? 'var(--fg-primary)' : 'var(--fg-secondary)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -619,11 +619,11 @@ function TopTaskRow({ task }: { task: TaskUsage }) {
         >
           {task.title}
         </div>
-        <div style={{ fontSize: 10, color: '#4d5868', fontFamily: 'monospace', marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: 'var(--fg-faint)', fontFamily: 'monospace', marginTop: 2 }}>
           {formatNum(task.totalIn)} in / {formatNum(task.totalOut)} out
         </div>
       </div>
-      <div style={{ fontSize: 12, color: '#7dbdbd', fontFamily: 'monospace', flexShrink: 0 }}>
+      <div style={{ fontSize: 12, color: 'var(--accent-bright)', fontFamily: 'monospace', flexShrink: 0 }}>
         {formatUsd(task.totalCost)}
       </div>
     </div>
