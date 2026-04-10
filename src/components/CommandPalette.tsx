@@ -89,15 +89,30 @@ export function CommandPalette({
   // Manual filtering since shouldFilter={false}
   const searchLower = search.trim().toLowerCase();
   /**
-   * Word-prefix match: matches if any word (split by whitespace, hyphens,
-   * underscores, parens, dots, colons) in the text starts with the search
-   * query. Prevents false positives like "ex" matching "ex" inside "execute"
-   * or "context".
+   * Boundary-aware match: the query must appear at the start of a word
+   * boundary in the text. Boundaries are: start-of-string, whitespace,
+   * and punctuation like `-_/()[].:,`.
+   *
+   * This gives intuitive behavior:
+   * - "ex" matches "Export" (at start) ✓
+   * - "ex" does NOT match "context" (inside word) ✓
+   * - "/" matches "Run Pipeline (/pipeline:dev-task)" (after "(") ✓
+   * - "/pipe" matches "/pipeline:dev-task" ✓
+   * - "run" matches "Run Pipeline" ✓
+   * - "run" does NOT match "prune" ✓
    */
   const matchesSearch = (text: string) => {
     if (!searchLower) return true;
-    const words = text.toLowerCase().split(/[\s\-_/()[\].,:]+/).filter(Boolean);
-    return words.some((w) => w.startsWith(searchLower));
+    const lower = text.toLowerCase();
+    const boundaryRe = /[\s\-_/()[\].,:]/;
+    let idx = 0;
+    while ((idx = lower.indexOf(searchLower, idx)) !== -1) {
+      if (idx === 0 || boundaryRe.test(lower[idx - 1])) {
+        return true;
+      }
+      idx++;
+    }
+    return false;
   };
 
   const filteredTasks = useMemo(() => {
