@@ -13,6 +13,7 @@ import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
+import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
 
 export default function App() {
   const [showNewTask, setShowNewTask] = useState(false);
@@ -27,6 +28,7 @@ export default function App() {
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [isResizing, setIsResizing] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showCrashRecovery, setShowCrashRecovery] = useState(false);
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -38,6 +40,15 @@ export default function App() {
         if (projects.length) useProjectStore.getState().loadProjects(projects);
         const { tasks, activeTaskId } = await loadAllTasks();
         if (tasks.length) useTaskStore.getState().loadTasks(tasks, activeTaskId);
+
+        // Detect crashed tasks: active + pipeline in_progress means prior run was interrupted
+        const crashed = tasks.some(
+          (t) =>
+            t.status === 'active' &&
+            t.pipeline?.enabled &&
+            Object.values(t.pipeline.phases).some((p) => p?.status === 'in_progress'),
+        );
+        if (crashed) setShowCrashRecovery(true);
       } catch (err) {
         console.error('[cortx] Failed to load SQLite data:', err);
       }
@@ -289,6 +300,7 @@ export default function App() {
         onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         onShowReport={() => setShowReport(true)}
       />
+      {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showNewTask && (
         <NewTaskModal
           onClose={() => {
