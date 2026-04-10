@@ -149,14 +149,28 @@ export function tasksToJson(tasks: Task[], projects: Project[]): string {
 // File save dialogs
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * Build the default save path for a task export.
+ * Prefers project.localPath so users save alongside the code they're working on.
+ * Falls back to home directory if project has no path.
+ */
+function buildDefaultPath(task: Task, project: Project | null, extension: string): string {
+  const slug = slugify(task.title) || 'task';
+  const fileName = `${slug}.${extension}`;
+  // Prefer project root, else worktree path, else just the filename (Tauri resolves to home)
+  const baseDir = project?.localPath || task.worktreePath || task.repoPath || '';
+  if (!baseDir) return fileName;
+  const sep = baseDir.endsWith('/') ? '' : '/';
+  return `${baseDir}${sep}${fileName}`;
+}
+
 export async function exportTaskAsMarkdown(task: Task): Promise<boolean> {
   const project = task.projectId
     ? useProjectStore.getState().projects.find((p) => p.id === task.projectId) || null
     : null;
   const markdown = taskToMarkdown(task, project);
-  const defaultName = `${slugify(task.title) || 'task'}.md`;
   const filePath = await save({
-    defaultPath: defaultName,
+    defaultPath: buildDefaultPath(task, project, 'md'),
     filters: [{ name: 'Markdown', extensions: ['md'] }],
   });
   if (!filePath) return false;
@@ -172,10 +186,10 @@ export async function exportTaskAsMarkdown(task: Task): Promise<boolean> {
 
 export async function exportTaskAsJson(task: Task): Promise<boolean> {
   const projects = useProjectStore.getState().projects;
+  const project = task.projectId ? projects.find((p) => p.id === task.projectId) || null : null;
   const json = tasksToJson([task], projects);
-  const defaultName = `${slugify(task.title) || 'task'}.cortx.json`;
   const filePath = await save({
-    defaultPath: defaultName,
+    defaultPath: buildDefaultPath(task, project, 'cortx.json'),
     filters: [{ name: 'Cortx Task', extensions: ['json'] }],
   });
   if (!filePath) return false;
