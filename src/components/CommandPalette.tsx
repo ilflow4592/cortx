@@ -234,57 +234,8 @@ export function CommandPalette({
             </Command.Empty>
 
             {/* ── Actions ── */}
-            <Command.Group heading="Actions">
-              {showAction('New Task') && (
-                <PaletteItem
-                  icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
-                  label="New Task"
-                  hint="⌘N"
-                  onSelect={() => run(onNewTask)}
-                />
-              )}
-              {showAction('New Project') && (
-                <PaletteItem
-                  icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
-                  label="New Project"
-                  onSelect={() => run(onNewProject)}
-                />
-              )}
-              {showAction('Open Settings') && (
-                <PaletteItem
-                  icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Open Settings"
-                  hint="⌘,"
-                  onSelect={() => run(onOpenSettings)}
-                />
-              )}
-              {showAction('Daily Report') && (
-                <PaletteItem
-                  icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Daily Report"
-                  onSelect={() => run(onShowReport)}
-                />
-              )}
-              {showAction('Toggle Sidebar') && (
-                <PaletteItem
-                  icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Toggle Sidebar"
-                  hint="⌘B"
-                  onSelect={() => run(onToggleSidebar)}
-                />
-              )}
-              {showAction('Toggle Right Panel') && (
-                <PaletteItem
-                  icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
-                  label="Toggle Right Panel"
-                  hint="⌘⇧B"
-                  onSelect={() => run(onToggleRightPanel)}
-                />
-              )}
-            </Command.Group>
-
-            {/* ── Active Task Actions ── */}
-            {activeTask && (
+            {/* ── Active Task Actions (only when no search, kept as contextual shortcuts) ── */}
+            {activeTask && !searchLower && (
               <Command.Group heading={`Current Task: ${activeTask.title}`}>
                 <PaletteItem
                   icon={<Play size={14} color="#34d399" strokeWidth={1.5} />}
@@ -341,6 +292,38 @@ export function CommandPalette({
                     onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
                   />
                 )}
+              </Command.Group>
+            )}
+
+            {/* ── Projects ── */}
+            {filteredProjects.length > 0 && (
+              <Command.Group heading="Projects">
+                {filteredProjects.map((project) => (
+                  <PaletteItem
+                    key={project.id}
+                    icon={
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          background: project.color,
+                          display: 'inline-block',
+                        }}
+                      />
+                    }
+                    label={project.name}
+                    hint={project.localPath || project.githubRepo}
+                    keywords={[project.name, project.githubRepo, project.githubOwner]}
+                    onSelect={() =>
+                      run(() => {
+                        // Find first task of this project and activate
+                        const firstTask = tasks.find((t) => t.projectId === project.id);
+                        if (firstTask) setActiveTask(firstTask.id);
+                      })
+                    }
+                  />
+                ))}
               </Command.Group>
             )}
 
@@ -437,37 +420,55 @@ export function CommandPalette({
               </Command.Group>
             )}
 
-            {/* ── Projects ── */}
-            {filteredProjects.length > 0 && (
-              <Command.Group heading="Projects">
-                {filteredProjects.map((project) => (
-                  <PaletteItem
-                    key={project.id}
-                    icon={
-                      <span
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 3,
-                          background: project.color,
-                          display: 'inline-block',
-                        }}
-                      />
-                    }
-                    label={project.name}
-                    hint={project.localPath || project.githubRepo}
-                    keywords={[project.name, project.githubRepo, project.githubOwner]}
-                    onSelect={() =>
-                      run(() => {
-                        // Find first task of this project and activate
-                        const firstTask = tasks.find((t) => t.projectId === project.id);
-                        if (firstTask) setActiveTask(firstTask.id);
-                      })
-                    }
-                  />
-                ))}
-              </Command.Group>
-            )}
+            {/* ── Actions (moved to bottom) ── */}
+            <Command.Group heading="Actions">
+              {showAction('New Task') && (
+                <PaletteItem
+                  icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
+                  label="New Task"
+                  hint="⌘N"
+                  onSelect={() => run(onNewTask)}
+                />
+              )}
+              {showAction('New Project') && (
+                <PaletteItem
+                  icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
+                  label="New Project"
+                  onSelect={() => run(onNewProject)}
+                />
+              )}
+              {showAction('Open Settings') && (
+                <PaletteItem
+                  icon={<SettingsIcon size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Open Settings"
+                  hint="⌘,"
+                  onSelect={() => run(onOpenSettings)}
+                />
+              )}
+              {showAction('Daily Report') && (
+                <PaletteItem
+                  icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Daily Report"
+                  onSelect={() => run(onShowReport)}
+                />
+              )}
+              {showAction('Toggle Sidebar') && (
+                <PaletteItem
+                  icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Toggle Sidebar"
+                  hint="⌘B"
+                  onSelect={() => run(onToggleSidebar)}
+                />
+              )}
+              {showAction('Toggle Right Panel') && (
+                <PaletteItem
+                  icon={<PanelRightClose size={14} color="#a1a1aa" strokeWidth={1.5} />}
+                  label="Toggle Right Panel"
+                  hint="⌘⇧B"
+                  onSelect={() => run(onToggleRightPanel)}
+                />
+              )}
+            </Command.Group>
           </Command.List>
         </Command>
       </div>
