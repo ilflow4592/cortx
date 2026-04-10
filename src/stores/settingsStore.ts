@@ -12,6 +12,8 @@ export type AIProvider = 'claude' | 'openai' | 'ollama';
 export type AuthMethod = 'api-key' | 'oauth';
 /** 앱 테마 */
 export type Theme = 'dark' | 'midnight' | 'light';
+/** UI 언어 */
+export type Language = 'en' | 'ko';
 
 /** 설정 값 인터페이스 (순수 데이터만, 액션 제외) */
 export interface Settings {
@@ -24,6 +26,7 @@ export interface Settings {
   modelId: string;
   ollamaUrl: string;
   theme: Theme;
+  language: Language;
 }
 
 /** Settings + 액션을 합친 스토어 전체 타입 */
@@ -33,6 +36,9 @@ export interface SettingsState extends Settings {
 }
 
 const STORAGE_KEY = 'cortx-settings';
+
+// Auto-detect initial language from browser (ko if Korean system, else en)
+const initialLang: Language = typeof navigator !== 'undefined' && navigator.language?.startsWith('ko') ? 'ko' : 'en';
 
 const defaults: Settings = {
   aiProvider: 'claude',
@@ -44,6 +50,7 @@ const defaults: Settings = {
   modelId: 'claude-sonnet-4-20250514',
   ollamaUrl: 'http://localhost:11434',
   theme: 'dark',
+  language: initialLang,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -66,6 +73,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
           modelId: next.modelId,
           ollamaUrl: next.ollamaUrl,
           theme: next.theme,
+          language: next.language,
         }),
       );
       return next;

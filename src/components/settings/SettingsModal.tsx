@@ -3,34 +3,36 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { AIProviderSettings } from './AIProviderSettings';
 import { SourcesSettings } from './SourcesSettings';
 import { AppearanceSettings } from './AppearanceSettings';
+import { useT } from '../../i18n';
 
 type STab = 'ai' | 'sources' | 'appearance';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const sources = useContextPackStore((s) => s.sources);
   const [tab, setTab] = useState<STab>('ai');
+  const t = useT();
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Settings</h2>
+          <h2>{t('settings.title')}</h2>
           <button className="modal-close" onClick={onClose}>
             ×
           </button>
         </div>
         <div className="modal-tabs">
           <button className={`modal-tab ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>
-            🤖 AI Provider
+            🤖 {t('settings.aiProvider')}
           </button>
           <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
-            📦 Context Sources
+            📦 {t('settings.contextSources')}
           </button>
           <button
             className={`modal-tab ${tab === 'appearance' ? 'active' : ''}`}
             onClick={() => setTab('appearance')}
           >
-            🎨 Appearance
+            🎨 {t('settings.appearance')}
           </button>
         </div>
         <div className="modal-body">

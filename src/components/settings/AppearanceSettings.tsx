@@ -1,7 +1,9 @@
 /**
- * Appearance settings — theme picker (dark / midnight / light).
+ * Appearance settings — theme picker (dark / midnight / light) + language.
  */
-import { useSettingsStore, type Theme } from '../../stores/settingsStore';
+import { useSettingsStore, type Theme, type Language } from '../../stores/settingsStore';
+import { LANGUAGES } from '../../i18n/locales';
+import { useT } from '../../i18n';
 
 interface ThemeOption {
   id: Theme;
@@ -21,7 +23,7 @@ const THEMES: ThemeOption[] = [
     id: 'midnight',
     label: 'Midnight',
     description: 'Deep black with purple accents',
-    preview: { bg: '#050508', fg: 'var(--fg-primary)', accent: '#9f7aea', border: '#242430' },
+    preview: { bg: '#050508', fg: '#e8eef5', accent: '#9f7aea', border: '#242430' },
   },
   {
     id: 'light',
@@ -33,19 +35,57 @@ const THEMES: ThemeOption[] = [
 
 export function AppearanceSettings() {
   const theme = useSettingsStore((s) => s.theme);
+  const language = useSettingsStore((s) => s.language);
   const setSettings = useSettingsStore((s) => s.setSettings);
+  const t = useT();
 
   return (
     <div>
-      <div className="field">
-        <span className="field-label">Theme</span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 6 }}>
-          {THEMES.map((t) => {
-            const active = theme === t.id;
+      {/* Language picker */}
+      <div className="field" style={{ marginBottom: 24 }}>
+        <span className="field-label">{t('settings.language')}</span>
+        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          {LANGUAGES.map((lang) => {
+            const active = language === lang.id;
             return (
               <button
-                key={t.id}
-                onClick={() => setSettings({ theme: t.id })}
+                key={lang.id}
+                onClick={() => setSettings({ language: lang.id as Language })}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: 6,
+                  background: active ? 'var(--accent-bg)' : 'var(--bg-surface)',
+                  border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-muted)'}`,
+                  color: active ? 'var(--accent-bright)' : 'var(--fg-secondary)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  transition: 'all 150ms ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                {lang.nativeName}
+                {active && <span style={{ fontSize: 11 }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field-label">{t('settings.theme')}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 6 }}>
+          {THEMES.map((themeOpt) => {
+            const active = theme === themeOpt.id;
+            return (
+              <button
+                key={themeOpt.id}
+                onClick={() => setSettings({ theme: themeOpt.id })}
                 style={{
                   padding: 12,
                   borderRadius: 8,
@@ -63,8 +103,8 @@ export function AppearanceSettings() {
                   style={{
                     height: 60,
                     borderRadius: 6,
-                    background: t.preview.bg,
-                    border: `1px solid ${t.preview.border}`,
+                    background: themeOpt.preview.bg,
+                    border: `1px solid ${themeOpt.preview.border}`,
                     marginBottom: 10,
                     position: 'relative',
                     overflow: 'hidden',
@@ -77,7 +117,7 @@ export function AppearanceSettings() {
                       left: 8,
                       right: 8,
                       height: 4,
-                      background: t.preview.fg,
+                      background: themeOpt.preview.fg,
                       opacity: 0.6,
                       borderRadius: 2,
                     }}
@@ -89,7 +129,7 @@ export function AppearanceSettings() {
                       left: 8,
                       width: '60%',
                       height: 3,
-                      background: t.preview.fg,
+                      background: themeOpt.preview.fg,
                       opacity: 0.3,
                       borderRadius: 2,
                     }}
@@ -102,7 +142,7 @@ export function AppearanceSettings() {
                       width: 16,
                       height: 16,
                       borderRadius: 3,
-                      background: t.preview.accent,
+                      background: themeOpt.preview.accent,
                     }}
                   />
                   <div
@@ -112,7 +152,7 @@ export function AppearanceSettings() {
                       left: 32,
                       width: '40%',
                       height: 4,
-                      background: t.preview.accent,
+                      background: themeOpt.preview.accent,
                       borderRadius: 2,
                     }}
                   />
@@ -125,10 +165,10 @@ export function AppearanceSettings() {
                     marginBottom: 4,
                   }}
                 >
-                  {t.label}
+                  {t(`settings.theme.${themeOpt.id}` as const)}
                   {active && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent-bright)' }}>✓</span>}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--fg-muted)' }}>{t.description}</div>
+                <div style={{ fontSize: 10, color: 'var(--fg-muted)' }}>{t(`settings.theme.${themeOpt.id}.desc` as const)}</div>
               </button>
             );
           })}

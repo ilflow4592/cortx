@@ -1,4 +1,5 @@
 import { useTaskStore } from '../stores/taskStore';
+import { useT } from '../i18n';
 
 export function StatusBar({
   showSidebar,
@@ -12,7 +13,8 @@ export function StatusBar({
   onToggleRightPanel?: () => void;
 }) {
   const { tasks, activeTaskId } = useTaskStore();
-  const activeTask = tasks.find((t) => t.id === activeTaskId);
+  const activeTask = tasks.find((task) => task.id === activeTaskId);
+  const t = useT();
 
   return (
     <div className="statusbar">
@@ -23,7 +25,7 @@ export function StatusBar({
             {activeTask.title}
           </span>
         ) : (
-          <span style={{ color: 'var(--fg-dim)' }}>No active task</span>
+          <span style={{ color: 'var(--fg-dim)' }}>{t('empty.noActiveTask')}</span>
         )}
       </div>
       <div className="sb-r">
@@ -32,18 +34,18 @@ export function StatusBar({
           onClick={onToggleSidebar}
           title="Toggle sidebar ⌘B"
         >
-          ⌘B sidebar
+          ⌘B {t('status.sidebar')}
         </span>
         <span
           style={{ cursor: 'pointer', color: showRightPanel ? 'var(--fg-subtle)' : '#818cf8' }}
           onClick={onToggleRightPanel}
           title="Toggle right panel ⌘⇧B"
         >
-          ⌘⇧B panel
+          ⌘⇧B {t('status.panel')}
         </span>
-        <span>⌘K palette</span>
-        <span>⌘⇧P pause</span>
-        <span>⌘⇧R resume</span>
+        <span>⌘K {t('status.palette')}</span>
+        <span>⌘⇧P {t('status.pause')}</span>
+        <span>⌘⇧R {t('status.resume')}</span>
       </div>
     </div>
   );
