@@ -117,7 +117,7 @@ export function CommandPalette({
       { label: 'New Project', keywords: ['new', 'project', 'create', 'folder'] },
       { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
-      { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'prune', 'delete', 'clean'] },
+      { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'delete', 'clean'] },
       { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
       { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
       { label: 'Import Tasks from JSON', keywords: ['import', 'json', 'load', 'restore'] },
@@ -346,10 +346,19 @@ export function CommandPalette({
                 </Command.Group>
               );
 
-              const sectionCurrentTask =
-                activeTask && !searchLower ? (
-                  <Command.Group key="current" heading={`Current Task: ${activeTask.title}`}>
+              // Current Task actions — shown both when browsing and when searching (filtered)
+              const currentTaskItems: React.ReactNode[] = [];
+              if (activeTask) {
+                const matchCurrent = (label: string, keywords: string[] = []) => {
+                  if (!searchLower) return true;
+                  if (matchesSearch(label)) return true;
+                  return keywords.some((k) => matchesSearch(k));
+                };
+
+                if (matchCurrent('Run Pipeline', ['run', 'pipeline', 'dev-task', 'start', 'execute'])) {
+                  currentTaskItems.push(
                     <PaletteItem
+                      key="run-pipeline"
                       icon={<Play size={14} color="#34d399" strokeWidth={1.5} />}
                       label="Run Pipeline (/pipeline:dev-task)"
                       onSelect={() =>
@@ -357,51 +366,74 @@ export function CommandPalette({
                           runPipeline(activeTask.id, '/pipeline:dev-task');
                         })
                       }
-                    />
-                    {loadingCache.get(activeTask.id) && (
-                      <PaletteItem
-                        icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
-                        label="Stop Claude Process (kill running pipeline)"
-                        onSelect={() =>
-                          run(() => {
-                            invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
-                            messageCache.delete(activeTask.id);
-                            sessionCache.delete(activeTask.id);
-                            loadingCache.delete(activeTask.id);
-                            useTaskStore.getState().updateTask(activeTask.id, {
-                              status: 'waiting',
-                              pipeline: undefined,
-                              elapsedSeconds: 0,
-                            });
-                          })
-                        }
-                      />
-                    )}
-                    {activeTask.status === 'active' && (
-                      <PaletteItem
-                        icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
-                        label="Pause Current Task (timer only)"
-                        hint="⌘⇧P"
-                        onSelect={() =>
-                          run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
-                        }
-                      />
-                    )}
-                    {activeTask.status === 'paused' && (
-                      <PaletteItem
-                        icon={<RotateCcw size={14} color="#34d399" strokeWidth={1.5} />}
-                        label="Resume Current Task"
-                        hint="⌘⇧R"
-                        onSelect={() => run(() => resumeTask(activeTask.id))}
-                      />
-                    )}
-                    {activeTask.status !== 'done' && (
-                      <PaletteItem
-                        icon={<CheckCircle2 size={14} color="#5aa5a5" strokeWidth={1.5} />}
-                        label="Mark as Done"
-                        onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
-                      />
-                    )}
+                    />,
+                  );
+                }
+                if (
+                  loadingCache.get(activeTask.id) &&
+                  matchCurrent('Stop Claude Process', ['stop', 'kill', 'abort', 'cancel'])
+                ) {
+                  currentTaskItems.push(
+                    <PaletteItem
+                      key="stop-claude"
+                      icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
+                      label="Stop Claude Process (kill running pipeline)"
+                      onSelect={() =>
+                        run(() => {
+                          invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
+                          messageCache.delete(activeTask.id);
+                          sessionCache.delete(activeTask.id);
+                          loadingCache.delete(activeTask.id);
+                          useTaskStore.getState().updateTask(activeTask.id, {
+                            status: 'waiting',
+                            pipeline: undefined,
+                            elapsedSeconds: 0,
+                          });
+                        })
+                      }
+                    />,
+                  );
+                }
+                if (activeTask.status === 'active' && matchCurrent('Pause Current Task', ['pause', 'timer'])) {
+                  currentTaskItems.push(
+                    <PaletteItem
+                      key="pause-task"
+                      icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
+                      label="Pause Current Task (timer only)"
+                      hint="⌘⇧P"
+                      onSelect={() =>
+                        run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
+                      }
+                    />,
+                  );
+                }
+                if (activeTask.status === 'paused' && matchCurrent('Resume Current Task', ['resume', 'continue'])) {
+                  currentTaskItems.push(
+                    <PaletteItem
+                      key="resume-task"
+                      icon={<RotateCcw size={14} color="#34d399" strokeWidth={1.5} />}
+                      label="Resume Current Task"
+                      hint="⌘⇧R"
+                      onSelect={() => run(() => resumeTask(activeTask.id))}
+                    />,
+                  );
+                }
+                if (activeTask.status !== 'done' && matchCurrent('Mark as Done', ['done', 'complete', 'finish'])) {
+                  currentTaskItems.push(
+                    <PaletteItem
+                      key="mark-done"
+                      icon={<CheckCircle2 size={14} color="#5aa5a5" strokeWidth={1.5} />}
+                      label="Mark as Done"
+                      onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
+                    />,
+                  );
+                }
+              }
+
+              const sectionCurrentTask =
+                activeTask && currentTaskItems.length > 0 ? (
+                  <Command.Group key="current" heading={`Current Task: ${activeTask.title}`}>
+                    {currentTaskItems}
                   </Command.Group>
                 ) : null;
 
@@ -528,11 +560,11 @@ export function CommandPalette({
                 ) : null;
 
               // Empty search: Actions → Current Task → Tasks → Projects
-              // With search:   Projects → Tasks → Chat Messages → Actions
+              // With search:   Current Task → Projects → Tasks → Chat Messages → Actions
               if (!searchLower) {
                 return [sectionActions, sectionCurrentTask, sectionTasks, sectionProjects];
               }
-              return [sectionProjects, sectionTasks, sectionChat, sectionActions];
+              return [sectionCurrentTask, sectionProjects, sectionTasks, sectionChat, sectionActions];
             })()}
           </Command.List>
         </Command>
