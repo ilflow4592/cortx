@@ -21,12 +21,15 @@ import {
   Square,
   MessageSquare,
   Trash2,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { runPipeline } from '../utils/pipelineExec';
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
+import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
 
 interface Props {
   open: boolean;
@@ -115,6 +118,9 @@ export function CommandPalette({
       { label: 'Open Settings', keywords: ['settings', 'preferences', 'config'] },
       { label: 'Daily Report', keywords: ['daily', 'report', 'stats'] },
       { label: 'Worktree Cleanup', keywords: ['worktree', 'cleanup', 'prune', 'delete', 'clean'] },
+      { label: 'Export Current Task (Markdown)', keywords: ['export', 'markdown', 'md', 'save', 'download'] },
+      { label: 'Export Current Task (JSON)', keywords: ['export', 'json', 'save', 'download', 'backup'] },
+      { label: 'Import Tasks from JSON', keywords: ['import', 'json', 'load', 'restore'] },
       { label: 'Toggle Sidebar', keywords: ['sidebar', 'panel', 'toggle'] },
       { label: 'Toggle Right Panel', keywords: ['right', 'panel', 'context', 'toggle'] },
     ],
@@ -276,6 +282,49 @@ export function CommandPalette({
                       icon={<Trash2 size={14} color="#a1a1aa" strokeWidth={1.5} />}
                       label="Worktree Cleanup"
                       onSelect={() => run(onShowWorktreeCleanup)}
+                    />
+                  )}
+                  {activeTask && showAction('Export Current Task (Markdown)') && (
+                    <PaletteItem
+                      icon={<Download size={14} color="#818cf8" strokeWidth={1.5} />}
+                      label="Export Current Task (Markdown)"
+                      onSelect={() =>
+                        run(() => {
+                          exportTaskAsMarkdown(activeTask).catch((err) =>
+                            alert(`Export failed: ${err}`),
+                          );
+                        })
+                      }
+                    />
+                  )}
+                  {activeTask && showAction('Export Current Task (JSON)') && (
+                    <PaletteItem
+                      icon={<Download size={14} color="#818cf8" strokeWidth={1.5} />}
+                      label="Export Current Task (JSON)"
+                      onSelect={() =>
+                        run(() => {
+                          exportTaskAsJson(activeTask).catch((err) => alert(`Export failed: ${err}`));
+                        })
+                      }
+                    />
+                  )}
+                  {showAction('Import Tasks from JSON') && (
+                    <PaletteItem
+                      icon={<Upload size={14} color="#34d399" strokeWidth={1.5} />}
+                      label="Import Tasks from JSON"
+                      onSelect={() =>
+                        run(() => {
+                          importTasksFromJson()
+                            .then((result) => {
+                              if (result) {
+                                alert(
+                                  `Imported ${result.importedTasks} task(s) and ${result.importedProjects} project(s)`,
+                                );
+                              }
+                            })
+                            .catch((err) => alert(`Import failed: ${err}`));
+                        })
+                      }
                     />
                   )}
                   {showAction('Toggle Sidebar') && (
