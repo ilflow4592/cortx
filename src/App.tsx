@@ -239,6 +239,7 @@ export default function App() {
         onAddTask={() => setShowNewTask(true)}
         onAddProject={() => setShowNewProject(true)}
         onOpenSettings={() => setShowSettings(true)}
+        onShowCostDashboard={() => setShowCostDashboard(true)}
         onToggleSidebar={() => setShowSidebar((v) => !v)}
         onEnsureSidebarOpen={() => setShowSidebar(true)}
       />
@@ -301,7 +302,6 @@ export default function App() {
         onToggleSidebar={() => setShowSidebar((v) => !v)}
         onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         onShowReport={() => setShowReport(true)}
-        onShowCostDashboard={() => setShowCostDashboard(true)}
       />
       {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
       {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}

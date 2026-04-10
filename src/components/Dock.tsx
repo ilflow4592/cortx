@@ -1,4 +1,4 @@
-import { Folder } from 'lucide-react';
+import { Folder, DollarSign } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 
@@ -6,11 +6,19 @@ interface DockProps {
   onAddTask: () => void;
   onAddProject: () => void;
   onOpenSettings: () => void;
+  onShowCostDashboard: () => void;
   onToggleSidebar?: () => void;
   onEnsureSidebarOpen?: () => void;
 }
 
-export function Dock({ onAddTask, onAddProject, onOpenSettings, onToggleSidebar, onEnsureSidebarOpen }: DockProps) {
+export function Dock({
+  onAddTask,
+  onAddProject,
+  onOpenSettings,
+  onShowCostDashboard,
+  onToggleSidebar,
+  onEnsureSidebarOpen,
+}: DockProps) {
   const tasks = useTaskStore((s) => s.tasks);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
   const projects = useProjectStore((s) => s.projects);
@@ -100,6 +108,9 @@ export function Dock({ onAddTask, onAddProject, onOpenSettings, onToggleSidebar,
         +
       </button>
       <div className="dock-bottom">
+        <button className="dock-icon" onClick={onShowCostDashboard} title="Cost Dashboard">
+          <DollarSign size={16} strokeWidth={1.5} />
+        </button>
         <button className="dock-icon" onClick={onOpenSettings} title="Settings">
           ⚙
         </button>

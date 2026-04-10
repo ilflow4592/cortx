@@ -19,7 +19,6 @@ import {
   Pause,
   RotateCcw,
   Square,
-  DollarSign,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -35,7 +34,6 @@ interface Props {
   onToggleSidebar: () => void;
   onToggleRightPanel: () => void;
   onShowReport: () => void;
-  onShowCostDashboard: () => void;
 }
 
 export function CommandPalette({
@@ -47,7 +45,6 @@ export function CommandPalette({
   onToggleSidebar,
   onToggleRightPanel,
   onShowReport,
-  onShowCostDashboard,
 }: Props) {
   const [search, setSearch] = useState('');
   const tasks = useTaskStore((s) => s.tasks);
@@ -197,11 +194,6 @@ export function CommandPalette({
                 icon={<FileText size={14} color="#a1a1aa" strokeWidth={1.5} />}
                 label="Daily Report"
                 onSelect={() => run(onShowReport)}
-              />
-              <PaletteItem
-                icon={<DollarSign size={14} color="#5aa5a5" strokeWidth={1.5} />}
-                label="Cost Dashboard"
-                onSelect={() => run(onShowCostDashboard)}
               />
               <PaletteItem
                 icon={<PanelLeftClose size={14} color="#a1a1aa" strokeWidth={1.5} />}

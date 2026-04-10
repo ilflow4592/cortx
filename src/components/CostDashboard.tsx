@@ -3,7 +3,7 @@
  * Shows totals, trends over time, breakdown by phase/project/model.
  * Data source: task.pipeline.phases[phase].{inputTokens, outputTokens, costUsd}.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, DollarSign, Zap, TrendingUp, Package, FolderOpen } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -53,6 +53,19 @@ export function CostDashboard({ onClose }: Props) {
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
   const [period, setPeriod] = useState<Period>('7d');
+
+  // ESC to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
 
   const usages: TaskUsage[] = useMemo(() => {
     return tasks
@@ -217,39 +230,21 @@ export function CostDashboard({ onClose }: Props) {
           <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: '#e8eef5' }}>Cost Dashboard</div>
           <div style={{ display: 'flex', gap: 4 }}>
             {(['today', '7d', '30d', 'all'] as Period[]).map((p) => (
-              <button
+              <HoverButton
                 key={p}
+                active={period === p}
                 onClick={() => setPeriod(p)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 5,
-                  fontSize: 11,
-                  background: period === p ? 'rgba(90,165,165,0.15)' : 'none',
-                  border: `1px solid ${period === p ? 'rgba(90,165,165,0.3)' : '#1e2530'}`,
-                  color: period === p ? '#7dbdbd' : '#6b7585',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
+                activeBg="rgba(90,165,165,0.15)"
+                activeBorder="rgba(90,165,165,0.3)"
+                activeColor="#7dbdbd"
+                hoverBg="rgba(90,165,165,0.08)"
+                hoverBorder="rgba(90,165,165,0.2)"
               >
                 {p === 'today' ? 'Today' : p === '7d' ? '7 days' : p === '30d' ? '30 days' : 'All time'}
-              </button>
+              </HoverButton>
             ))}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#4d5868',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: 4,
-              marginLeft: 8,
-            }}
-          >
-            <X size={16} strokeWidth={1.5} />
-          </button>
+          <CloseButton onClose={onClose} />
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 22 }}>
@@ -445,38 +440,7 @@ export function CostDashboard({ onClose }: Props) {
             <Section icon={<Zap size={13} color="#5aa5a5" />} title="Top tasks by cost">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {topTasks.map((t) => (
-                  <div
-                    key={t.taskId}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 10px',
-                      background: '#0a0e14',
-                      border: '1px solid #141821',
-                      borderRadius: 6,
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: '#c0c8d4',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {t.title}
-                      </div>
-                      <div style={{ fontSize: 10, color: '#4d5868', fontFamily: 'monospace', marginTop: 2 }}>
-                        {formatNum(t.totalIn)} in / {formatNum(t.totalOut)} out
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#7dbdbd', fontFamily: 'monospace', flexShrink: 0 }}>
-                      {formatUsd(t.totalCost)}
-                    </div>
-                  </div>
+                  <TopTaskRow key={t.taskId} task={t} />
                 ))}
               </div>
             </Section>
@@ -553,6 +517,115 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
         {title}
       </div>
       {children}
+    </div>
+  );
+}
+
+function HoverButton({
+  active,
+  onClick,
+  activeBg,
+  activeBorder,
+  activeColor,
+  hoverBg,
+  hoverBorder,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  activeBg: string;
+  activeBorder: string;
+  activeColor: string;
+  hoverBg: string;
+  hoverBorder: string;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '5px 12px',
+        borderRadius: 5,
+        fontSize: 11,
+        background: active ? activeBg : hovered ? hoverBg : 'none',
+        border: `1px solid ${active ? activeBorder : hovered ? hoverBorder : '#1e2530'}`,
+        color: active ? activeColor : hovered ? '#8b95a5' : '#6b7585',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        transition: 'all 120ms ease',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClose}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
+        border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
+        color: hovered ? '#ef4444' : '#4d5868',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 6,
+        marginLeft: 8,
+        borderRadius: 5,
+        transition: 'all 120ms ease',
+      }}
+    >
+      <X size={16} strokeWidth={1.5} />
+    </button>
+  );
+}
+
+function TopTaskRow({ task }: { task: TaskUsage }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 10px',
+        background: hovered ? '#141821' : '#0a0e14',
+        border: `1px solid ${hovered ? '#2a3642' : '#141821'}`,
+        borderRadius: 6,
+        transition: 'all 120ms ease',
+        cursor: 'default',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 12,
+            color: hovered ? '#e8eef5' : '#c0c8d4',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {task.title}
+        </div>
+        <div style={{ fontSize: 10, color: '#4d5868', fontFamily: 'monospace', marginTop: 2 }}>
+          {formatNum(task.totalIn)} in / {formatNum(task.totalOut)} out
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: '#7dbdbd', fontFamily: 'monospace', flexShrink: 0 }}>
+        {formatUsd(task.totalCost)}
+      </div>
     </div>
   );
 }
