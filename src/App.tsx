@@ -26,27 +26,20 @@ export default function App() {
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [isResizing, setIsResizing] = useState(false);
 
-  // Load persisted data (migration handled in store.loadTasks/loadProjects)
+  // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('cortx-tasks');
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data?.tasks?.length) useTaskStore.getState().loadTasks(data.tasks, data.activeTaskId);
-      }
-    } catch {
-      /* ignore */
-    }
-    try {
-      const raw = localStorage.getItem('cortx-projects');
-      if (raw) {
-        const data = JSON.parse(raw);
-        const projects = Array.isArray(data) ? data : data?.projects || [];
+    (async () => {
+      try {
+        const { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } = await import('./services/db');
+        await migrateFromLocalStorageIfNeeded();
+        const projects = await loadAllProjects();
         if (projects.length) useProjectStore.getState().loadProjects(projects);
+        const { tasks, activeTaskId } = await loadAllTasks();
+        if (tasks.length) useTaskStore.getState().loadTasks(tasks, activeTaskId);
+      } catch (err) {
+        console.error('[cortx] Failed to load SQLite data:', err);
       }
-    } catch {
-      /* ignore */
-    }
+    })();
     import('./stores/settingsStore')
       .then(({ useSettingsStore }) => useSettingsStore.getState().loadSettings())
       .catch(() => {});
@@ -58,19 +51,75 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Persist on unload + periodic save every 5s
+  // Persist to SQLite via Zustand subscribers (debounced per-task)
   useEffect(() => {
-    const save = () => {
-      const ts = useTaskStore.getState();
-      const ps = useProjectStore.getState();
-      localStorage.setItem('cortx-tasks', JSON.stringify({ tasks: ts.tasks, activeTaskId: ts.activeTaskId }));
-      localStorage.setItem('cortx-projects', JSON.stringify(ps.projects));
+    const pending = new Map<string, NodeJS.Timeout>();
+    const flushTask = (taskId: string) => {
+      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      if (task) {
+        import('./services/db').then(({ upsertTask }) => upsertTask(task).catch(() => {}));
+      }
     };
-    window.addEventListener('beforeunload', save);
-    const interval = setInterval(save, 5000);
+    const scheduleTaskSave = (taskId: string) => {
+      const existing = pending.get(taskId);
+      if (existing) clearTimeout(existing);
+      const handle = setTimeout(() => {
+        pending.delete(taskId);
+        flushTask(taskId);
+      }, 500);
+      pending.set(taskId, handle);
+    };
+
+    let prevTasks = useTaskStore.getState().tasks;
+    let prevActiveId = useTaskStore.getState().activeTaskId;
+    let prevProjects = useProjectStore.getState().projects;
+
+    const unsubTasks = useTaskStore.subscribe((s) => {
+      // Detect changed tasks
+      for (const t of s.tasks) {
+        const prev = prevTasks.find((p) => p.id === t.id);
+        if (!prev || prev.updatedAt !== t.updatedAt) {
+          scheduleTaskSave(t.id);
+        }
+      }
+      // Detect deleted tasks
+      for (const p of prevTasks) {
+        if (!s.tasks.find((t) => t.id === p.id)) {
+          import('./services/db').then(({ deleteTask }) => deleteTask(p.id).catch(() => {}));
+        }
+      }
+      // Active task ID change
+      if (s.activeTaskId !== prevActiveId) {
+        prevActiveId = s.activeTaskId;
+        import('./services/db').then(({ setActiveTaskId }) => setActiveTaskId(s.activeTaskId).catch(() => {}));
+      }
+      prevTasks = s.tasks;
+    });
+
+    const unsubProjects = useProjectStore.subscribe((s) => {
+      for (const p of s.projects) {
+        const prev = prevProjects.find((x) => x.id === p.id);
+        if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
+          import('./services/db').then(({ upsertProject }) => upsertProject(p).catch(() => {}));
+        }
+      }
+      for (const p of prevProjects) {
+        if (!s.projects.find((x) => x.id === p.id)) {
+          import('./services/db').then(({ deleteProject }) => deleteProject(p.id).catch(() => {}));
+        }
+      }
+      prevProjects = s.projects;
+    });
+
     return () => {
-      window.removeEventListener('beforeunload', save);
-      clearInterval(interval);
+      unsubTasks();
+      unsubProjects();
+      // Flush all pending saves on unmount
+      pending.forEach((handle, id) => {
+        clearTimeout(handle);
+        flushTask(id);
+      });
+      pending.clear();
     };
   }, []);
 

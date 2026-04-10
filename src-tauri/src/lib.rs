@@ -10,6 +10,14 @@ use pty::{PtyManager, SharedPtyManager};
 pub fn run() {
     let pty_manager: SharedPtyManager = Arc::new(Mutex::new(PtyManager::new()));
 
+    // SQLite migrations — defines the schema for tasks, projects, chat messages, and interrupts
+    let migrations = vec![tauri_plugin_sql::Migration {
+        version: 1,
+        description: "create initial schema",
+        sql: include_str!("../migrations/001_initial_schema.sql"),
+        kind: tauri_plugin_sql::MigrationKind::Up,
+    }];
+
     tauri::Builder::default()
         .manage(pty_manager)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -17,6 +25,11 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations("sqlite:cortx.db", migrations)
+                .build(),
+        )
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
