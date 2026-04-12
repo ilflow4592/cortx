@@ -377,8 +377,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   await donePromise;
   unData();
 
+  // Process exited — strip any lingering activity/tool-use indicators so the
+  // UI (which treats trailing activity as "still busy") can flip to Send.
+  const finalMsgs = (messageCache.get(taskId) || []).filter((m) => m.role !== 'activity');
+  messageCache.set(taskId, finalMsgs);
+
   // Check if Claude is asking a question
-  const finalMsgs = messageCache.get(taskId) || [];
   const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
   if (lastAssistant && isQuestion(lastAssistant.content)) {
     callbacks?.onAsking?.();

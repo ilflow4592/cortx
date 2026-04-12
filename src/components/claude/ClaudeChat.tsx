@@ -20,6 +20,15 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
     contextTotalCount,
   } = useClaudeSession(taskId, cwd, onSwitchTab);
 
+  // The Stop button must stay visible while Claude is actively working.
+  // `loading` alone is unreliable: it can flip to false mid-stream due to
+  // claude-done firing prematurely or loadingCache sync races. As a defensive
+  // fallback, treat the presence of a trailing `activity` message (a live
+  // tool-use indicator like "Using Edit...") as "still working".
+  const lastMsg = messages[messages.length - 1];
+  const hasLiveActivity = lastMsg?.role === 'activity';
+  const isBusy = loading || hasLiveActivity;
+
   return (
     <>
       <ChatMessageList
@@ -32,7 +41,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
       />
       <ChatInput
         input={input}
-        loading={loading}
+        loading={isBusy}
         slashCommands={slashCommands}
         contextTotalCount={contextTotalCount}
         onInputChange={setInput}

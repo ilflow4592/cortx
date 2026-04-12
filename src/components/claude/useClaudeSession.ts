@@ -804,6 +804,9 @@ export function useClaudeSession(
     } catch (err) {
       setError(`Failed: ${err}`);
     } finally {
+      // Strip any lingering activity/tool-use indicators so the UI
+      // (ClaudeChat treats trailing activity as "still busy") flips to Send.
+      setMessages((prev) => prev.filter((m) => m.role !== 'activity'));
       setLoading(false);
     }
   };
