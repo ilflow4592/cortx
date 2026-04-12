@@ -147,7 +147,7 @@ export function ChatMessageList({
       )}
 
       {error && <div className="error-box">{error}</div>}
-      <div ref={endRef} />
+      <div ref={endRef as React.RefObject<HTMLDivElement>} />
     </div>
   );
 }

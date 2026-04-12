@@ -188,7 +188,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
     // Merge with existing configured sources, MCP sources take priority
     const existingSources = store.sources;
-    const mergedTypes = new Set(mcpSources.map((s) => s.type));
+    const mergedTypes = new Set<string>(mcpSources.map((s) => s.type));
     const finalSources = [...mcpSources, ...existingSources.filter((s) => !mergedTypes.has(s.type))];
 
     console.log(

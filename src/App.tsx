@@ -103,7 +103,7 @@ function MainApp() {
 
   // Persist to SQLite via Zustand subscribers (debounced per-task)
   useEffect(() => {
-    const pending = new Map<string, NodeJS.Timeout>();
+    const pending = new Map<string, ReturnType<typeof setTimeout>>();
     const flushTask = (taskId: string) => {
       const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
       if (task) {

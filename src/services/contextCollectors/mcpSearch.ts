@@ -27,7 +27,7 @@ export interface McpCollectResult {
 export async function collectViaMcp(
   serviceType: 'github' | 'notion' | 'slack',
   keywords: string[],
-  cwd: string,
+  _cwd: string,
   extra?: { owner?: string; repo?: string; model?: string },
 ): Promise<McpCollectResult> {
   if (keywords.length === 0) return { items: [] };

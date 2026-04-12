@@ -208,7 +208,7 @@ export function useClaudeSession(
             }
           }
         }
-        useTaskStore.getState().updateTask(taskId, { pipeline: updates });
+        useTaskStore.getState().updateTask(taskId, { pipeline: updates as PipelineState });
 
         // macOS notification on phase completion
         if (status === 'done') {
