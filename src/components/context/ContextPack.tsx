@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Pin, Paperclip } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<T>(cmd, args);
+}
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -10,7 +13,7 @@ import { McpStatusBar } from './McpStatusBar';
 import { ContextItemCard } from './ContextItemCard';
 import { PinDialog } from './PinDialog';
 import { CollectProgress } from './CollectProgress';
-import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
+import { SEARCH_MCP_REGISTRY, detectServiceType } from '../../config/searchResources';
 
 const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
@@ -124,6 +127,38 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
     }
   }, [isVisible, projectCwd]);
 
+  // Watch ~/.claude.json for changes (Claude /mcp modifies this file)
+  // Auto-reload MCP servers when the file is modified
+  useEffect(() => {
+    if (!projectCwd) return;
+    let lastMtime = '';
+    const interval = setInterval(async () => {
+      try {
+        const result = await tauriInvoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: 'stat -f "%m" ~/.claude.json 2>/dev/null',
+        });
+        if (result.success && result.output.trim() !== lastMtime) {
+          if (lastMtime !== '') {
+            // File changed → fast config-only reload (skip slow health check)
+            const servers = await tauriInvoke<{ name: string; command: string; args: string[]; env: Record<string, string>; server_type: string; url: string; source: string; disabled: boolean }[]>(
+              'list_mcp_servers', { projectCwd: projectCwd || null }
+            );
+            const statuses = servers.map((s) => ({
+              name: s.name, command: s.command, args: s.args || [],
+              env: s.env || {}, status: (s.disabled ? 'unknown' : 'ready') as 'ready' | 'auth-needed' | 'unknown',
+              authUrl: '', serviceType: detectServiceType(s.name),
+              source: s.source || 'global', disabled: s.disabled || false,
+            }));
+            useContextPackStore.setState({ mcpServers: statuses });
+          }
+          lastMtime = result.output.trim();
+        }
+      } catch { /* ignore */ }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [projectCwd]);
+
   // Auto-enable search resources when mcpServers change
   useEffect(() => {
     const readyServices = new Set<string>(
@@ -206,18 +241,6 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
     const mergedTypes = new Set<string>(mcpSources.map((s) => s.type));
     const finalSources = [...mcpSources, ...existingSources.filter((s) => !mergedTypes.has(s.type))];
 
-    console.log(
-      '[cortx] collecting with sources:',
-      JSON.stringify(
-        finalSources.map((s) => ({
-          type: s.type,
-          token: s.token ? 'yes' : 'no',
-          owner: s.owner,
-          repo: s.repo,
-          enabled: s.enabled,
-        })),
-      ),
-    );
     store.collectAll(
       taskId,
       task?.branchName || '',
@@ -251,7 +274,7 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
     setLoadingPreview(true);
     setPreview(null);
     try {
-      const result = await invoke<{ url: string; title: string; description: string; success: boolean }>(
+      const result = await tauriInvoke<{ url: string; title: string; description: string; success: boolean }>(
         'fetch_link_preview',
         { url },
       );

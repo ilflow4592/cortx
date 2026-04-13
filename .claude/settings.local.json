@@ -37,7 +37,10 @@
       "Read(//private/tmp/**)",
       "Read(//tmp/**)",
       "Read(//Users/lt-macbookpro-0010/Dev/TOMS-server/**)",
-      "Bash(./node_modules/.bin/tsc --noEmit)"
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(cp ~/Dev/TOMS-server/.claude/skills/pr-review-fu/SKILL.md ~/Dev/cortx/.claude/commands/pipeline/pr-review-fu.md)",
+      "Bash(cp ~/Dev/TOMS-server/.github/workflows/pr-review-fu.yml ~/Dev/cortx/.github/workflows/pr-review-fu.yml)",
+      "Bash(cp ~/Dev/cortx/.claude/commands/pipeline/pr-review-fu.md ~/.claude/commands/pipeline/pr-review-fu.md)"
     ],
     "deny": [
       "Bash(git push:*)",

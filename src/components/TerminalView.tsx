@@ -3,8 +3,9 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+// Dynamic imports to comply with CLAUDE.md rules
+const tauriCore = () => import('@tauri-apps/api/core');
+const tauriEvent = () => import('@tauri-apps/api/event');
 
 interface TerminalViewProps {
   taskId: string;
@@ -35,9 +36,10 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
     }
 
     if (cache) {
-      // Move existing wrapper DOM into this container
-      container.appendChild(cache.wrapper);
-      setTimeout(() => cache!.fit.fit(), 50);
+      // Reuse existing wrapper — only attach if not already in this container
+      if (cache.wrapper.parentElement !== container) {
+        container.appendChild(cache.wrapper);
+      }
     } else {
       // Create a persistent wrapper div
       const wrapper = document.createElement('div');
@@ -87,16 +89,17 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
       setTimeout(() => fit.fit(), 50);
 
       term.onData((data) => {
-        invoke('pty_write', { id: ptyId, data }).catch(() => {});
+        tauriCore().then(({ invoke }) => invoke('pty_write', { id: ptyId, data })).catch(() => {});
       });
 
       term.onResize(({ rows, cols }) => {
-        invoke('pty_resize', { id: ptyId, rows, cols }).catch(() => {});
+        tauriCore().then(({ invoke }) => invoke('pty_resize', { id: ptyId, rows, cols })).catch(() => {});
       });
 
       const currentCache = cache;
       (async () => {
         try {
+          const { listen } = await tauriEvent();
           currentCache.unlistenData = await listen<string>(`pty-data-${ptyId}`, (event) => {
             currentCache.term.write(event.payload);
             // Detect Claude CLI activity: look for Claude prompt marker (❯) or banner
@@ -109,7 +112,7 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
               currentCache.claudeActive = false;
             }
           });
-          currentCache.unlistenExit = await listen(`pty-exit-${ptyId}`, () => {
+          currentCache.unlistenExit = await listen<string>(`pty-exit-${ptyId}`, () => {
             currentCache.term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
             currentCache.spawned = false;
             currentCache.claudeActive = false;
@@ -117,11 +120,13 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
 
           if (!currentCache.spawned) {
             currentCache.spawned = true;
+            const { invoke } = await tauriCore();
             await invoke('pty_spawn', { id: ptyId, cwd });
           }
 
           const { rows, cols } = currentCache.term;
-          await invoke('pty_resize', { id: ptyId, rows, cols });
+          const { invoke: inv } = await tauriCore();
+          await inv('pty_resize', { id: ptyId, rows, cols });
         } catch (err) {
           currentCache.term.write(`\x1b[31mFailed to start terminal: ${err}\x1b[0m\r\n`);
           currentCache.spawned = false;
@@ -129,36 +134,57 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
       })();
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      try {
-        cache?.fit.fit();
-      } catch {
-        /* ignore */
-      }
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const resizeObserver = new ResizeObserver((entries) => {
+      clearTimeout(resizeTimer);
+      // Skip if container is invisible (display:none → width/height = 0)
+      const entry = entries[0];
+      if (!entry || entry.contentRect.width < 50 || entry.contentRect.height < 50) return;
+
+      resizeTimer = setTimeout(() => {
+        try {
+          if (!cache) return;
+          const prevCols = cache.term.cols;
+          const prevRows = cache.term.rows;
+          cache.fit.fit();
+          const { rows, cols } = cache.term;
+          if (cols > 10 && rows > 3 && (cols !== prevCols || rows !== prevRows)) {
+            import('@tauri-apps/api/core').then(({ invoke: inv }) =>
+              inv('pty_resize', { id: `term-${taskId}`, rows, cols })
+            ).catch(() => {});
+          }
+        } catch {
+          /* ignore */
+        }
+      }, 300);
     });
     resizeObserver.observe(container);
 
     return () => {
       resizeObserver.disconnect();
-      // Detach wrapper from container but keep it alive in cache
-      if (cache?.wrapper.parentElement === container) {
-        container.removeChild(cache.wrapper);
-      }
+      // Keep wrapper in DOM — don't detach/reattach (causes xterm reflow issues)
     };
   }, [taskId, worktreePath]);
 
-  // Auto-focus and re-fit terminal when tab becomes active
+  // Auto-focus + fit terminal when tab becomes active
   useEffect(() => {
     if (isActive) {
       const cache = terminalCache.get(taskId);
-      if (cache) {
-        setTimeout(() => {
+      if (cache && containerRef.current) {
+        // Wait for container to have real dimensions after display:none → contents
+        requestAnimationFrame(() => {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect || rect.width < 50) return; // still hidden
+          const prevCols = cache.term.cols;
           cache.fit.fit();
           cache.term.focus();
-          // Sync new size to PTY backend
           const { rows, cols } = cache.term;
-          invoke('pty_resize', { id: `term-${taskId}`, rows, cols }).catch(() => {});
-        }, 100);
+          if (cols > 10 && rows > 3 && cols !== prevCols) {
+            import('@tauri-apps/api/core').then(({ invoke: inv }) =>
+              inv('pty_resize', { id: `term-${taskId}`, rows, cols })
+            ).catch(() => {});
+          }
+        });
       }
     }
   }, [isActive, taskId]);

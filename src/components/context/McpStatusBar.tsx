@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+// Dynamic import to avoid static Tauri API import (CLAUDE.md rule)
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<T>(cmd, args);
+}
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { McpIcon, GitHubIcon, SlackIcon, NotionIcon } from '../SourceIcons';
-import { isClaudeActiveInTerminal } from '../../utils/terminalState';
+import { isClaudeActiveInTerminal, terminalCache } from '../../utils/terminalState';
 import type { ContextSourceConfig } from '../../types/contextPack';
 
 interface McpStatusBarProps {
@@ -14,6 +18,7 @@ interface McpStatusBarProps {
 
 export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpStatusBarProps) {
   const [selectedServer, setSelectedServer] = useState<string | null>(null);
+  const [configuring, setConfiguring] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 바깥 클릭 시 팝오버 닫기
@@ -171,27 +176,40 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--bg-surface-hover)', paddingTop: 6 }}>
                                   {taskId && onSwitchTab && (
                                     <button
+                                      disabled={configuring}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (configuring) return;
+                                        setConfiguring(true);
                                         setSelectedServer(null);
                                         onSwitchTab!('terminal');
                                         const termPtyId = `term-${taskId}`;
 
-                                        // Send Ctrl+C first to cancel any pending input, then cd + claude + /mcp
+                                        // Wait for terminal to render + resize before sending commands
                                         setTimeout(() => {
-                                          // Ctrl+C to clean slate
-                                          invoke('pty_write', { id: termPtyId, data: '\x03' }).catch(() => {});
+                                          // Force terminal resize first
+                                          const cache = terminalCache.get(taskId!);
+                                          if (cache) {
+                                            cache.fit.fit();
+                                            const { rows, cols } = cache.term;
+                                            tauriInvoke('pty_resize', { id: termPtyId, rows, cols }).catch(() => {});
+                                          }
+
+                                          // Always: cd → claude → /mcp
+                                          // If Claude is already running, cd and claude are harmless
+                                          // (Claude treats them as chat messages)
                                           setTimeout(() => {
                                             const cdCmd = projectCwd ? `cd ${projectCwd.replace(/ /g, '\\ ')}\r` : '';
-                                            if (cdCmd) invoke('pty_write', { id: termPtyId, data: cdCmd }).catch(() => {});
+                                            if (cdCmd) tauriInvoke('pty_write', { id: termPtyId, data: cdCmd }).catch(() => {});
                                             setTimeout(() => {
-                                              invoke('pty_write', { id: termPtyId, data: `claude\r` }).catch(() => {});
+                                              tauriInvoke('pty_write', { id: termPtyId, data: `claude\r` }).catch(() => {});
                                               setTimeout(() => {
-                                                invoke('pty_write', { id: termPtyId, data: `/mcp\r` }).catch(() => {});
-                                              }, 2500);
+                                                tauriInvoke('pty_write', { id: termPtyId, data: `/mcp\r` }).catch(() => {});
+                                                setTimeout(() => setConfiguring(false), 1000);
+                                              }, 3000);
                                             }, 500);
-                                          }, 200);
-                                        }, 300);
+                                          }, 300);
+                                        }, 500);
                                       }}
                                       style={{
                                         padding: '5px 0', background: 'none', border: 'none', fontSize: 11, color: '#60a5fa',

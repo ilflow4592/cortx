@@ -126,11 +126,13 @@ pub fn list_mcp_servers(project_cwd: Option<String>) -> Vec<McpServerInfo> {
                                 if let Some(name) = item.as_str() { disabled_servers.insert(name.to_string()); }
                             }
                         }
-                        // enabledMcpjsonServers
+                        // enabledMcpjsonServers — only treat as active filter if non-empty
                         if let Some(arr) = proj.get("enabledMcpjsonServers").and_then(|v| v.as_array()) {
-                            has_enabled_list = true;
-                            for item in arr {
-                                if let Some(name) = item.as_str() { enabled_local_servers.insert(name.to_string()); }
+                            if !arr.is_empty() {
+                                has_enabled_list = true;
+                                for item in arr {
+                                    if let Some(name) = item.as_str() { enabled_local_servers.insert(name.to_string()); }
+                                }
                             }
                         }
                         // Project-scoped mcpServers (Local MCPs)
