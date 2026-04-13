@@ -17,7 +17,7 @@ const MODEL_OPTIONS = [
   { value: 'claude-opus-4-6', label: 'Opus' },
 ];
 
-type ServiceType = 'github' | 'notion' | 'slack' | 'other';
+type ServiceType = 'github' | 'notion' | 'slack' | 'obsidian' | 'other';
 
 function sourceIcon(t: string) {
   if (t === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
@@ -39,7 +39,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const projects = useProjectStore((s) => s.projects);
   const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const [showPin, setShowPin] = useState(false);
-  const [showKeywords, setShowKeywords] = useState(false);
+  const [showKeywords, setShowKeywords] = useState(true);
   const [keywordDraft, setKeywordDraft] = useState('');
   const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
   const [collectModel, setCollectModel] = useState('claude-haiku-4-5-20251001');
@@ -315,6 +315,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
             github: <GitHubIcon size={12} color="currentColor" />,
             notion: <NotionIcon size={12} color="currentColor" />,
             slack: <SlackIcon size={12} />,
+            obsidian: <span style={{ fontSize: 12 }}>📓</span>,
             other: null,
           };
 
@@ -441,11 +442,6 @@ export function ContextPack({ taskId }: { taskId: string }) {
                     </button>
                   </span>
                 ))}
-                {storedKeywords.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--fg-faint)', fontStyle: 'italic' }}>
-                    No keywords — branch name will be used
-                  </span>
-                )}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 <input
@@ -505,7 +501,16 @@ export function ContextPack({ taskId }: { taskId: string }) {
             <button
               className="ctx-btn ctx-btn-collect"
               onClick={handleCollect}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              disabled={storedKeywords.length === 0 && taskItems.length === 0}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                ...(storedKeywords.length === 0 && taskItems.length === 0
+                  ? { opacity: 0.4, cursor: 'not-allowed' }
+                  : {}),
+              }}
             >
               <RefreshCw size={13} /> Collect Now
             </button>

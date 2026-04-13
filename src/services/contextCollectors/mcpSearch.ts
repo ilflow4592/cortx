@@ -25,7 +25,7 @@ export interface McpCollectResult {
  * @param extra - GitHub owner/repo, Claude CLI 모델 등 추가 옵션
  */
 export async function collectViaMcp(
-  serviceType: 'github' | 'notion' | 'slack',
+  serviceType: 'github' | 'notion' | 'slack' | 'obsidian',
   keywords: string[],
   _cwd: string,
   extra?: { owner?: string; repo?: string; model?: string },
@@ -35,6 +35,10 @@ export async function collectViaMcp(
   if (serviceType === 'github') {
     const items = await collectGitHubViaCli(keywords, extra?.owner, extra?.repo);
     return { items };
+  }
+
+  if (serviceType === 'obsidian') {
+    return collectViaClaudeCli('obsidian', keywords, extra?.model);
   }
 
   return collectViaClaudeCli(serviceType, keywords, extra?.model);
@@ -105,7 +109,7 @@ async function collectGitHubViaCli(keywords: string[], owner?: string, repo?: st
  * 토큰 사용량을 stderr에서 추출하여 함께 반환.
  */
 async function collectViaClaudeCli(
-  serviceType: 'notion' | 'slack',
+  serviceType: 'notion' | 'slack' | 'obsidian',
   keywords: string[],
   model?: string,
 ): Promise<McpCollectResult> {
@@ -114,6 +118,13 @@ async function collectViaClaudeCli(
   const prompts: Record<string, string> = {
     notion: `Search Notion for: ${keywordList}. For each result that is a project or epic page, also list its child pages (tasks, sub-items). Return ONLY a JSON array (no markdown): [{"title":"","url":"","id":"","parent":""}]. parent is the parent page title if it's a child item, empty string otherwise. Max 15 results. If none: []`,
     slack: `Search Slack for: ${keywordList}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":"","channel":""}]. Max 10 results. If none: []`,
+    obsidian: `Search Obsidian vault for notes related to: ${keywordList}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. url should be the file path. summary is the first 200 chars of the note. Max 10 results. If none: []`,
+  };
+
+  const allowedToolsMap: Record<string, string> = {
+    notion: "'mcp__notion__*'",
+    slack: "'mcp__slack__*'",
+    obsidian: "'mcp__obsidian__*'",
   };
 
   const prompt = prompts[serviceType];
@@ -121,7 +132,8 @@ async function collectViaClaudeCli(
 
   try {
     const modelFlag = model ? `--model ${model}` : '';
-    const cmd = `claude -p ${shellEscape(prompt)} ${modelFlag} --max-turns 10 --allowedTools 'mcp__notion__*' 'mcp__slack__*' Bash`;
+    const allowedTools = allowedToolsMap[serviceType] || `'mcp__${serviceType}__*'`;
+    const cmd = `claude -p ${shellEscape(prompt)} ${modelFlag} --max-turns 10 --allowedTools ${allowedTools} Bash`;
     const result = await runShell(cmd);
 
     if (!result.output?.trim()) return { items: [] };
@@ -159,7 +171,7 @@ async function collectViaClaudeCli(
     }
     if (!Array.isArray(parsed)) return { items: [], tokenUsage };
 
-    const sourceTypeMap: Record<string, ContextSourceType> = { notion: 'notion', slack: 'slack' };
+    const sourceTypeMap: Record<string, ContextSourceType> = { notion: 'notion', slack: 'slack', obsidian: 'pin' };
 
     const items = parsed.map((item, i) => ({
       id: `mcp-${serviceType}-${item.id || i}`,

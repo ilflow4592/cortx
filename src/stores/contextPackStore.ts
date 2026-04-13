@@ -18,7 +18,7 @@ import { collectViaMcp } from '../services/contextCollectors/mcpSearch';
 
 const STORAGE_KEY = 'cortx-context-pack';
 
-type ServiceType = 'github' | 'notion' | 'slack' | 'other';
+type ServiceType = 'github' | 'notion' | 'slack' | 'obsidian' | 'other';
 
 export interface McpServerStatus {
   name: string;
@@ -40,6 +40,7 @@ function detectServiceType(name: string): ServiceType {
   if (n.includes('github')) return 'github';
   if (n.includes('notion')) return 'notion';
   if (n.includes('slack')) return 'slack';
+  if (n.includes('obsidian')) return 'obsidian';
   return 'other';
 }
 
