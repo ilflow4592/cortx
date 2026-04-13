@@ -92,9 +92,9 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
         tauriCore().then(({ invoke }) => invoke('pty_write', { id: ptyId, data })).catch(() => {});
       });
 
-      term.onResize(({ rows, cols }) => {
-        tauriCore().then(({ invoke }) => invoke('pty_resize', { id: ptyId, rows, cols })).catch(() => {});
-      });
+      // pty_resize is handled by the debounced ResizeObserver below
+      // Do NOT send pty_resize from onResize — it fires on every fit() call
+      // causing Claude TUI to re-render repeatedly during window resize
 
       const currentCache = cache;
       (async () => {
