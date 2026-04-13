@@ -6,7 +6,7 @@
  */
 
 /** 컨텍스트 소스 유형 */
-export type ContextSourceType = 'github' | 'slack' | 'notion' | 'pin';
+export type ContextSourceType = 'github' | 'slack' | 'notion' | 'obsidian' | 'pin';
 
 /** 수집된 컨텍스트 항목 1건 */
 export interface ContextItem {

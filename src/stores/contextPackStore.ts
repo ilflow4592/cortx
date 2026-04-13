@@ -339,6 +339,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
               items = r?.items || [];
               tokenUsage = r?.tokenUsage;
             }
+          } else if (source.type === 'obsidian') {
+            const r = await collectViaMcp('obsidian', kw, '', { model });
+            items = r?.items || [];
+            tokenUsage = r?.tokenUsage;
           }
           if (abort.signal.aborted) return [] as ContextItem[];
           set((s) => ({

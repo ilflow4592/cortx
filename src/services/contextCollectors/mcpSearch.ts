@@ -171,7 +171,7 @@ async function collectViaClaudeCli(
     }
     if (!Array.isArray(parsed)) return { items: [], tokenUsage };
 
-    const sourceTypeMap: Record<string, ContextSourceType> = { notion: 'notion', slack: 'slack', obsidian: 'pin' };
+    const sourceTypeMap: Record<string, ContextSourceType> = { notion: 'notion', slack: 'slack', obsidian: 'obsidian' };
 
     const items = parsed.map((item, i) => ({
       id: `mcp-${serviceType}-${item.id || i}`,

@@ -118,7 +118,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
   }, [mcpServers]);
 
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, pin: 3 };
+  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, obsidian: 3, pin: 4 };
   const sortedItems = [...taskItems].sort(
     (a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9),
   );
@@ -135,7 +135,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
     // Build sources from selected search resources + MCP server tokens
     const mcpSources: Array<{
-      type: 'github' | 'slack' | 'notion';
+      type: ServiceType;
       enabled: boolean;
       token: string;
       owner?: string;
