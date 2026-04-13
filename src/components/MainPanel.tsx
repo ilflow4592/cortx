@@ -293,10 +293,10 @@ export function MainPanel({
             />
           </div>
           <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
-            <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} />
+            <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} isActive={activeTab === 'terminal'} />
           </div>
           <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
-            <ContextPack key={task.id} taskId={task.id} />
+            <ContextPack key={task.id} taskId={task.id} onSwitchTab={(tab) => setActiveTab(tab as Tab)} isVisible={activeTab === 'context'} />
           </div>
           {activeTab === 'editor' &&
             editorFile &&

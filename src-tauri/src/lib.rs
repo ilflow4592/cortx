@@ -82,6 +82,7 @@ pub fn run() {
             commands::mcp::list_mcp_servers,
             commands::mcp::upsert_mcp_server,
             commands::mcp::remove_mcp_server,
+            commands::mcp::toggle_mcp_server,
             commands::claude::list_slash_commands,
             commands::claude::read_slash_command,
             commands::claude::write_slash_command,

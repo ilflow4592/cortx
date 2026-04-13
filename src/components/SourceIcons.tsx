@@ -37,6 +37,20 @@ export function NotionIcon({ size = 16, color = 'var(--fg-primary)' }: { size?: 
   );
 }
 
+export function ObsidianIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 65 100" fill="none">
+      <path d="M29.5 2L2 35l15 63 30-7 16-40-10-25z" fill="#34208c" />
+      <path d="M29.5 2L47 28l16 23-10-25z" fill="#7c5ecf" />
+      <path d="M29.5 2L2 35l20 15z" fill="#4a37a0" />
+      <path d="M22 50L2 35l15 63z" fill="#6c4fbf" />
+      <path d="M17 98l30-7-25-41z" fill="#9b8ce0" />
+      <path d="M47 91l16-40-41-1z" fill="#7c5ecf" />
+      <path d="M29.5 2l-7.5 48L47 28z" fill="#5b3db8" />
+    </svg>
+  );
+}
+
 export function McpIcon({ size = 16 }: { size?: number }) {
   return (
     <svg

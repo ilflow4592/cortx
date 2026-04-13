@@ -5,11 +5,12 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
 import type { ContextItem } from '../../types/contextPack';
-import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
+import { GitHubIcon, SlackIcon, NotionIcon, ObsidianIcon, PinIcon } from '../SourceIcons';
 import { McpStatusBar } from './McpStatusBar';
 import { ContextItemCard } from './ContextItemCard';
 import { PinDialog } from './PinDialog';
 import { CollectProgress } from './CollectProgress';
+import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
 
 const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
@@ -17,7 +18,7 @@ const MODEL_OPTIONS = [
   { value: 'claude-opus-4-6', label: 'Opus' },
 ];
 
-type ServiceType = 'github' | 'notion' | 'slack' | 'obsidian' | 'other';
+// ServiceType은 레지스트리 키 + 'other'. 새 MCP 추가는 src/config/searchResources.ts에서만.
 
 function sourceIcon(t: string) {
   if (t === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
@@ -26,7 +27,7 @@ function sourceIcon(t: string) {
   return <PinIcon size={14} />;
 }
 
-export function ContextPack({ taskId }: { taskId: string }) {
+export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string; onSwitchTab?: (tab: string) => void; isVisible?: boolean }) {
   const isCollecting = useContextPackStore((s) => s.collecting[taskId] || false);
   const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId] || []);
   const sources = useContextPackStore((s) => s.sources);
@@ -38,6 +39,9 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId));
   const projects = useProjectStore((s) => s.projects);
   const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
+  // Context Pack uses the actual project root, not the worktree path
+  // MCP settings, .mcp.json, and ~/.claude.json projects keys are all project-root based
+  const projectCwd = project?.localPath || task?.repoPath || '';
   const [showPin, setShowPin] = useState(false);
   const [showKeywords, setShowKeywords] = useState(true);
   const [keywordDraft, setKeywordDraft] = useState('');
@@ -49,7 +53,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const mcpServers = useContextPackStore((s) => s.mcpServers);
-  const [searchResources, setSearchResources] = useState<Set<ServiceType>>(new Set(['github']));
+  const [searchResources, setSearchResources] = useState<Set<string>>(new Set(['github']));
 
   // Tauri native file drop handler
   useEffect(() => {
@@ -107,11 +111,22 @@ export function ContextPack({ taskId }: { taskId: string }) {
     // Clear this task's progress on mount
     const store = useContextPackStore.getState();
     useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
-  }, [taskId]);
+    // Reload MCP servers for this project's context (project/local configs differ per project)
+    if (projectCwd) {
+      useContextPackStore.getState().loadMcpServers(projectCwd);
+    }
+  }, [taskId, projectCwd]);
+
+  // Reload MCP servers when tab becomes visible (e.g. returning from Terminal after /mcp config)
+  useEffect(() => {
+    if (isVisible && projectCwd) {
+      useContextPackStore.getState().loadMcpServers(projectCwd);
+    }
+  }, [isVisible, projectCwd]);
 
   // Auto-enable search resources when mcpServers change
   useEffect(() => {
-    const readyServices = new Set<ServiceType>(
+    const readyServices = new Set<string>(
       mcpServers.filter((s) => s.status === 'ready' && s.serviceType !== 'other').map((s) => s.serviceType),
     );
     if (readyServices.size > 0) setSearchResources(readyServices);
@@ -135,7 +150,7 @@ export function ContextPack({ taskId }: { taskId: string }) {
 
     // Build sources from selected search resources + MCP server tokens
     const mcpSources: Array<{
-      type: ServiceType;
+      type: string;
       enabled: boolean;
       token: string;
       owner?: string;
@@ -300,89 +315,113 @@ export function ContextPack({ taskId }: { taskId: string }) {
           </div>
         )}
 
-        <McpStatusBar sources={sources} />
+        <McpStatusBar sources={sources} projectCwd={projectCwd} taskId={taskId} onSwitchTab={onSwitchTab} />
 
-        {/* Search Resources */}
+        {/* Search Resources — categorized with hover tooltips */}
         {(() => {
-          const searchableServices = mcpServers.filter((s) => s.serviceType !== 'other' && s.status === 'ready');
-          // Deduplicate by serviceType
+          const searchableServices = mcpServers.filter(
+            (s) => s.serviceType !== 'other' && s.status === 'ready' && SEARCH_MCP_REGISTRY[s.serviceType],
+          );
           const uniqueServices = searchableServices.filter(
             (s, i, arr) => arr.findIndex((x) => x.serviceType === s.serviceType) === i,
           );
           if (uniqueServices.length === 0) return null;
 
-          const serviceIcons: Record<ServiceType, React.ReactNode> = {
+          const serviceIcons: Record<string, React.ReactNode> = {
             github: <GitHubIcon size={12} color="currentColor" />,
             notion: <NotionIcon size={12} color="currentColor" />,
             slack: <SlackIcon size={12} />,
-            obsidian: <span style={{ fontSize: 12 }}>📓</span>,
-            other: null,
+            obsidian: <ObsidianIcon size={12} />,
+            context7: <span style={{ fontSize: 11 }}>📚</span>,
+            tavily: <span style={{ fontSize: 11 }}>🔍</span>,
+            secall: <span style={{ fontSize: 11 }}>🧠</span>,
+            serena: <span style={{ fontSize: 11 }}>🔬</span>,
           };
+
+          const categories: { key: 'services' | 'research'; label: string }[] = [
+            { key: 'services', label: 'Services' },
+            { key: 'research', label: 'Research' },
+          ];
 
           return (
             <div style={{ marginBottom: 10 }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: 1,
-                  color: 'var(--fg-faint)',
-                  marginBottom: 6,
-                }}
-              >
-                Search Resources
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {uniqueServices.map((s) => {
-                  const checked = searchResources.has(s.serviceType);
-                  return (
-                    <button
-                      key={s.serviceType}
-                      onClick={() => {
-                        setSearchResources((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(s.serviceType)) next.delete(s.serviceType);
-                          else next.add(s.serviceType);
-                          return next;
-                        });
-                      }}
+              {categories.map((cat) => {
+                const catServices = uniqueServices.filter(
+                  (s) => SEARCH_MCP_REGISTRY[s.serviceType]?.category === cat.key,
+                );
+                if (catServices.length === 0) return null;
+                return (
+                  <div key={cat.key} style={{ marginBottom: 8 }}>
+                    <div
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '5px 12px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        background: checked ? 'var(--accent-bg)' : 'var(--bg-chip)',
-                        border: `1px solid ${checked ? 'var(--accent-bg)' : 'var(--bg-surface-hover)'}`,
-                        color: checked ? 'var(--accent-bright)' : 'var(--fg-faint)',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                        color: 'var(--fg-faint)',
+                        marginBottom: 5,
                       }}
                     >
-                      <span
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 3,
-                          border: `1.5px solid ${checked ? 'var(--accent-bright)' : 'var(--fg-dim)'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 8,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {checked && '✓'}
-                      </span>
-                      {serviceIcons[s.serviceType]}
-                      <span style={{ textTransform: 'capitalize' }}>{s.serviceType}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                      {cat.label}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {catServices.map((s) => {
+                        const checked = searchResources.has(s.serviceType);
+                        const entry = SEARCH_MCP_REGISTRY[s.serviceType];
+                        return (
+                          <div key={s.serviceType} style={{ position: 'relative' }} className="search-resource-item">
+                            <button
+                              onClick={() => {
+                                setSearchResources((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(s.serviceType)) next.delete(s.serviceType);
+                                  else next.add(s.serviceType);
+                                  return next;
+                                });
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '5px 12px',
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 500,
+                                background: checked ? 'var(--accent-bg)' : 'var(--bg-chip)',
+                                border: `1px solid ${checked ? 'var(--accent-bg)' : 'var(--bg-surface-hover)'}`,
+                                color: checked ? 'var(--accent-bright)' : 'var(--fg-faint)',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: 3,
+                                  border: `1.5px solid ${checked ? 'var(--accent-bright)' : 'var(--fg-dim)'}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 8,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {checked && '✓'}
+                              </span>
+                              {serviceIcons[s.serviceType]}
+                              {entry?.label || s.serviceType}
+                            </button>
+                            <div className="search-resource-tooltip">
+                              {entry?.description || s.serviceType}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}

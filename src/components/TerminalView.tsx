@@ -9,11 +9,12 @@ import { listen } from '@tauri-apps/api/event';
 interface TerminalViewProps {
   taskId: string;
   worktreePath: string;
+  isActive?: boolean;
 }
 
 import { terminalCache } from '../utils/terminalState';
 
-export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
+export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -145,6 +146,22 @@ export function TerminalView({ taskId, worktreePath }: TerminalViewProps) {
       }
     };
   }, [taskId, worktreePath]);
+
+  // Auto-focus and re-fit terminal when tab becomes active
+  useEffect(() => {
+    if (isActive) {
+      const cache = terminalCache.get(taskId);
+      if (cache) {
+        setTimeout(() => {
+          cache.fit.fit();
+          cache.term.focus();
+          // Sync new size to PTY backend
+          const { rows, cols } = cache.term;
+          invoke('pty_resize', { id: `term-${taskId}`, rows, cols }).catch(() => {});
+        }, 100);
+      }
+    }
+  }, [isActive, taskId]);
 
   return (
     <div

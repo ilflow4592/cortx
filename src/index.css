@@ -1616,6 +1616,28 @@ body {
   background: var(--bg-surface-hover);
   border-color: var(--fg-faint);
 }
+.search-resource-item {
+  position: relative;
+}
+.search-resource-tooltip {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.search-resource-item:hover .search-resource-tooltip {
+  display: block;
+}
 .ctx-collected-at {
   font-size: 10px;
   color: var(--fg-subtle);
