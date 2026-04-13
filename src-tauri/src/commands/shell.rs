@@ -20,15 +20,21 @@ pub struct CortxConfig {
     pub archive: Vec<String>,
 }
 
-/// Execute an arbitrary shell command via `zsh -l -c` in a background thread.
+/// Execute an arbitrary shell command in a background thread.
+/// Uses zsh on Unix, cmd on Windows.
 /// Returns stdout, stderr, and success status. Used for git operations and file I/O.
 #[tauri::command]
 pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
     log::debug!("[shell] cwd={} cmd={}", cwd, &command[..command.len().min(200)]);
     tauri::async_runtime::spawn_blocking(move || {
-        match Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
+        #[cfg(unix)]
+        let result = Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
             .env("TERM", "dumb")
-            .output() {
+            .output();
+        #[cfg(windows)]
+        let result = Command::new("cmd").args(["/C", &command]).current_dir(&cwd)
+            .output();
+        match result {
             Ok(out) => CommandResult {
                 success: out.status.success(),
                 output: String::from_utf8_lossy(&out.stdout).to_string(),
@@ -44,7 +50,11 @@ pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
 #[tauri::command]
 pub fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
     scripts.iter().map(|script| {
-        match Command::new("zsh").args(["-l", "-c", script]).current_dir(&cwd).output() {
+        #[cfg(unix)]
+        let result = Command::new("zsh").args(["-l", "-c", script]).current_dir(&cwd).output();
+        #[cfg(windows)]
+        let result = Command::new("cmd").args(["/C", script]).current_dir(&cwd).output();
+        match result {
             Ok(out) => CommandResult {
                 success: out.status.success(),
                 output: String::from_utf8_lossy(&out.stdout).to_string(),

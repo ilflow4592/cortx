@@ -29,7 +29,8 @@ impl PtyManager {
         self.sessions.contains_key(id)
     }
 
-    /// Spawn an interactive zsh shell for the given task.
+    /// Spawn an interactive shell for the given task.
+    /// Uses zsh on Unix, powershell on Windows.
     /// Emits `pty-data-{id}` events with stdout chunks and `pty-exit-{id}` on termination.
     pub fn spawn(&mut self, id: &str, cwd: &str, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
@@ -39,8 +40,14 @@ impl PtyManager {
             .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
             .map_err(|e| e.to_string())?;
 
-        let mut cmd = CommandBuilder::new("zsh");
-        cmd.arg("-l");
+        #[cfg(unix)]
+        let mut cmd = {
+            let mut c = CommandBuilder::new("zsh");
+            c.arg("-l");
+            c
+        };
+        #[cfg(windows)]
+        let mut cmd = CommandBuilder::new("powershell");
         cmd.cwd(cwd);
         cmd.env("TERM", "xterm-256color");
         cmd.env("CORTX_TASK", id);
@@ -214,10 +221,18 @@ impl PtyManager {
             }
 
             let full_cmd = cmd_parts.join(" ");
+            #[cfg(unix)]
             let child = std::process::Command::new("zsh")
                 .args(["-l", "-c", &full_cmd])
                 .current_dir(&cwd_owned)
                 .env("TERM", "dumb")
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
+            #[cfg(windows)]
+            let child = std::process::Command::new("cmd")
+                .args(["/C", &full_cmd])
+                .current_dir(&cwd_owned)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn();
@@ -335,13 +350,19 @@ impl PtyManager {
         if let Some(pid_holder) = self.claude_pids.remove(id) {
             if let Ok(lock) = pid_holder.lock() {
                 if let Some(pid) = *lock {
-                    // Kill the process group (zsh + claude + children)
+                    #[cfg(unix)]
                     unsafe {
+                        // Kill the process group (zsh + claude + children)
                         libc::kill(-(pid as i32), libc::SIGTERM);
-                    }
-                    // Also kill the specific PID
-                    unsafe {
+                        // Also kill the specific PID
                         libc::kill(pid as i32, libc::SIGTERM);
+                    }
+                    #[cfg(windows)]
+                    {
+                        // On Windows, use taskkill to terminate the process tree
+                        let _ = std::process::Command::new("taskkill")
+                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                            .output();
                     }
                     return Ok(());
                 }
@@ -359,14 +380,26 @@ fn shell_escape(s: &str) -> String {
 /// Write content to a file with restricted permissions (owner read/write only).
 /// Prevents other users on the system from reading potentially sensitive context.
 fn write_secure_temp(path: &str, content: &str) -> std::io::Result<()> {
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)?;
-    file.write_all(content.as_bytes())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        file.write_all(content.as_bytes())?;
+    }
+    #[cfg(windows)]
+    {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)?;
+        file.write_all(content.as_bytes())?;
+    }
     Ok(())
 }
 
