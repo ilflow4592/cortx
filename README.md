@@ -9,6 +9,11 @@
   A desktop app that turns Claude Code into a task-centric development workflow.
 </p>
 
+<p align="center">
+  <a href="https://github.com/ilflow4592/cortx/releases/latest"><strong>Download</strong></a> &nbsp;·&nbsp;
+  macOS (ARM/Intel) &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux
+</p>
+
 ---
 
 ## How It Works
