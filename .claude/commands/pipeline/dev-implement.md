@@ -139,5 +139,5 @@ PR 번호/URL 캡처: [PIPELINE:pr:{번호}:{URL}]
 ```
 ✅ 구현 완료
 
-👉 Copilot 리뷰가 달리면: /pipeline:dev-review-loop
+👉 CI 리뷰가 달리면: /pipeline:dev-review-loop
 ```

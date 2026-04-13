@@ -1,0 +1,111 @@
+name: PR Review Follow-up
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  follow-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run follow-up review
+        id: follow-up-review
+        run: |
+          claude -p "/pr-review-fu #${{ github.event.pull_request.number }}" \
+            --allowedTools "Bash(gh *),Read,Glob,Grep" \
+            --verbose
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_PR_REVIEW_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check review result
+        if: always() && steps.follow-up-review.outcome == 'success'
+        id: review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REVIEW_STATE=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" \
+            --jq '[.[] | select(.user.type == "Bot" or (.body | test("Must Fix|PR 리뷰 결과|증분 리뷰")))] | last | .state')
+
+          if [ "$REVIEW_STATE" = "APPROVED" ]; then
+            echo "result=approved" >> "$GITHUB_OUTPUT"
+          elif [ "$REVIEW_STATE" = "CHANGES_REQUESTED" ]; then
+            echo "result=changes_requested" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=review_posted" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Slack
+        if: always() && steps.review.outcome == 'success'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}
+          REVIEW_RESULT: ${{ steps.review.outputs.result }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          SLACK_USER_MAP: ${{ vars.SLACK_USER_MAP }}
+        run: |
+          if [ "$REVIEW_RESULT" = "approved" ]; then
+            COLOR="#2EB67D"
+            STATUS_TEXT="Approved"
+          elif [ "$REVIEW_RESULT" = "changes_requested" ]; then
+            COLOR="#E01E5A"
+            STATUS_TEXT="Changes Requested"
+          else
+            COLOR="#ECB22E"
+            STATUS_TEXT="Review Posted"
+          fi
+
+          REPO_UPPER=$(echo "$REPO_NAME" | tr '[:lower:]' '[:upper:]')
+
+          if [ -n "$SLACK_USER_MAP" ]; then
+            SLACK_ID=$(echo "$SLACK_USER_MAP" | jq -r --arg user "$PR_AUTHOR" '.[$user] // empty')
+          fi
+          if [ -n "$SLACK_ID" ]; then
+            MENTION="<@${SLACK_ID}>"
+          else
+            MENTION="@${PR_AUTHOR}"
+          fi
+
+          SECTION_TEXT=$(printf '*PR #%s — %s*\n`%s` → `%s` · %s' "$PR_NUMBER" "$PR_TITLE" "$HEAD_BRANCH" "$BASE_BRANCH" "$MENTION")
+          FALLBACK_TEXT=$(printf '[%s] PR #%s — %s | %s' "$REPO_NAME" "$PR_NUMBER" "$STATUS_TEXT" "$PR_TITLE")
+
+          jq -n \
+            --arg text "$FALLBACK_TEXT" \
+            --arg color "$COLOR" \
+            --arg context "*${STATUS_TEXT}*  |  $REPO_UPPER" \
+            --arg section "$SECTION_TEXT" \
+            --arg url "$PR_URL" \
+            '{
+              text: $text,
+              attachments: [{
+                color: $color,
+                blocks: [
+                  { type: "context", elements: [{ type: "mrkdwn", text: $context }] },
+                  { type: "section", text: { type: "mrkdwn", text: $section }, accessory: { type: "button", text: { type: "plain_text", text: "PR 바로가기" }, url: $url } }
+                ]
+              }]
+            }' | curl -s -X POST -H "Content-Type: application/json" -d @- "$SLACK_WEBHOOK_URL"
