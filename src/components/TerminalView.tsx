@@ -86,7 +86,14 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
       cache = { term, fit, wrapper, cwd, unlistenData: null, unlistenExit: null, spawned: false, claudeActive: false };
       terminalCache.set(taskId, cache);
 
-      setTimeout(() => fit.fit(), 50);
+      // Only fit if container is visible (has real dimensions)
+      // If hidden (display:none), isActive useEffect will fit when tab activates
+      setTimeout(() => {
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 50 && rect.height > 50) {
+          fit.fit();
+        }
+      }, 50);
 
       term.onData((data) => {
         tauriCore().then(({ invoke }) => invoke('pty_write', { id: ptyId, data })).catch(() => {});
