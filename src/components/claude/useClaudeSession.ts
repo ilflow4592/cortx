@@ -8,7 +8,7 @@ import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } fr
 import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../../constants/pipeline';
 import { isClaudeActiveInTerminal } from '../../utils/terminalState';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
-import { runPipeline } from '../../utils/pipelineExec';
+import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
 
 const EMPTY_ARR: never[] = [];
@@ -711,6 +711,17 @@ export function useClaudeSession(
 
       // Only send full context on first message (no existing session)
       if (!hasExistingSession) {
+        // Fetch content for pinned HTTP URLs that don't have fullText yet
+        const pinFetches = contextItems
+          .filter((item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText)
+          .map(async (item) => {
+            const content = await fetchPinUrl(item.url);
+            if (content) {
+              item.metadata = { ...item.metadata, fullText: content };
+            }
+          });
+        if (pinFetches.length > 0) await Promise.all(pinFetches);
+
         const nonFileItems = contextItems.filter(
           (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin',
         );
