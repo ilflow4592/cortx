@@ -49,7 +49,7 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
 
       const term = new Terminal({
         fontSize: 13,
-        fontFamily: "'JetBrains Mono', monospace",
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', 'Symbols Nerd Font', monospace",
         theme: {
           background: 'var(--bg-panel)',
           foreground: '#d4d4d8',
@@ -122,11 +122,9 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
             currentCache.spawned = true;
             const { invoke } = await tauriCore();
             await invoke('pty_spawn', { id: ptyId, cwd });
+            // fit() at line ~89 already sets dimensions via onResize callback
+            // No manual pty_resize needed — avoids double SIGWINCH → double banner
           }
-
-          const { rows, cols } = currentCache.term;
-          const { invoke: inv } = await tauriCore();
-          await inv('pty_resize', { id: ptyId, rows, cols });
         } catch (err) {
           currentCache.term.write(`\x1b[31mFailed to start terminal: ${err}\x1b[0m\r\n`);
           currentCache.spawned = false;
