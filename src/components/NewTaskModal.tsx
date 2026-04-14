@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
-import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
 import type { TaskLayer } from '../types/task';
+
+// Tauri API는 동적 import (CLAUDE.md 규칙 + chunk splitting).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+async function open(opts: { directory?: boolean; multiple?: boolean; title?: string }) {
+  const mod = await import('@tauri-apps/plugin-dialog');
+  return mod.open(opts);
+}
 
 const layers: { value: TaskLayer; label: string; desc: string; color: string }[] = [
   { value: 'focus', label: '🎯 Focus', desc: '30min+ deep work', color: '#818cf8' },

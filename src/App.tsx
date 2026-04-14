@@ -12,8 +12,19 @@ import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useContextPackStore } from './stores/contextPackStore';
 import { useModalStore } from './stores/modalStore';
 import { useLayoutStore } from './stores/layoutStore';
+import {
+  migrateFromLocalStorageIfNeeded,
+  loadAllProjects,
+  loadAllTasks,
+  upsertTask,
+  deleteTask,
+  setActiveTaskId,
+  upsertProject,
+  deleteProject,
+} from './services/db';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
@@ -56,7 +67,6 @@ function MainApp() {
   useEffect(() => {
     (async () => {
       try {
-        const { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } = await import('./services/db');
         await migrateFromLocalStorageIfNeeded();
         const projects = await loadAllProjects();
         if (projects.length) useProjectStore.getState().loadProjects(projects);
@@ -75,15 +85,9 @@ function MainApp() {
         console.error('[cortx] Failed to load SQLite data:', err);
       }
     })();
-    import('./stores/settingsStore')
-      .then(({ useSettingsStore }) => useSettingsStore.getState().loadSettings())
-      .catch(() => {});
-    import('./stores/contextPackStore')
-      .then(({ useContextPackStore }) => {
-        useContextPackStore.getState().loadState();
-        useContextPackStore.getState().loadMcpServers();
-      })
-      .catch(() => {});
+    useSettingsStore.getState().loadSettings();
+    useContextPackStore.getState().loadState();
+    useContextPackStore.getState().loadMcpServers();
   }, []);
 
   // Persist to SQLite via Zustand subscribers (debounced per-task)
@@ -92,7 +96,7 @@ function MainApp() {
     const flushTask = (taskId: string) => {
       const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
       if (task) {
-        import('./services/db').then(({ upsertTask }) => upsertTask(task).catch(() => {}));
+        upsertTask(task).catch(() => {});
       }
     };
     const scheduleTaskSave = (taskId: string) => {
@@ -118,12 +122,12 @@ function MainApp() {
       }
       for (const p of prevTasks) {
         if (!s.tasks.find((t) => t.id === p.id)) {
-          import('./services/db').then(({ deleteTask }) => deleteTask(p.id).catch(() => {}));
+          deleteTask(p.id).catch(() => {});
         }
       }
       if (s.activeTaskId !== prevActiveId) {
         prevActiveId = s.activeTaskId;
-        import('./services/db').then(({ setActiveTaskId }) => setActiveTaskId(s.activeTaskId).catch(() => {}));
+        setActiveTaskId(s.activeTaskId).catch(() => {});
       }
       prevTasks = s.tasks;
     });
@@ -133,12 +137,12 @@ function MainApp() {
       for (const p of s.projects) {
         const prev = prevProjects.find((x) => x.id === p.id);
         if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
-          import('./services/db').then(({ upsertProject }) => upsertProject(p).catch(() => {}));
+          upsertProject(p).catch(() => {});
         }
       }
       for (const p of prevProjects) {
         if (!s.projects.find((x) => x.id === p.id)) {
-          import('./services/db').then(({ deleteProject }) => deleteProject(p.id).catch(() => {}));
+          deleteProject(p.id).catch(() => {});
         }
       }
       prevProjects = s.projects;

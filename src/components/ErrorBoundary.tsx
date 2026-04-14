@@ -5,6 +5,7 @@
  *   panel doesn't take down the whole app
  */
 import { Component, type ReactNode } from 'react';
+import { recordCrash } from '../services/telemetry';
 
 interface Props {
   children: ReactNode;
@@ -26,9 +27,11 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: { componentStack?: string | null }) {
     console.error(`[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ''}]`, error, info);
     // Report to telemetry (no-op if telemetry is disabled)
-    import('../services/telemetry')
-      .then(({ recordCrash }) => recordCrash(error, this.props.label))
-      .catch(() => {});
+    try {
+      recordCrash(error, this.props.label);
+    } catch {
+      /* ignore telemetry failures */
+    }
   }
 
   reset = () => this.setState({ error: null });

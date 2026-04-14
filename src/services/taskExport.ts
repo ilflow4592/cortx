@@ -2,12 +2,21 @@
  * Task export/import utilities.
  * Supports Markdown (human-readable, read-only) and JSON (roundtrip).
  */
-import { save, open } from '@tauri-apps/plugin-dialog';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { PHASE_NAMES, PHASE_ORDER } from '../constants/pipeline';
 import type { Task } from '../types/task';
 import type { Project } from '../types/project';
+
+// Tauri plugin-dialog 동적 import — chunk splitting 활성화
+async function save(opts: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) {
+  const mod = await import('@tauri-apps/plugin-dialog');
+  return mod.save(opts);
+}
+async function open(opts: { multiple?: boolean; filters?: { name: string; extensions: string[] }[] }) {
+  const mod = await import('@tauri-apps/plugin-dialog');
+  return mod.open(opts);
+}
 
 const EXPORT_FORMAT_VERSION = 1;
 

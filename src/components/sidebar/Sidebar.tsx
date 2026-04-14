@@ -8,6 +8,7 @@ import { TaskRow } from './TaskRow';
 import { usePipelineRunner } from './usePipelineRunner';
 import { useSidebarSelection } from './useSidebarSelection';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import type { Task } from '../../types/task';
 
 // Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
@@ -43,20 +44,18 @@ export function Sidebar() {
 
   // Clear asking state when user has responded (last message is from 'user')
   if (askingTasks.size > 0) {
-    import('../../utils/chatState').then(({ messageCache: mc }) => {
-      const toRemove = [...askingTasks].filter((id) => {
-        const msgs = mc.get(id);
-        if (!msgs || msgs.length === 0) return true;
-        return msgs[msgs.length - 1].role === 'user';
-      });
-      if (toRemove.length > 0) {
-        setAskingTasks((prev) => {
-          const n = new Set(prev);
-          toRemove.forEach((id) => n.delete(id));
-          return n;
-        });
-      }
+    const toRemove = [...askingTasks].filter((id) => {
+      const msgs = messageCache.get(id);
+      if (!msgs || msgs.length === 0) return true;
+      return msgs[msgs.length - 1].role === 'user';
     });
+    if (toRemove.length > 0) {
+      setAskingTasks((prev) => {
+        const n = new Set(prev);
+        toRemove.forEach((id) => n.delete(id));
+        return n;
+      });
+    }
   }
 
   // Clear running indicator when pipeline is reset
@@ -347,7 +346,6 @@ export function Sidebar() {
                 <button
                   onClick={async () => {
                     setShowResetConfirm(false);
-                    const { messageCache, sessionCache, loadingCache } = await import('../../utils/chatState');
                     for (const id of selectedTasks) {
                       const t = tasks.find((task) => task.id === id);
                       if (!t) continue;

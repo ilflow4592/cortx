@@ -10,6 +10,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { ClaudeChat } from './claude/ClaudeChat';
 import { ErrorBoundary } from './ErrorBoundary';
+import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '../services/db';
 
 interface Props {
   taskId: string;
@@ -22,7 +23,6 @@ export function TaskPopoutWindow({ taskId }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } = await import('../services/db');
         await migrateFromLocalStorageIfNeeded();
         const projects = await loadAllProjects();
         if (projects.length) useProjectStore.getState().loadProjects(projects);
@@ -41,7 +41,6 @@ export function TaskPopoutWindow({ taskId }: Props) {
     if (!dataLoaded) return;
     const interval = setInterval(async () => {
       try {
-        const { loadAllTasks } = await import('../services/db');
         const { tasks } = await loadAllTasks();
         useTaskStore.getState().loadTasks(tasks, taskId);
       } catch {
