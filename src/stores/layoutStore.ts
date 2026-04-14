@@ -35,8 +35,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
 
   toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
   setShowSidebar: (v) => set({ showSidebar: v }),
-  setSidebarWidth: (w) =>
-    set({ sidebarWidth: Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, w)) }),
+  setSidebarWidth: (w) => set({ sidebarWidth: Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, w)) }),
   toggleRightPanel: () => set((s) => ({ showRightPanel: !s.showRightPanel })),
   setShowRightPanel: (v) => set({ showRightPanel: v }),
   setIsResizing: (v) => set({ isResizing: v }),

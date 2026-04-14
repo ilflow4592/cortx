@@ -239,7 +239,12 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>Slash Command Builder</div>
             <div
-              style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}
+              style={{
+                fontSize: 10,
+                color: 'var(--fg-faint)',
+                marginTop: 2,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
             >
               {projectCommands.length} project · {userCommands.length} global
             </div>

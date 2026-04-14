@@ -1,0 +1,10 @@
+dist/
+node_modules/
+src-tauri/target/
+
+# ts-rs 자동 생성 파일 — Rust 측 derive(TS)에서만 수정
+src/types/generated/
+
+# 빌드 산출물
+src-tauri/Cargo.lock
+package-lock.json

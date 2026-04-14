@@ -188,11 +188,7 @@ export function useClaudeSession(
     const msgId = Date.now().toString(36);
     const userMsg: Message = { id: msgId, role: 'user', content: text };
     const sysMsg = (content: string) => {
-      setMessages((prev) => [
-        ...prev,
-        userMsg,
-        { id: `${msgId}-sys`, role: 'activity', content, toolName: `/${cmd}` },
-      ]);
+      setMessages((prev) => [...prev, userMsg, { id: `${msgId}-sys`, role: 'activity', content, toolName: `/${cmd}` }]);
     };
 
     return handleBuiltinCommand({
@@ -409,7 +405,9 @@ export function useClaudeSession(
       if (!hasExistingSession) {
         // Fetch content for pinned HTTP URLs that don't have fullText yet
         const pinFetches = contextItems
-          .filter((item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText)
+          .filter(
+            (item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText,
+          )
           .map(async (item) => {
             const content = await fetchPinUrl(item.url);
             if (content) {

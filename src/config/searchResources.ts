@@ -36,21 +36,24 @@ export const SEARCH_MCP_REGISTRY: Record<string, SearchResourceEntry> = {
     category: 'services',
     label: 'Notion',
     description: 'Notion 페이지 및 데이터베이스 검색',
-    prompt: 'Search Notion for: {keywords}. For each result that is a project or epic page, also list its child pages. Return ONLY a JSON array (no markdown): [{"title":"","url":"","id":"","parent":""}]. Max 15 results. If none: []',
+    prompt:
+      'Search Notion for: {keywords}. For each result that is a project or epic page, also list its child pages. Return ONLY a JSON array (no markdown): [{"title":"","url":"","id":"","parent":""}]. Max 15 results. If none: []',
     allowedTools: "'mcp__notion__*'",
   },
   slack: {
     category: 'services',
     label: 'Slack',
     description: 'Slack 채널 메시지 및 스레드 검색',
-    prompt: 'Search Slack for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":"","channel":""}]. Max 10 results. If none: []',
+    prompt:
+      'Search Slack for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":"","channel":""}]. Max 10 results. If none: []',
     allowedTools: "'mcp__slack__*'",
   },
   obsidian: {
     category: 'services',
     label: 'Obsidian',
     description: 'Obsidian vault 노트 검색',
-    prompt: 'Search Obsidian vault for notes related to: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. url should be the file path. Max 10 results. If none: []',
+    prompt:
+      'Search Obsidian vault for notes related to: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. url should be the file path. Max 10 results. If none: []',
     allowedTools: "'mcp__obsidian__*'",
   },
 
@@ -59,28 +62,32 @@ export const SEARCH_MCP_REGISTRY: Record<string, SearchResourceEntry> = {
     category: 'research',
     label: 'context7',
     description: '라이브러리/프레임워크 공식 문서 검색',
-    prompt: 'Search library documentation for: {keywords}. First resolve the library ID, then query its docs. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
+    prompt:
+      'Search library documentation for: {keywords}. First resolve the library ID, then query its docs. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
     allowedTools: "'mcp__context7__*'",
   },
   tavily: {
     category: 'research',
     label: 'tavily',
     description: '웹 검색 (기술 블로그, Stack Overflow 등)',
-    prompt: 'Web search for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
+    prompt:
+      'Web search for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
     allowedTools: "'mcp__tavily__*'",
   },
   secall: {
     category: 'research',
     label: 'secall',
     description: '이전 AI 세션 히스토리 검색',
-    prompt: 'Search previous AI session history for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
+    prompt:
+      'Search previous AI session history for: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
     allowedTools: "'mcp__secall__*'",
   },
   serena: {
     category: 'research',
     label: 'serena',
     description: '코드베이스 심볼 분석 및 검색',
-    prompt: 'Search codebase symbols related to: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
+    prompt:
+      'Search codebase symbols related to: {keywords}. Return ONLY a JSON array (no markdown): [{"title":"","url":"","summary":""}]. Max 10 results. If none: []',
     allowedTools: "'mcp__serena__*'",
   },
 };

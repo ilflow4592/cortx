@@ -117,7 +117,12 @@ export function SourceCard({
             }}
           >
             <span
-              style={{ width: 5, height: 5, borderRadius: '50%', background: isConnected ? '#34d399' : 'var(--fg-subtle)' }}
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: isConnected ? '#34d399' : 'var(--fg-subtle)',
+              }}
             />
             {isConnected ? 'Connected' : 'Not connected'}
           </span>

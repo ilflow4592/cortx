@@ -9,10 +9,7 @@ interface Props {
 
 export function PipelineHeader({ pipeline, onResetClick }: Props) {
   return (
-    <div
-      className="rp-section"
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-    >
+    <div className="rp-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         Progress
         {pipeline.complexity && (

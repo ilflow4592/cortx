@@ -57,9 +57,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                 </div>
 
                 {/* Resources + Model */}
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}
-                >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
                   {entry.resources.map((r) => (
                     <span
                       key={r}
@@ -100,9 +98,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                         >
                           {r.error ? '✗' : r.itemCount > 0 ? '✓' : '○'}
                         </span>
-                        <span style={{ color: '#888895', textTransform: 'capitalize', width: 50 }}>
-                          {r.type}
-                        </span>
+                        <span style={{ color: '#888895', textTransform: 'capitalize', width: 50 }}>{r.type}</span>
                         <span style={{ color: r.error ? '#ef4444' : 'var(--fg-faint)' }}>
                           {r.error ? 'failed' : `${r.itemCount} items`}
                         </span>
@@ -146,9 +142,7 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                   }}
                 >
                   <span style={{ color: 'var(--fg-subtle)' }}>{entry.totalItems} items total</span>
-                  {entry.totalTokens > 0 && (
-                    <span style={{ color: 'var(--fg-dim)' }}>~{entry.totalTokens} tokens</span>
-                  )}
+                  {entry.totalTokens > 0 && <span style={{ color: 'var(--fg-dim)' }}>~{entry.totalTokens} tokens</span>}
                 </div>
               </div>
             );

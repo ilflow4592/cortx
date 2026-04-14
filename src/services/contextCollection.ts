@@ -153,10 +153,7 @@ export function extractRegexKeywords(items: ContextItem[]): string[] {
 }
 
 /** Ollama 임베딩 기반 시맨틱 키워드 — 실행 불가 시 빈 배열 반환 */
-export async function extractSemanticKeywords(
-  items: ContextItem[],
-  query: string,
-): Promise<string[]> {
+export async function extractSemanticKeywords(items: ContextItem[], query: string): Promise<string[]> {
   if (items.length === 0) return [];
   try {
     const vs = await import('./vectorSearch');

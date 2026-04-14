@@ -79,7 +79,12 @@ export function FileList({
               <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
                 {mode === 'unstaged' && (
                   <>
-                    <RowButton onClick={() => onStageFile(file.path)} disabled={busy} color="#34d399" title="Stage this file">
+                    <RowButton
+                      onClick={() => onStageFile(file.path)}
+                      disabled={busy}
+                      color="#34d399"
+                      title="Stage this file"
+                    >
                       <Plus size={11} strokeWidth={2} />
                     </RowButton>
                     <RowButton
@@ -93,7 +98,12 @@ export function FileList({
                   </>
                 )}
                 {mode === 'staged' && (
-                  <RowButton onClick={() => onUnstageFile(file.path)} disabled={busy} color="#eab308" title="Unstage this file">
+                  <RowButton
+                    onClick={() => onUnstageFile(file.path)}
+                    disabled={busy}
+                    color="#eab308"
+                    title="Unstage this file"
+                  >
                     <Minus size={11} strokeWidth={2} />
                   </RowButton>
                 )}

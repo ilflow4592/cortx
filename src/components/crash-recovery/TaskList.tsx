@@ -36,9 +36,7 @@ export function TaskList({ tasks, projects, onResume, onDismiss }: TaskListProps
               borderRadius: 8,
             }}
           >
-            <div
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}
-            >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
@@ -75,9 +73,7 @@ export function TaskList({ tasks, projects, onResume, onDismiss }: TaskListProps
                       {project.name}
                     </span>
                   )}
-                  {task.branchName && (
-                    <span style={{ color: 'var(--fg-faint)' }}>{task.branchName}</span>
-                  )}
+                  {task.branchName && <span style={{ color: 'var(--fg-faint)' }}>{task.branchName}</span>}
                 </div>
               </div>
               <div

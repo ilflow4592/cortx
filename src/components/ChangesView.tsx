@@ -161,9 +161,7 @@ export function ChangesView({
         {viewMode === 'diff' && <DiffHunkView hunks={diffHunks} />}
 
         {/* Code view — Monaco editor */}
-        {viewMode === 'edit' && fileContent !== null && (
-          <FileEditor filePath={selectedFile} content={fileContent} />
-        )}
+        {viewMode === 'edit' && fileContent !== null && <FileEditor filePath={selectedFile} content={fileContent} />}
       </div>
     );
   }

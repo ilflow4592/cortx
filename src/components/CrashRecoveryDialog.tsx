@@ -130,12 +130,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
         </div>
 
         {/* Task list */}
-        <TaskList
-          tasks={interruptedTasks}
-          projects={projects}
-          onResume={handleResume}
-          onDismiss={handleDismiss}
-        />
+        <TaskList tasks={interruptedTasks} projects={projects} onResume={handleResume} onDismiss={handleDismiss} />
 
         {/* Footer */}
         {interruptedTasks.length > 1 && (

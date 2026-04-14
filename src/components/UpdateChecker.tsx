@@ -222,8 +222,8 @@ export function UpdateChecker({ onClose }: Props) {
                 </div>
               </div>
               <div style={{ fontSize: 10, color: 'var(--fg-faint)', lineHeight: 1.6 }}>
-                Make sure the updater is properly configured with a signing public key and that the release endpoint
-                is reachable. See <code style={{ color: 'var(--fg-subtle)' }}>docs/auto-update.md</code>.
+                Make sure the updater is properly configured with a signing public key and that the release endpoint is
+                reachable. See <code style={{ color: 'var(--fg-subtle)' }}>docs/auto-update.md</code>.
               </div>
               <button
                 onClick={runCheck}

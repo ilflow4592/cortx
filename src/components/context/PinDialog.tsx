@@ -13,18 +13,16 @@ export function PinDialog({ taskId, onClose }: PinDialogProps) {
 
   const handlePin = () => {
     if (!pinTitle.trim()) return;
-    useContextPackStore
-      .getState()
-      .addPin(taskId, {
-        id: `pin-${Date.now().toString(36)}`,
-        sourceType: 'pin',
-        title: pinTitle.trim(),
-        url: pinUrl.trim(),
-        summary: 'Pinned',
-        timestamp: new Date().toISOString(),
-        isNew: false,
-        category: 'pinned',
-      } as ContextItem);
+    useContextPackStore.getState().addPin(taskId, {
+      id: `pin-${Date.now().toString(36)}`,
+      sourceType: 'pin',
+      title: pinTitle.trim(),
+      url: pinUrl.trim(),
+      summary: 'Pinned',
+      timestamp: new Date().toISOString(),
+      isNew: false,
+      category: 'pinned',
+    } as ContextItem);
     setPinUrl('');
     setPinTitle('');
     onClose();

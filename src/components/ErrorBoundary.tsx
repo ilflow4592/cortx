@@ -56,9 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
             maxHeight: '100%',
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>
-            {this.props.label} crashed
-          </div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>{this.props.label} crashed</div>
           <div style={{ color: '#eab308', marginBottom: 8, fontSize: 11 }}>{this.state.error.message}</div>
           <button
             onClick={this.reset}

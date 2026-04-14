@@ -37,20 +37,8 @@ export function ServerDropdown({
   const needsAuth = server.status === 'auth-needed';
   const isReady = !isDisabled && server.status === 'ready';
   const statusIcon = isDisabled ? '○' : isReady ? '✓' : needsAuth ? '⚠' : '✗';
-  const statusColor = isDisabled
-    ? 'var(--fg-dim)'
-    : isReady
-      ? '#34d399'
-      : needsAuth
-        ? '#eab308'
-        : '#ef4444';
-  const statusLabel = isDisabled
-    ? 'disabled'
-    : isReady
-      ? 'connected'
-      : needsAuth
-        ? 'auth-needed'
-        : 'failed';
+  const statusColor = isDisabled ? 'var(--fg-dim)' : isReady ? '#34d399' : needsAuth ? '#eab308' : '#ef4444';
+  const statusLabel = isDisabled ? 'disabled' : isReady ? 'connected' : needsAuth ? 'auth-needed' : 'failed';
 
   const configLocationMap: Record<string, string> = {
     project: `${projectCwd || ''}/.mcp.json`,
@@ -117,8 +105,7 @@ export function ServerDropdown({
         const rect = chip.getBoundingClientRect();
         const spaceRight = window.innerWidth - rect.left;
         const spaceBelow = window.innerHeight - rect.bottom;
-        el.style.top =
-          (spaceBelow > 200 ? rect.bottom + 4 : rect.top - el.offsetHeight - 4) + 'px';
+        el.style.top = (spaceBelow > 200 ? rect.bottom + 4 : rect.top - el.offsetHeight - 4) + 'px';
         el.style.left = (spaceRight > 340 ? rect.left : window.innerWidth - 340) + 'px';
       }}
     >

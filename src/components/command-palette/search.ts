@@ -29,11 +29,7 @@ export function matchesAtBoundary(text: string, query: string): boolean {
  * 키워드 또는 레이블 중 하나라도 매치하면 true.
  * 액션 리스트에서 `keywords` 배열을 이용한 동의어 검색 용도.
  */
-export function matchesLabelOrKeywords(
-  query: string,
-  label: string,
-  keywords: string[] = [],
-): boolean {
+export function matchesLabelOrKeywords(query: string, label: string, keywords: string[] = []): boolean {
   if (!query.trim()) return true;
   if (matchesAtBoundary(label, query)) return true;
   return keywords.some((k) => matchesAtBoundary(k, query));

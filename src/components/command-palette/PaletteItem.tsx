@@ -38,9 +38,7 @@ export function PaletteItem({ icon, label, hint, keywords, onSelect }: Props) {
       >
         {icon}
       </span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       {hint && (
         <span
           style={{

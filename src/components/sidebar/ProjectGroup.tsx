@@ -254,7 +254,9 @@ export function ProjectGroup({
             />
           ))}
           {tasks.length === 0 && (
-            <div style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: 'var(--border-strong)', fontStyle: 'italic' }}>
+            <div
+              style={{ padding: '8px 14px 8px 24px', fontSize: 11, color: 'var(--border-strong)', fontStyle: 'italic' }}
+            >
               No tasks — click + to add one
             </div>
           )}

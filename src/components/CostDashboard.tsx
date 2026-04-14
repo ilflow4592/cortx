@@ -221,12 +221,22 @@ export function CostDashboard({ onClose }: Props) {
                     <tr key={phase} style={{ borderTop: '1px solid var(--bg-surface-hover)' }}>
                       <td style={{ padding: '8px', color: 'var(--fg-secondary)' }}>{PHASE_NAMES[phase]}</td>
                       <td
-                        style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}
+                        style={{
+                          padding: '8px',
+                          textAlign: 'right',
+                          color: 'var(--fg-muted)',
+                          fontFamily: 'monospace',
+                        }}
                       >
                         {formatNum(input)}
                       </td>
                       <td
-                        style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}
+                        style={{
+                          padding: '8px',
+                          textAlign: 'right',
+                          color: 'var(--fg-muted)',
+                          fontFamily: 'monospace',
+                        }}
                       >
                         {formatNum(output)}
                       </td>
@@ -242,7 +252,12 @@ export function CostDashboard({ onClose }: Props) {
                       </td>
                       <td style={{ padding: '8px' }}>
                         <div
-                          style={{ height: 4, background: 'var(--bg-surface-hover)', borderRadius: 2, overflow: 'hidden' }}
+                          style={{
+                            height: 4,
+                            background: 'var(--bg-surface-hover)',
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                          }}
                         >
                           <div
                             style={{
@@ -291,7 +306,12 @@ export function CostDashboard({ onClose }: Props) {
                         </span>
                       </td>
                       <td
-                        style={{ padding: '8px', textAlign: 'right', color: 'var(--fg-muted)', fontFamily: 'monospace' }}
+                        style={{
+                          padding: '8px',
+                          textAlign: 'right',
+                          color: 'var(--fg-muted)',
+                          fontFamily: 'monospace',
+                        }}
                       >
                         {count}
                       </td>
@@ -307,7 +327,12 @@ export function CostDashboard({ onClose }: Props) {
                       </td>
                       <td style={{ padding: '8px' }}>
                         <div
-                          style={{ height: 4, background: 'var(--bg-surface-hover)', borderRadius: 2, overflow: 'hidden' }}
+                          style={{
+                            height: 4,
+                            background: 'var(--bg-surface-hover)',
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                          }}
                         >
                           <div
                             style={{

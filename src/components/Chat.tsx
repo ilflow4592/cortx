@@ -43,8 +43,7 @@ export function Chat({ taskId }: { taskId: string }) {
   const provider = task.modelOverride?.provider || aiProvider;
   const resolvedModelId = task.modelOverride?.modelId || modelId;
   const resolvedOllamaUrl = ollamaUrl;
-  const resolvedAuthMethod =
-    authMethod === 'oauth' && oauthAccessToken ? ('oauth' as const) : ('api-key' as const);
+  const resolvedAuthMethod = authMethod === 'oauth' && oauthAccessToken ? ('oauth' as const) : ('api-key' as const);
   const resolvedApiKey = resolvedAuthMethod === 'oauth' ? oauthAccessToken : apiKey;
 
   // Build context-aware system prompt
@@ -136,12 +135,7 @@ export function Chat({ taskId }: { taskId: string }) {
 
   return (
     <>
-      <MessageList
-        messages={task.chatHistory}
-        isLoading={isLoading}
-        error={error}
-        emptyState={emptyState}
-      />
+      <MessageList messages={task.chatHistory} isLoading={isLoading} error={error} emptyState={emptyState} />
       <InputArea
         input={input}
         isLoading={isLoading}

@@ -10,13 +10,7 @@
 import { useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
-import {
-  upsertTask,
-  deleteTask,
-  setActiveTaskId,
-  upsertProject,
-  deleteProject,
-} from '../services/db';
+import { upsertTask, deleteTask, setActiveTaskId, upsertProject, deleteProject } from '../services/db';
 
 const TASK_SAVE_DEBOUNCE_MS = 500;
 
@@ -41,9 +35,7 @@ export function useStorePersistence(): void {
     let prevActiveId = useTaskStore.getState().activeTaskId;
     let prevProjects = useProjectStore.getState().projects;
     // project hash 캐시 — 매 변경마다 prev/curr 양쪽 stringify하던 비용을 절반으로
-    const projectHashCache = new Map<string, string>(
-      prevProjects.map((p) => [p.id, JSON.stringify(p)]),
-    );
+    const projectHashCache = new Map<string, string>(prevProjects.map((p) => [p.id, JSON.stringify(p)]));
 
     const unsubTasks = useTaskStore.subscribe((s) => {
       for (const t of s.tasks) {

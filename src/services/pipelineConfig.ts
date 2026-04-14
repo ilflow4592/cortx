@@ -23,11 +23,7 @@
  */
 import { useProjectStore } from '../stores/projectStore';
 import { useTaskStore } from '../stores/taskStore';
-import {
-  PHASE_NAMES as DEFAULT_NAMES,
-  PHASE_MODELS as DEFAULT_MODELS,
-  PHASE_ORDER,
-} from '../constants/pipeline';
+import { PHASE_NAMES as DEFAULT_NAMES, PHASE_MODELS as DEFAULT_MODELS, PHASE_ORDER } from '../constants/pipeline';
 import type { PipelinePhase } from '../types/task';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {

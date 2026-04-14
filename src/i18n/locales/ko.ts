@@ -138,7 +138,8 @@ export const ko: Partial<typeof en> = {
 
   // Reset Session
   'reset.title': '세션 리셋',
-  'reset.warning': '모든 메시지, 세션, 파이프라인 상태가 초기화되고 커밋되지 않은 변경사항도 모두 되돌려집니다. 되돌릴 수 없습니다.',
+  'reset.warning':
+    '모든 메시지, 세션, 파이프라인 상태가 초기화되고 커밋되지 않은 변경사항도 모두 되돌려집니다. 되돌릴 수 없습니다.',
   'reset.confirm': '세션 리셋',
 
   // Crash Recovery

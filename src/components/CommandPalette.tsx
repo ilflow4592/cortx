@@ -51,20 +51,14 @@ export function CommandPalette({ open, onClose }: Props) {
     if (!searchLower) return tasks;
     return tasks.filter((task) => {
       const project = projects.find((p) => p.id === task.projectId);
-      return (
-        matchesSearch(task.title) ||
-        matchesSearch(task.branchName || '') ||
-        matchesSearch(project?.name || '')
-      );
+      return matchesSearch(task.title) || matchesSearch(task.branchName || '') || matchesSearch(project?.name || '');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, projects, searchLower]);
 
   const filteredProjects = useMemo(() => {
     if (!searchLower) return projects;
-    return projects.filter(
-      (p) => matchesSearch(p.name) || matchesSearch(p.githubRepo) || matchesSearch(p.githubOwner),
-    );
+    return projects.filter((p) => matchesSearch(p.name) || matchesSearch(p.githubRepo) || matchesSearch(p.githubOwner));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, searchLower]);
 

@@ -172,4 +172,3 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
     </div>
   );
 }
-

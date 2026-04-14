@@ -6,13 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Server, RotateCw, AlertCircle } from 'lucide-react';
 import { useContextPackStore } from '../stores/contextPackStore';
 import type { RawServer, DraftServer } from './mcp-manager/types';
-import {
-  listMcpServers,
-  removeMcpServer,
-  upsertMcpServer,
-  stringifyEnv,
-  emptyDraft,
-} from './mcp-manager/api';
+import { listMcpServers, removeMcpServer, upsertMcpServer, stringifyEnv, emptyDraft } from './mcp-manager/api';
 import { ServerRow } from './mcp-manager/ServerRow';
 import { DraftForm } from './mcp-manager/DraftForm';
 import { HoverIconButton, CloseButton } from './mcp-manager/buttons';
@@ -169,7 +163,12 @@ export function McpServerManager({ onClose }: Props) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>MCP Servers</div>
             <div
-              style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}
+              style={{
+                fontSize: 10,
+                color: 'var(--fg-faint)',
+                marginTop: 2,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
             >
               ~/.claude.json · {servers.length} configured
             </div>
@@ -225,7 +224,14 @@ export function McpServerManager({ onClose }: Props) {
           )}
 
           {adding && (
-            <DraftForm draft={draft} setDraft={setDraft} onSave={save} onCancel={cancelDraft} saving={saving} isEdit={false} />
+            <DraftForm
+              draft={draft}
+              setDraft={setDraft}
+              onSave={save}
+              onCancel={cancelDraft}
+              saving={saving}
+              isEdit={false}
+            />
           )}
 
           {!loading && !adding && servers.length === 0 && (

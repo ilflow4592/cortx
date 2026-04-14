@@ -49,9 +49,7 @@ export function useResetSelectedTasks() {
             command: 'git checkout -- . 2>/dev/null',
           }).catch(() => {});
         }
-        useTaskStore
-          .getState()
-          .updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
+        useTaskStore.getState().updateTask(id, { pipeline: undefined, elapsedSeconds: 0, interrupts: [] });
         useTaskStore.getState().setTaskStatus(id, 'waiting');
         messageCache.delete(id);
         sessionCache.delete(id);

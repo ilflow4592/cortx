@@ -105,9 +105,7 @@ export function TelemetrySettings() {
             onChange={(e) => setSettings({ telemetryEnabled: e.target.checked })}
             style={{ accentColor: 'var(--accent)' }}
           />
-          <span style={{ fontSize: 13, color: 'var(--fg-primary)', fontWeight: 500 }}>
-            Enable local telemetry
-          </span>
+          <span style={{ fontSize: 13, color: 'var(--fg-primary)', fontWeight: 500 }}>Enable local telemetry</span>
         </label>
         <div style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 4, marginLeft: 24 }}>
           When enabled, crashes and key actions are recorded locally. Events are viewable below.
@@ -150,7 +148,12 @@ export function TelemetrySettings() {
           <RefreshCw size={12} strokeWidth={1.5} />
         </button>
         {enabled && endpoint && (
-          <button onClick={handleFlush} disabled={loading || unsent === 0} style={iconBtnStyle} title="Flush to endpoint">
+          <button
+            onClick={handleFlush}
+            disabled={loading || unsent === 0}
+            style={iconBtnStyle}
+            title="Flush to endpoint"
+          >
             <Upload size={12} strokeWidth={1.5} />
           </button>
         )}
@@ -229,9 +232,7 @@ export function TelemetrySettings() {
               >
                 {event.name}
               </span>
-              {event.sent && (
-                <span style={{ fontSize: 9, color: 'var(--accent)', flexShrink: 0 }}>✓ sent</span>
-              )}
+              {event.sent && <span style={{ fontSize: 9, color: 'var(--accent)', flexShrink: 0 }}>✓ sent</span>}
               <span
                 style={{
                   fontSize: 9,

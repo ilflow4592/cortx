@@ -18,7 +18,10 @@ export function parseWorktrees(output: string): { path: string; branch: string }
       currentPath = line.slice(9).trim();
       currentBranch = '';
     } else if (line.startsWith('branch ')) {
-      currentBranch = line.slice(7).trim().replace(/^refs\/heads\//, '');
+      currentBranch = line
+        .slice(7)
+        .trim()
+        .replace(/^refs\/heads\//, '');
     }
   }
   if (currentPath) {

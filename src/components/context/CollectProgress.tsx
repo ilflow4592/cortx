@@ -28,7 +28,9 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
             {p.status === 'done' && <span style={{ color: '#34d399' }}>✓</span>}
             {p.status === 'error' && <span style={{ color: '#ef4444' }}>✗</span>}
           </span>
-          <span style={{ color: p.status === 'collecting' ? 'var(--fg-primary)' : '#888895', textTransform: 'capitalize' }}>
+          <span
+            style={{ color: p.status === 'collecting' ? 'var(--fg-primary)' : '#888895', textTransform: 'capitalize' }}
+          >
             {p.type}
           </span>
           {p.status === 'done' && (

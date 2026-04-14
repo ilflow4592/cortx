@@ -19,9 +19,7 @@ function defaults(): PipelineConfig {
 
 export function usePipelineConfig(taskId: string | null | undefined): PipelineConfig {
   const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId));
-  const project = useProjectStore((s) =>
-    task?.projectId ? s.projects.find((p) => p.id === task.projectId) : null,
-  );
+  const project = useProjectStore((s) => (task?.projectId ? s.projects.find((p) => p.id === task.projectId) : null));
   const projectPath = project?.localPath || '';
   const [config, setConfig] = useState<PipelineConfig>(() => defaults());
 

@@ -56,15 +56,7 @@ const handlers: Record<BuiltinCommandName, BuiltinHandler> = {
     }, 300);
   },
 
-  clear: async ({
-    taskId,
-    loading,
-    currentReqIdRef,
-    unlistenRefs,
-    setLoading,
-    setMessages,
-    claudeSessionIdRef,
-  }) => {
+  clear: async ({ taskId, loading, currentReqIdRef, unlistenRefs, setLoading, setMessages, claudeSessionIdRef }) => {
     if (loading && currentReqIdRef.current) {
       invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
       unlistenRefs.current.forEach((fn) => fn());
@@ -76,9 +68,7 @@ const handlers: Record<BuiltinCommandName, BuiltinHandler> = {
     loadingCache.delete(taskId);
     sessionCache.delete(taskId);
     claudeSessionIdRef.current = '';
-    useTaskStore
-      .getState()
-      .updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
+    useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
   },
 
   cost: async ({ taskId, sysMsg }) => {

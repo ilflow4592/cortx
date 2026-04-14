@@ -33,9 +33,7 @@ export function ItemsList({ taskId, filtered, isCollecting, onPreview }: ItemsLi
           )}
         </div>
       ) : (
-        filtered.map((item) => (
-          <ContextItemCard key={item.id} taskId={taskId} item={item} onPreview={onPreview} />
-        ))
+        filtered.map((item) => <ContextItemCard key={item.id} taskId={taskId} item={item} onPreview={onPreview} />)
       )}
     </div>
   );

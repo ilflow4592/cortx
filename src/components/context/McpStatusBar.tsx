@@ -80,10 +80,7 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
               color: 'var(--fg-faint)',
             }}
           >
-            MCP Servers{' '}
-            {mcpServers.length > 0 && (
-              <span style={{ color: 'var(--fg-dim)' }}>({mcpServers.length})</span>
-            )}
+            MCP Servers {mcpServers.length > 0 && <span style={{ color: 'var(--fg-dim)' }}>({mcpServers.length})</span>}
           </div>
           <button
             onClick={() => useContextPackStore.getState().loadMcpServers(projectCwd)}
@@ -155,9 +152,7 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
             ))}
           </>
         ) : (
-          <div style={{ fontSize: 11, color: 'var(--fg-dim)', fontStyle: 'italic' }}>
-            No MCP servers configured
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--fg-dim)', fontStyle: 'italic' }}>No MCP servers configured</div>
         )}
       </div>
 

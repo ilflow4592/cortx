@@ -10,20 +10,7 @@ import { sendNotification } from '../../utils/notification';
 import type { PipelinePhase, PipelineState } from '../../types/task';
 import type { Message } from './types';
 
-const APPROVAL_WORDS = [
-  'y',
-  'ㅇ',
-  'ㅇㅇ',
-  '진행',
-  '진행해',
-  '진행해줘',
-  'yes',
-  'ok',
-  '네',
-  '응',
-  '좋아',
-  'go',
-];
+const APPROVAL_WORDS = ['y', 'ㅇ', 'ㅇㅇ', '진행', '진행해', '진행해줘', 'yes', 'ok', '네', '응', '좋아', 'go'];
 
 /** 사용자 입력이 단순 승인 표현인지 판정 (소문자 전체 일치) */
 export function isApproval(text: string): boolean {

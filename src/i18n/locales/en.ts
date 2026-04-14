@@ -136,7 +136,8 @@ export const en = {
 
   // Reset Session
   'reset.title': 'Reset Session',
-  'reset.warning': 'This will clear all messages, session, pipeline state, and discard uncommitted changes. This cannot be undone.',
+  'reset.warning':
+    'This will clear all messages, session, pipeline state, and discard uncommitted changes. This cannot be undone.',
   'reset.confirm': 'Reset Session',
 
   // Crash Recovery

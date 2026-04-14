@@ -37,9 +37,7 @@ export function SearchResourcesGrid({ mcpServers, searchResources, setSearchReso
   return (
     <div style={{ marginBottom: 10 }}>
       {CATEGORIES.map((cat) => {
-        const catServices = uniqueServices.filter(
-          (s) => SEARCH_MCP_REGISTRY[s.serviceType]?.category === cat.key,
-        );
+        const catServices = uniqueServices.filter((s) => SEARCH_MCP_REGISTRY[s.serviceType]?.category === cat.key);
         if (catServices.length === 0) return null;
         return (
           <div key={cat.key} style={{ marginBottom: 8 }}>
@@ -103,9 +101,7 @@ export function SearchResourcesGrid({ mcpServers, searchResources, setSearchReso
                       {SERVICE_ICONS[s.serviceType]}
                       {entry?.label || s.serviceType}
                     </button>
-                    <div className="search-resource-tooltip">
-                      {entry?.description || s.serviceType}
-                    </div>
+                    <div className="search-resource-tooltip">{entry?.description || s.serviceType}</div>
                   </div>
                 );
               })}

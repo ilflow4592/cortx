@@ -141,19 +141,18 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     set({ mcpLoading: true });
     try {
       // 1. Get config-based server list (sources, disabled state)
-      const servers =
-        await invoke<
-          {
-            name: string;
-            command: string;
-            args: string[];
-            env: Record<string, string>;
-            server_type: string;
-            url: string;
-            source: string;
-            disabled: boolean;
-          }[]
-        >('list_mcp_servers', { projectCwd: projectCwd || null });
+      const servers = await invoke<
+        {
+          name: string;
+          command: string;
+          args: string[];
+          env: Record<string, string>;
+          server_type: string;
+          url: string;
+          source: string;
+          disabled: boolean;
+        }[]
+      >('list_mcp_servers', { projectCwd: projectCwd || null });
       const statuses: McpServerStatus[] = [];
       for (const server of servers) {
         const serviceType = detectServiceType(server.name);
@@ -171,8 +170,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
               cwd: '/',
               command: check.cmd,
             });
-            status = (result.success || result.output.includes('Logged in') || result.output.includes('ok'))
-              ? 'ready' : 'auth-needed';
+            status =
+              result.success || result.output.includes('Logged in') || result.output.includes('ok')
+                ? 'ready'
+                : 'auth-needed';
           } catch {
             status = 'auth-needed';
           }
@@ -206,25 +207,27 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       invoke<{ success: boolean; output: string }>('run_shell_command', {
         cwd: projectCwd || '/',
         command: 'claude mcp list 2>/dev/null',
-      }).then((healthResult) => {
-        if (!healthResult.success || !healthResult.output) return;
-        const liveServers = new Map<string, 'ready' | 'unknown'>();
-        for (const line of healthResult.output.split('\n')) {
-          const connected = line.includes('✓ Connected');
-          const failed = line.includes('✗ Failed');
-          if (!connected && !failed) continue;
-          const nameMatch = line.match(/^(.+?):\s/);
-          if (!nameMatch) continue;
-          liveServers.set(nameMatch[1].trim(), connected ? 'ready' : 'unknown');
-        }
-        // Only update status for NON-disabled servers
-        const updated = statuses.map((s) => {
-          if (s.disabled) return s;
-          if (liveServers.has(s.name)) return { ...s, status: liveServers.get(s.name)! };
-          return s;
-        });
-        set({ mcpServers: updated });
-      }).catch(() => {});
+      })
+        .then((healthResult) => {
+          if (!healthResult.success || !healthResult.output) return;
+          const liveServers = new Map<string, 'ready' | 'unknown'>();
+          for (const line of healthResult.output.split('\n')) {
+            const connected = line.includes('✓ Connected');
+            const failed = line.includes('✗ Failed');
+            if (!connected && !failed) continue;
+            const nameMatch = line.match(/^(.+?):\s/);
+            if (!nameMatch) continue;
+            liveServers.set(nameMatch[1].trim(), connected ? 'ready' : 'unknown');
+          }
+          // Only update status for NON-disabled servers
+          const updated = statuses.map((s) => {
+            if (s.disabled) return s;
+            if (liveServers.has(s.name)) return { ...s, status: liveServers.get(s.name)! };
+            return s;
+          });
+          set({ mcpServers: updated });
+        })
+        .catch(() => {});
     } catch {
       set({ mcpLoading: false });
     }
@@ -332,9 +335,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       set((s) => ({
         collectProgresses: {
           ...s.collectProgresses,
-          [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
-            i === sourceIdx ? { ...p, ...patch } : p,
-          ),
+          [taskId]: (s.collectProgresses[taskId] || []).map((p, i) => (i === sourceIdx ? { ...p, ...patch } : p)),
         },
       }));
     };

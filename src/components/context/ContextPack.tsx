@@ -36,7 +36,15 @@ function sourceIcon(t: string) {
   return <PinIcon size={14} />;
 }
 
-export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string; onSwitchTab?: (tab: string) => void; isVisible?: boolean }) {
+export function ContextPack({
+  taskId,
+  onSwitchTab,
+  isVisible,
+}: {
+  taskId: string;
+  onSwitchTab?: (tab: string) => void;
+  isVisible?: boolean;
+}) {
   const isCollecting = useContextPackStore((s) => s.collecting[taskId] || false);
   const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId] || []);
   const sources = useContextPackStore((s) => s.sources);
@@ -117,14 +125,7 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
       projectRepo: project?.githubRepo,
     });
 
-    store.collectAll(
-      taskId,
-      task?.branchName || '',
-      project?.slackChannels,
-      task?.title,
-      finalSources,
-      collectModel,
-    );
+    store.collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title, finalSources, collectModel);
   };
 
   const handleAddKeyword = () => {
@@ -186,7 +187,9 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
               <Paperclip size={32} strokeWidth={1.5} />
             </div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
-            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4 }}>They'll be pinned to this task's context</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4 }}>
+              They'll be pinned to this task's context
+            </div>
           </div>
         </div>
       )}
@@ -202,7 +205,14 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
         {/* Source info */}
         {project && (
           <div
-            style={{ fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{
+              fontSize: 11,
+              color: 'var(--fg-subtle)',
+              marginBottom: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
           >
             <span style={{ width: 8, height: 8, borderRadius: 3, background: project.color }} />
             {project.githubOwner && project.githubRepo ? (

@@ -17,9 +17,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
   if (!task) return;
 
-  const proj = task.projectId
-    ? useProjectStore.getState().projects.find((p) => p.id === task.projectId)
-    : null;
+  const proj = task.projectId ? useProjectStore.getState().projects.find((p) => p.id === task.projectId) : null;
 
   const branch = task.branchName || '';
   const title = task.title || '';
@@ -103,7 +101,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
 
     // Fetch content for pinned HTTP URLs that don't have fullText yet
     const pinFetches = contextItems
-      .filter((item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText)
+      .filter(
+        (item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText,
+      )
       .map(async (item) => {
         const content = await fetchPinUrl(item.url);
         if (content) {
@@ -293,9 +293,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
             entry.outputTokens = (entry.outputTokens || 0) + outTok;
             entry.costUsd = (entry.costUsd || 0) + cost;
             phases[activePhase] = entry;
-            useTaskStore
-              .getState()
-              .updateTask(taskId, { pipeline: { ...t.pipeline, phases } });
+            useTaskStore.getState().updateTask(taskId, { pipeline: { ...t.pipeline, phases } });
           }
         }
       }

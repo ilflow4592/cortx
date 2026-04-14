@@ -4,18 +4,10 @@ import { useT } from '../../i18n';
 
 // 각 탭은 lazy chunk로 분리. 활성 탭만 다운로드돼 SettingsModal 자체 로드 시간 단축.
 // AIProviderSettings가 가장 무거움 (496줄, OAuth/모델 검증 로직 포함).
-const AIProviderSettings = lazy(() =>
-  import('./AIProviderSettings').then((m) => ({ default: m.AIProviderSettings })),
-);
-const SourcesSettings = lazy(() =>
-  import('./SourcesSettings').then((m) => ({ default: m.SourcesSettings })),
-);
-const AppearanceSettings = lazy(() =>
-  import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })),
-);
-const TelemetrySettings = lazy(() =>
-  import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })),
-);
+const AIProviderSettings = lazy(() => import('./AIProviderSettings').then((m) => ({ default: m.AIProviderSettings })));
+const SourcesSettings = lazy(() => import('./SourcesSettings').then((m) => ({ default: m.SourcesSettings })));
+const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
+const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
 
 type STab = 'ai' | 'sources' | 'appearance' | 'telemetry';
 
@@ -40,16 +32,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
             📦 {t('settings.contextSources')}
           </button>
-          <button
-            className={`modal-tab ${tab === 'appearance' ? 'active' : ''}`}
-            onClick={() => setTab('appearance')}
-          >
+          <button className={`modal-tab ${tab === 'appearance' ? 'active' : ''}`} onClick={() => setTab('appearance')}>
             🎨 {t('settings.appearance')}
           </button>
-          <button
-            className={`modal-tab ${tab === 'telemetry' ? 'active' : ''}`}
-            onClick={() => setTab('telemetry')}
-          >
+          <button className={`modal-tab ${tab === 'telemetry' ? 'active' : ''}`} onClick={() => setTab('telemetry')}>
             📊 Telemetry
           </button>
         </div>

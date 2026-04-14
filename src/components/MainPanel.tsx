@@ -164,8 +164,17 @@ export function MainPanel() {
           </div>
           {terminalEverActive && (
             <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
-              <Suspense fallback={<div style={{ padding: 16, color: 'var(--fg-faint)', fontSize: 12 }}>Loading terminal...</div>}>
-                <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} isActive={activeTab === 'terminal'} />
+              <Suspense
+                fallback={
+                  <div style={{ padding: 16, color: 'var(--fg-faint)', fontSize: 12 }}>Loading terminal...</div>
+                }
+              >
+                <TerminalView
+                  key={task.id}
+                  taskId={task.id}
+                  worktreePath={taskCwd}
+                  isActive={activeTab === 'terminal'}
+                />
               </Suspense>
             </div>
           )}
@@ -178,7 +187,9 @@ export function MainPanel() {
             />
           </div>
           {activeTab === 'editor' && editorFile && (
-            <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading editor...</div>}>
+            <Suspense
+              fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading editor...</div>}
+            >
               {editorFile.original !== undefined ? (
                 <DiffEditorView
                   key={`diff-${editorFile.path}`}

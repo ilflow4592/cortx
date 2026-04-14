@@ -121,7 +121,14 @@ export function TaskRow({
             if (activePhase) {
               return (
                 <div
-                  style={{ fontSize: 9, color: 'var(--accent)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{
+                    fontSize: 9,
+                    color: 'var(--accent)',
+                    marginTop: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
                 >
                   <span
                     style={{
@@ -200,7 +207,9 @@ export function TaskRow({
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ fontSize: 11, color: 'var(--fg-primary)' }}>{deleting ? 'Deleting...' : 'Delete this task?'}</span>
+          <span style={{ fontSize: 11, color: 'var(--fg-primary)' }}>
+            {deleting ? 'Deleting...' : 'Delete this task?'}
+          </span>
           {!deleting && (
             <>
               <button

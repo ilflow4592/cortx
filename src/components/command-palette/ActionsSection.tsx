@@ -117,9 +117,7 @@ export function ActionsSection({
           label="Edit Pipeline Config"
           onSelect={() =>
             run(() => {
-              const project = activeTask.projectId
-                ? projects.find((p) => p.id === activeTask.projectId)
-                : null;
+              const project = activeTask.projectId ? projects.find((p) => p.id === activeTask.projectId) : null;
               if (!project?.localPath) {
                 alert('Current task has no project with a local path');
                 return;
@@ -135,9 +133,7 @@ export function ActionsSection({
           label="Export Current Task (Markdown)"
           onSelect={() =>
             run(() => {
-              exportTaskAsMarkdown(activeTask).catch((err) =>
-                alert(`Export failed: ${err}`),
-              );
+              exportTaskAsMarkdown(activeTask).catch((err) => alert(`Export failed: ${err}`));
             })
           }
         />
@@ -162,9 +158,7 @@ export function ActionsSection({
               importTasksFromJson()
                 .then((result) => {
                   if (result) {
-                    alert(
-                      `Imported ${result.importedTasks} task(s) and ${result.importedProjects} project(s)`,
-                    );
+                    alert(`Imported ${result.importedTasks} task(s) and ${result.importedProjects} project(s)`);
                   }
                 })
                 .catch((err) => alert(`Import failed: ${err}`));

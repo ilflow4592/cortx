@@ -8,10 +8,7 @@ export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Pr
   return mod.invoke<T>(cmd, args);
 }
 
-export async function listen<T>(
-  event: string,
-  handler: (ev: { payload: T }) => void,
-): Promise<() => void> {
+export async function listen<T>(event: string, handler: (ev: { payload: T }) => void): Promise<() => void> {
   const mod = await import('@tauri-apps/api/event');
   return mod.listen<T>(event, handler);
 }

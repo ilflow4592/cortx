@@ -30,7 +30,13 @@ export function KeywordsInput({
         onClick={() => setShowKeywords(!showKeywords)}
       >
         <span
-          style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--fg-faint)' }}
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            color: 'var(--fg-faint)',
+          }}
         >
           Search Keywords ({storedKeywords.length})
         </span>

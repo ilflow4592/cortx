@@ -161,9 +161,9 @@ export async function flushToEndpoint(): Promise<{ sent: number; failed: number 
   }
 
   const db = await getDb();
-  const rows = await db.select<
-    { id: string; kind: string; name: string; data: string; timestamp: string }[]
-  >(`SELECT id, kind, name, data, timestamp FROM telemetry_events WHERE sent = 0 ORDER BY timestamp ASC LIMIT 500`);
+  const rows = await db.select<{ id: string; kind: string; name: string; data: string; timestamp: string }[]>(
+    `SELECT id, kind, name, data, timestamp FROM telemetry_events WHERE sent = 0 ORDER BY timestamp ASC LIMIT 500`,
+  );
 
   if (rows.length === 0) return { sent: 0, failed: 0 };
 

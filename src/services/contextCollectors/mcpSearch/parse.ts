@@ -43,10 +43,7 @@ const knownSourceTypes: Record<string, ContextSourceType> = {
 /**
  * 파싱된 JSON 객체를 ContextItem으로 변환한다.
  */
-export function toContextItems(
-  parsed: Array<Record<string, string>>,
-  serviceType: string,
-): ContextItem[] {
+export function toContextItems(parsed: Array<Record<string, string>>, serviceType: string): ContextItem[] {
   return parsed.map((item, i) => ({
     id: `mcp-${serviceType}-${item.id || i}`,
     sourceType: knownSourceTypes[serviceType] || ('pin' as ContextSourceType),

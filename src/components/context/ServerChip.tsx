@@ -16,20 +16,8 @@ export function ServerChip({ server, isSelected, onSelect }: ServerChipProps) {
   const needsAuth = server.status === 'auth-needed';
   const isReady = !isDisabled && server.status === 'ready';
   const statusIcon = isDisabled ? '○' : isReady ? '✓' : needsAuth ? '⚠' : '✗';
-  const statusColor = isDisabled
-    ? 'var(--fg-dim)'
-    : isReady
-      ? '#34d399'
-      : needsAuth
-        ? '#eab308'
-        : '#ef4444';
-  const statusLabel = isDisabled
-    ? 'disabled'
-    : isReady
-      ? 'connected'
-      : needsAuth
-        ? 'auth-needed'
-        : 'failed';
+  const statusColor = isDisabled ? 'var(--fg-dim)' : isReady ? '#34d399' : needsAuth ? '#eab308' : '#ef4444';
+  const statusLabel = isDisabled ? 'disabled' : isReady ? 'connected' : needsAuth ? 'auth-needed' : 'failed';
 
   return (
     <span
@@ -41,11 +29,7 @@ export function ServerChip({ server, isSelected, onSelect }: ServerChipProps) {
         padding: '4px 10px',
         borderRadius: 6,
         fontSize: 11,
-        background: isDisabled
-          ? 'transparent'
-          : isReady
-            ? 'rgba(52,211,153,0.06)'
-            : 'rgba(234,179,8,0.06)',
+        background: isDisabled ? 'transparent' : isReady ? 'rgba(52,211,153,0.06)' : 'rgba(234,179,8,0.06)',
         border: `1px solid ${
           isSelected
             ? 'var(--accent-bright)'

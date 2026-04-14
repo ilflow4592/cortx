@@ -12,11 +12,7 @@ export function LowerTabBar({ tabs, active, onChange }: Props) {
   return (
     <div className="rp-tabs">
       {tabs.map((t) => (
-        <button
-          key={t.key}
-          className={`rp-tab ${active === t.key ? 'active' : ''}`}
-          onClick={() => onChange(t.key)}
-        >
+        <button key={t.key} className={`rp-tab ${active === t.key ? 'active' : ''}`} onClick={() => onChange(t.key)}>
           {t.label}
           {t.badge && t.badge > 0 && (
             <span className="cp-new" style={{ marginLeft: 4 }}>

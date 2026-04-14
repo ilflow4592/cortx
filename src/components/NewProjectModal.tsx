@@ -1,11 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { FolderOpen, Globe } from 'lucide-react';
-import {
-  createProject,
-  cloneAndCreateProject,
-  parseGitHubUrl,
-  deriveProjectName,
-} from '../services/projectCreation';
+import { createProject, cloneAndCreateProject, parseGitHubUrl, deriveProjectName } from '../services/projectCreation';
 
 // 폴더 선택 다이얼로그만 UI 로컬 관심사 — Tauri plugin-dialog 동적 로드
 async function openDialog(opts: { directory?: boolean; multiple?: boolean; title?: string }) {
@@ -291,7 +286,14 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
             </button>
           </div>
           {clonePath && (
-            <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div
+              style={{
+                fontSize: 10,
+                color: 'var(--fg-faint)',
+                marginTop: 4,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
               → {clonePath}
             </div>
           )}

@@ -13,7 +13,14 @@ interface LinkPreviewCardProps {
 export function LinkPreviewCard({ preview, loading, onClose }: LinkPreviewCardProps) {
   if (!preview && !loading) return null;
   return (
-    <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-app)', flexShrink: 0 }}>
+    <div
+      style={{
+        padding: '12px 20px',
+        borderBottom: '1px solid var(--border-muted)',
+        background: 'var(--bg-app)',
+        flexShrink: 0,
+      }}
+    >
       {loading ? (
         <div style={{ fontSize: 11, color: 'var(--fg-subtle)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <div className="loading-dot" /> Loading preview...
@@ -22,10 +29,18 @@ export function LinkPreviewCard({ preview, loading, onClose }: LinkPreviewCardPr
         preview && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 4 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)' }}>{preview.title || 'No title'}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)' }}>
+                {preview.title || 'No title'}
+              </div>
               <button
                 onClick={onClose}
-                style={{ background: 'none', border: 'none', color: 'var(--fg-faint)', cursor: 'pointer', fontSize: 14 }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--fg-faint)',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
               >
                 ×
               </button>

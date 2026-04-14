@@ -96,7 +96,9 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
       }, 50);
 
       term.onData((data) => {
-        tauriCore().then(({ invoke }) => invoke('pty_write', { id: ptyId, data })).catch(() => {});
+        tauriCore()
+          .then(({ invoke }) => invoke('pty_write', { id: ptyId, data }))
+          .catch(() => {});
       });
 
       // pty_resize is handled by the debounced ResizeObserver below
@@ -154,9 +156,9 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
           cache.fit.fit();
           const { rows, cols } = cache.term;
           if (cols > 10 && rows > 3 && (cols !== prevCols || rows !== prevRows)) {
-            import('@tauri-apps/api/core').then(({ invoke: inv }) =>
-              inv('pty_resize', { id: `term-${taskId}`, rows, cols })
-            ).catch(() => {});
+            import('@tauri-apps/api/core')
+              .then(({ invoke: inv }) => inv('pty_resize', { id: `term-${taskId}`, rows, cols }))
+              .catch(() => {});
           }
         } catch {
           /* ignore */
@@ -185,9 +187,9 @@ export function TerminalView({ taskId, worktreePath, isActive }: TerminalViewPro
           cache.term.focus();
           const { rows, cols } = cache.term;
           if (cols > 10 && rows > 3 && cols !== prevCols) {
-            import('@tauri-apps/api/core').then(({ invoke: inv }) =>
-              inv('pty_resize', { id: `term-${taskId}`, rows, cols })
-            ).catch(() => {});
+            import('@tauri-apps/api/core')
+              .then(({ invoke: inv }) => inv('pty_resize', { id: `term-${taskId}`, rows, cols }))
+              .catch(() => {});
           }
         });
       }

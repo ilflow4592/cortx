@@ -13,15 +13,7 @@ interface CategoryProps {
   disabled: boolean;
 }
 
-export function CategoryList({
-  title,
-  description,
-  commands,
-  selected,
-  onSelect,
-  onDelete,
-  disabled,
-}: CategoryProps) {
+export function CategoryList({ title, description, commands, selected, onSelect, onDelete, disabled }: CategoryProps) {
   return (
     <div style={{ marginBottom: 12 }}>
       <div
@@ -50,9 +42,7 @@ export function CategoryList({
         {description}
       </div>
       {commands.length === 0 && (
-        <div style={{ fontSize: 10, color: 'var(--fg-dim)', padding: '4px 8px', fontStyle: 'italic' }}>
-          No commands
-        </div>
+        <div style={{ fontSize: 10, color: 'var(--fg-dim)', padding: '4px 8px', fontStyle: 'italic' }}>No commands</div>
       )}
       {commands.map((cmd) => (
         <CommandRow

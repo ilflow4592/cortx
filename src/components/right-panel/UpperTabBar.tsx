@@ -21,11 +21,7 @@ export function UpperTabBar({ tabs, active, onChange, cwd, showOpenMenu, onToggl
   return (
     <div className="rp-tabs">
       {tabs.map((t) => (
-        <button
-          key={t.key}
-          className={`rp-tab ${active === t.key ? 'active' : ''}`}
-          onClick={() => onChange(t.key)}
-        >
+        <button key={t.key} className={`rp-tab ${active === t.key ? 'active' : ''}`} onClick={() => onChange(t.key)}>
           {t.label}
         </button>
       ))}

@@ -214,12 +214,7 @@ export function ChatInput({
       </div>
 
       {loading ? (
-        <button
-          className="send-btn"
-          onClick={onStop}
-          style={{ background: '#ef4444' }}
-          title="Stop response"
-        >
+        <button className="send-btn" onClick={onStop} style={{ background: '#ef4444' }} title="Stop response">
           <Square size={14} fill="#e5e5e5" strokeWidth={0} />
         </button>
       ) : (

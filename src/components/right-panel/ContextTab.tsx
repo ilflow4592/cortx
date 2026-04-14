@@ -9,13 +9,7 @@ function sourceIcon(type: string): ReactNode {
   return <PinIcon size={14} />;
 }
 
-export function ContextTab({
-  taskItems,
-  taskDelta,
-}: {
-  taskItems: ContextItem[];
-  taskDelta: ContextItem[];
-}) {
+export function ContextTab({ taskItems, taskDelta }: { taskItems: ContextItem[]; taskDelta: ContextItem[] }) {
   return (
     <>
       {taskDelta.length > 0 && (

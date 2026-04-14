@@ -30,10 +30,7 @@ export function MessageList({ messages, isLoading, error, emptyState }: MessageL
           </div>
           <div className="msg-body">
             <div className="msg-name">{msg.role === 'assistant' ? msg.model || 'AI' : 'ilya'}</div>
-            <div
-              className="msg-text"
-              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-            >
+            <div className="msg-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {msg.content}
             </div>
           </div>
@@ -42,10 +39,7 @@ export function MessageList({ messages, isLoading, error, emptyState }: MessageL
       {isLoading && (
         <div className="msg">
           <div className="msg-avatar ai">C</div>
-          <div
-            className="msg-body"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}
-          >
+          <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
             <div className="loading-dot" />
             <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>Thinking...</span>
           </div>

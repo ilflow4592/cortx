@@ -168,7 +168,9 @@ export function AppearanceSettings() {
                   {t(`settings.theme.${themeOpt.id}` as const)}
                   {active && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent-bright)' }}>✓</span>}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--fg-muted)' }}>{t(`settings.theme.${themeOpt.id}.desc` as const)}</div>
+                <div style={{ fontSize: 10, color: 'var(--fg-muted)' }}>
+                  {t(`settings.theme.${themeOpt.id}.desc` as const)}
+                </div>
               </button>
             );
           })}
@@ -187,8 +189,8 @@ export function AppearanceSettings() {
           lineHeight: 1.6,
         }}
       >
-        <strong style={{ color: 'var(--fg-secondary)' }}>Note:</strong> Some components still use hard-coded colors
-        and may not fully reflect the theme yet. CSS-class-based UI (sidebar, dock, status bar, main header) updates
+        <strong style={{ color: 'var(--fg-secondary)' }}>Note:</strong> Some components still use hard-coded colors and
+        may not fully reflect the theme yet. CSS-class-based UI (sidebar, dock, status bar, main header) updates
         immediately. Inline-styled components will be migrated incrementally.
       </div>
     </div>

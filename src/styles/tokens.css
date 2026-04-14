@@ -125,7 +125,9 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-user-select: none;
   user-select: none;
-  transition: background 180ms ease, color 180ms ease;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
 }
 
 ::selection {
@@ -138,4 +140,3 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-

@@ -1,13 +1,7 @@
 import type { Task } from '../../types/task';
 import type { Project } from '../../types/project';
 
-export function WorktreeTab({
-  task,
-  taskProject,
-}: {
-  task: Task;
-  taskProject: Project | null | undefined;
-}) {
+export function WorktreeTab({ task, taskProject }: { task: Task; taskProject: Project | null | undefined }) {
   return (
     <>
       {taskProject && (

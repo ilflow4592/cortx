@@ -16,9 +16,7 @@ import { useProjectScan } from './hooks/useProjectScan';
 
 // 모달들은 lazy-load — 실제 열기 전엔 main bundle에 포함되지 않아 1MB chunk 감소.
 // CommandPalette는 cmdk(~185KB) 의존성이라 특히 큼. SlashCommandBuilder는 Monaco 사용.
-const CommandPalette = lazy(() =>
-  import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })),
-);
+const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
 const NewTaskModal = lazy(() => import('./components/NewTaskModal').then((m) => ({ default: m.NewTaskModal })));
 const NewProjectModal = lazy(() =>
   import('./components/NewProjectModal').then((m) => ({ default: m.NewProjectModal })),
@@ -229,16 +227,12 @@ function ModalRenderer() {
       {modal.mcpManager && <McpServerManager onClose={() => modal.close('mcpManager')} />}
       {modal.slashBuilder && <SlashBuilderAdapter />}
       {modal.updateChecker && <UpdateChecker onClose={() => modal.close('updateChecker')} />}
-      {modal.newTask.open && (
-        <NewTaskModal onClose={modal.closeNewTask} defaultProjectId={modal.newTask.projectId} />
-      )}
+      {modal.newTask.open && <NewTaskModal onClose={modal.closeNewTask} defaultProjectId={modal.newTask.projectId} />}
       {modal.newProject && <NewProjectModal onClose={() => modal.close('newProject')} />}
       {modal.settings && <SettingsModal onClose={() => modal.close('settings')} />}
       {modal.report && <DailyReport onClose={() => modal.close('report')} />}
       {modal.onboarding && <Onboarding onComplete={modal.completeOnboarding} />}
-      {modal.editProjectId && (
-        <ProjectSettings projectId={modal.editProjectId} onClose={modal.closeEditProject} />
-      )}
+      {modal.editProjectId && <ProjectSettings projectId={modal.editProjectId} onClose={modal.closeEditProject} />}
     </Suspense>
   );
 }

@@ -110,11 +110,7 @@ async function collectGitHubViaCli(keywords: string[], owner?: string, repo?: st
  * Claude가 MCP 도구를 호출하고, 결과를 JSON 배열로 반환하도록 프롬프트한다.
  * 토큰 사용량을 stderr에서 추출하여 함께 반환.
  */
-async function collectViaClaudeCli(
-  serviceType: string,
-  keywords: string[],
-  model?: string,
-): Promise<McpCollectResult> {
+async function collectViaClaudeCli(serviceType: string, keywords: string[], model?: string): Promise<McpCollectResult> {
   const keywordList = keywords.slice(0, 2).join(', ');
   const entry = SEARCH_MCP_REGISTRY[serviceType];
 

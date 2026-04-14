@@ -123,7 +123,15 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
             {/* Focus bar */}
             <div style={{ marginTop: 16 }}>
               <div className="rp-section">Focus vs Interrupts</div>
-              <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-chip)', overflow: 'hidden', display: 'flex' }}>
+              <div
+                style={{
+                  height: 8,
+                  borderRadius: 4,
+                  background: 'var(--bg-chip)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                }}
+              >
                 <div
                   style={{ width: `${focusRatio}%`, background: '#6366f1', borderRadius: 4, transition: 'width 0.3s' }}
                 />
@@ -152,7 +160,15 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div style={{ background: 'var(--bg-surface)', padding: 16, textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: 'var(--fg-faint)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+      <div
+        style={{
+          fontSize: 10,
+          color: 'var(--fg-faint)',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginBottom: 6,
+        }}
+      >
         {label}
       </div>
       <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>

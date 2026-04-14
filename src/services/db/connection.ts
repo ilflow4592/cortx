@@ -5,7 +5,7 @@
  * CLAUDE.md 규칙: Tauri API는 반드시 동적 import. 프로젝트 품질 게이트도 이를 강제한다.
  */
 
-export type DbHandle = Awaited<ReturnType<typeof import('@tauri-apps/plugin-sql')['default']['load']>>;
+export type DbHandle = Awaited<ReturnType<(typeof import('@tauri-apps/plugin-sql'))['default']['load']>>;
 
 let db: DbHandle | null = null;
 

@@ -3,13 +3,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import type { TaskLayer } from '../types/task';
 import { slugify } from './new-task-modal/types';
-import {
-  listBranches,
-  pullBaseBranch,
-  createWorktree,
-  readCortxConfig,
-  runSetupScripts,
-} from './new-task-modal/api';
+import { listBranches, pullBaseBranch, createWorktree, readCortxConfig, runSetupScripts } from './new-task-modal/api';
 import { TaskFormFields } from './new-task-modal/TaskFormFields';
 import { CreateWorktreeProgress } from './new-task-modal/CreateWorktreeProgress';
 

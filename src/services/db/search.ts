@@ -4,8 +4,8 @@ export interface SearchHit {
   kind: 'task' | 'message';
   taskId: string;
   messageId: string;
-  title: string;    // task title (for 'task' kind) or empty (for 'message')
-  snippet: string;  // highlighted snippet from FTS5 snippet() function
+  title: string; // task title (for 'task' kind) or empty (for 'message')
+  snippet: string; // highlighted snippet from FTS5 snippet() function
 }
 
 interface SearchRow {

@@ -7,14 +7,7 @@
  * keep its slot in the section ordering.
  */
 import { Command } from 'cmdk';
-import {
-  CheckCircle2,
-  ExternalLink,
-  Pause,
-  Play,
-  RotateCcw,
-  Square,
-} from 'lucide-react';
+import { CheckCircle2, ExternalLink, Pause, Play, RotateCcw, Square } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Task } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
@@ -37,16 +30,8 @@ interface Props {
   run: (fn: () => void) => void;
 }
 
-export function CurrentTaskSection({
-  activeTask,
-  search,
-  pauseWithReason,
-  resumeTask,
-  setTaskStatus,
-  run,
-}: Props) {
-  const matchCurrent = (label: string, keywords: string[] = []) =>
-    matchesLabelOrKeywords(search, label, keywords);
+export function CurrentTaskSection({ activeTask, search, pauseWithReason, resumeTask, setTaskStatus, run }: Props) {
+  const matchCurrent = (label: string, keywords: string[] = []) => matchesLabelOrKeywords(search, label, keywords);
 
   const items: ReactNode[] = [];
 
@@ -98,9 +83,7 @@ export function CurrentTaskSection({
         icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
         label="Pause Current Task (timer only)"
         hint="⌘⇧P"
-        onSelect={() =>
-          run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
-        }
+        onSelect={() => run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))}
       />,
     );
   }
@@ -148,7 +131,5 @@ export function CurrentTaskSection({
 
   if (items.length === 0) return null;
 
-  return (
-    <Command.Group heading={`Current Task: ${activeTask.title}`}>{items}</Command.Group>
-  );
+  return <Command.Group heading={`Current Task: ${activeTask.title}`}>{items}</Command.Group>;
 }
