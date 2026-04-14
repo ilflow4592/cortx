@@ -1,14 +1,7 @@
 import { useState, useCallback } from 'react';
-import { FileText, X, Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useLayoutStore } from '../stores/layoutStore';
-
-// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const mod = await import('@tauri-apps/api/core');
-  return mod.invoke<T>(cmd, args);
-}
 import { ClaudeChat } from './claude/ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './context/ContextPack';
@@ -17,17 +10,22 @@ import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './right-panel/RightPanel';
 import { ErrorBoundary } from './ErrorBoundary';
-import { formatTime } from '../utils/time';
 import { useProjectStore } from '../stores/projectStore';
 import { useT } from '../i18n';
 import type { InterruptReason } from '../types/task';
+import { TaskHeader } from './main-panel/TaskHeader';
+import { DeleteTaskDialog } from './main-panel/DeleteTaskDialog';
+import { TaskTabBar, type MainTab, type TabDef } from './main-panel/TaskTabBar';
 
-type Tab = 'claude' | 'terminal' | 'context' | 'editor';
+// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 export function MainPanel() {
   const showRightPanel = useLayoutStore((s) => s.showRightPanel);
-  const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
-  const [activeTab, setActiveTab] = useState<Tab>('claude');
+  const [activeTab, setActiveTab] = useState<MainTab>('claude');
   const [showPause, setShowPause] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
@@ -35,12 +33,8 @@ export function MainPanel() {
   const [claudeResetKey, setClaudeResetKey] = useState(0);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
-  const startTask = useTaskStore((s) => s.startTask);
   const pauseWithReason = useTaskStore((s) => s.pauseWithReason);
-  const resumeTask = useTaskStore((s) => s.resumeTask);
-  const setTaskStatus = useTaskStore((s) => s.setTaskStatus);
   const removeTask = useTaskStore((s) => s.removeTask);
-  const updateTask = useTaskStore((s) => s.updateTask);
   const projects = useProjectStore((s) => s.projects);
   const t = useT();
   const task = tasks.find((task) => task.id === activeTaskId);
@@ -105,138 +99,32 @@ export function MainPanel() {
     );
   }
 
-  const badgeCls = task.status === 'active' ? 'active' : task.status === 'paused' ? 'paused' : 'waiting';
-  const statusLabel =
-    task.status === 'active'
-      ? t('task.status.active')
-      : task.status === 'paused'
-        ? t('task.status.paused')
-        : task.status === 'waiting'
-          ? t('task.status.waiting')
-          : task.status;
-
-  const handleStart = () => startTask(task.id);
   const handlePauseConfirm = (reason: InterruptReason, memo: string) => {
     useContextPackStore.getState().takeSnapshot(task.id);
     pauseWithReason(task.id, reason, memo);
     setShowPause(false);
   };
-  const handleResume = async () => {
-    await useContextPackStore.getState().detectDelta(task.id, task.branchName);
-    resumeTask(task.id);
-  };
-  const handleDone = () => setTaskStatus(task.id, 'done');
 
   const fileName = editorFile?.path.split('/').pop() || '';
-
-  const tabs: { key: Tab; label: string; badge?: number; closable?: boolean }[] = [
+  const tabs: TabDef[] = [
     { key: 'claude', label: 'Claude' },
     { key: 'terminal', label: 'Terminal' },
     { key: 'context', label: 'Context Pack', badge: taskDeltaCount || undefined },
-    ...(editorFile ? [{ key: 'editor' as Tab, label: fileName, closable: true }] : []),
+    ...(editorFile ? [{ key: 'editor' as MainTab, label: fileName, closable: true }] : []),
   ];
+
+  const closeEditor = () => {
+    setEditorFile(null);
+    setActiveTab('claude');
+  };
 
   return (
     <div className="main">
-      <div
-        className="main-header"
-        onMouseDown={async (e) => {
-          if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) {
-            try {
-              const { getCurrentWindow } = await import('@tauri-apps/api/window');
-              await getCurrentWindow().startDragging();
-            } catch {
-              /* ignore */
-            }
-          }
-        }}
-        onDoubleClick={async (e) => {
-          if ((e.target as HTMLElement).closest('.mh-right')) return;
-          try {
-            const { getCurrentWindow } = await import('@tauri-apps/api/window');
-            const w = getCurrentWindow();
-            if (await w.isMaximized()) await w.unmaximize();
-            else await w.maximize();
-          } catch {
-            /* ignore */
-          }
-        }}
-      >
-        <div className="mh-left">
-          <span className="mh-title" title={task.title}>
-            {task.title}
-          </span>
-          <span className={`mh-badge ${badgeCls}`}>
-            <span className="dot" />
-            {statusLabel}
-          </span>
-          {task.branchName && <span className="mh-branch">{task.branchName}</span>}
-        </div>
-        <div className="mh-right">
-          <span className="mh-timer">{formatTime(task.elapsedSeconds)}</span>
-          {task.elapsedSeconds > 0 && (
-            <button
-              className="mh-btn"
-              style={{
-                background: 'none',
-                color: 'var(--fg-subtle)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 5,
-                padding: '4px 6px',
-                fontSize: 10,
-              }}
-              onClick={() => {
-                if (window.confirm('Reset timer, status & interrupts?')) {
-                  updateTask(task.id, { elapsedSeconds: 0, interrupts: [] });
-                  setTaskStatus(task.id, 'waiting');
-                }
-              }}
-              title="Reset timer"
-            >
-              <RotateCcw size={12} strokeWidth={1.5} />
-            </button>
-          )}
-          {task.status === 'waiting' && (
-            <button className="mh-btn start" onClick={handleStart}>
-              <Play size={12} strokeWidth={1.5} /> {t('action.start')}
-            </button>
-          )}
-          {task.status === 'active' && (
-            <button className="mh-btn pause" onClick={() => setShowPause(true)}>
-              <Pause size={12} strokeWidth={1.5} /> {t('action.pause')}
-            </button>
-          )}
-          {task.status === 'paused' && (
-            <button className="mh-btn resume" onClick={handleResume}>
-              <Play size={12} strokeWidth={1.5} /> {t('action.resume')}
-            </button>
-          )}
-          {task.status !== 'done' && (
-            <button className="mh-btn done" onClick={handleDone}>
-              <Check size={12} strokeWidth={1.5} /> {t('action.done')}
-            </button>
-          )}
-          <button
-            className="mh-btn"
-            style={{ background: 'none', color: 'var(--fg-dim)', border: '1px solid var(--border-muted)' }}
-            onClick={() => setShowDeleteConfirm(true)}
-            title="Delete task"
-          >
-            <Trash2 size={14} strokeWidth={1.5} />
-          </button>
-          <button
-            className="mh-btn"
-            style={{ background: 'none', color: 'var(--fg-faint)', border: '1px solid var(--border-muted)', padding: '4px 8px' }}
-            onClick={toggleRightPanel}
-            title="Toggle right panel ⌘⇧B"
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M15 3v18" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <TaskHeader
+        task={task}
+        onPauseRequest={() => setShowPause(true)}
+        onDeleteRequest={() => setShowDeleteConfirm(true)}
+      />
 
       {task.status === 'active' && taskDeltaCount > 0 && (
         <div className="delta-banner">
@@ -247,37 +135,7 @@ export function MainPanel() {
         </div>
       )}
 
-      <div className="tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`tab ${activeTab === t.key ? 'active' : ''}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.closable && <FileText size={14} strokeWidth={1.5} style={{ marginRight: 4 }} />}
-            {t.label}
-            {t.badge && t.badge > 0 && <span className="badge">{t.badge}</span>}
-            {t.closable && (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditorFile(null);
-                  setActiveTab('claude');
-                }}
-                style={{
-                  marginLeft: 6,
-                  color: 'var(--fg-subtle)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
-                <X size={12} strokeWidth={1.5} />
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <TaskTabBar tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onCloseEditor={closeEditor} />
 
       <div
         className="content-split"
@@ -289,14 +147,19 @@ export function MainPanel() {
               key={`${task.id}-${claudeResetKey}`}
               taskId={task.id}
               cwd={taskCwd}
-              onSwitchTab={(tab) => setActiveTab(tab as Tab)}
+              onSwitchTab={(tab) => setActiveTab(tab as MainTab)}
             />
           </div>
           <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
             <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} isActive={activeTab === 'terminal'} />
           </div>
           <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
-            <ContextPack key={task.id} taskId={task.id} onSwitchTab={(tab) => setActiveTab(tab as Tab)} isVisible={activeTab === 'context'} />
+            <ContextPack
+              key={task.id}
+              taskId={task.id}
+              onSwitchTab={(tab) => setActiveTab(tab as MainTab)}
+              isVisible={activeTab === 'context'}
+            />
           </div>
           {activeTab === 'editor' &&
             editorFile &&
@@ -307,10 +170,7 @@ export function MainPanel() {
                 original={editorFile.original}
                 modified={editorFile.content}
                 cwd={taskCwd}
-                onBack={() => {
-                  setEditorFile(null);
-                  setActiveTab('claude');
-                }}
+                onBack={closeEditor}
               />
             ) : (
               <CodeEditor
@@ -318,10 +178,7 @@ export function MainPanel() {
                 filePath={editorFile.path}
                 content={editorFile.content}
                 cwd={taskCwd}
-                onBack={() => {
-                  setEditorFile(null);
-                  setActiveTab('claude');
-                }}
+                onBack={closeEditor}
               />
             ))}
         </div>
@@ -377,45 +234,15 @@ export function MainPanel() {
         <PauseDialog onConfirm={handlePauseConfirm} onCancel={() => setShowPause(false)} defaultMemo={task.memo} />
       )}
 
-      {/* Delete task confirmation modal */}
       {showDeleteConfirm && (
-        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Trash2 size={18} strokeWidth={1.5} color="#ef4444" /> Delete Task
-              </h2>
-              <button className="modal-close" onClick={() => setShowDeleteConfirm(false)}>
-                ×
-              </button>
-            </div>
-            <div className="modal-body" style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: 'var(--fg-secondary)', marginBottom: 8 }}>
-                <strong style={{ color: 'var(--fg-primary)' }}>"{task.title}"</strong>
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>
-                Are you sure you want to delete this task? This action cannot be undone.
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>
-                <button className="btn btn-ghost" onClick={() => setShowDeleteConfirm(false)}>
-                  Cancel
-                </button>
-                <button
-                  className="btn"
-                  style={{ background: '#ef4444', color: '#e5e5e5' }}
-                  onClick={() => {
-                    removeTask(task.id);
-                    setShowDeleteConfirm(false);
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DeleteTaskDialog
+          taskTitle={task.title}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={() => {
+            removeTask(task.id);
+            setShowDeleteConfirm(false);
+          }}
+        />
       )}
     </div>
   );
