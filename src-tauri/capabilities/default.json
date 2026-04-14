@@ -2,10 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main",
-    "task-*"
-  ],
+  "windows": ["main", "task-*"],
   "permissions": [
     "core:default",
     "global-shortcut:allow-register",
@@ -25,6 +22,9 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    "fs:allow-home-read-recursive",
     "shell:allow-open",
     "updater:default",
     "updater:allow-check",
