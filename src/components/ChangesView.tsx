@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Editor from '@monaco-editor/react';
-import { ArrowLeft, RotateCw, Undo2, Trash2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { ChangedFile, DiffHunk } from './changes-view/types';
-import { getLanguageFromPath } from './changes-view/lang';
 import { parseDiff } from './changes-view/parse';
 import { runShell, fetchChangedFiles, fetchFileDiff } from './changes-view/api';
+import { FileRow } from './changes-view/FileRow';
+import { DiffHunkView } from './changes-view/DiffHunkView';
+import { FileEditor } from './changes-view/FileEditor';
+import { ToolBar } from './changes-view/ToolBar';
 
 export function ChangesView({
   cwd,
@@ -156,125 +158,11 @@ export function ChangesView({
         </div>
 
         {/* Diff view */}
-        {viewMode === 'diff' && (
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-              fontSize: 12,
-              lineHeight: 1.7,
-            }}
-          >
-            {diffHunks.length === 0 && (
-              <div style={{ padding: 16, color: 'var(--fg-subtle)', fontSize: 11 }}>No diff available</div>
-            )}
-            {diffHunks.map((hunk, hi) => (
-              <div key={hi}>
-                <div
-                  style={{ padding: '4px 16px', color: 'var(--accent-bright)', background: 'rgba(90,165,165,0.04)', fontSize: 11 }}
-                >
-                  {hunk.header}
-                </div>
-                {hunk.lines.map((line, li) => (
-                  <div
-                    key={li}
-                    style={{
-                      display: 'flex',
-                      minHeight: 20,
-                      background:
-                        line.type === 'add'
-                          ? 'rgba(52,211,153,0.06)'
-                          : line.type === 'del'
-                            ? 'rgba(239,68,68,0.06)'
-                            : 'transparent',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 48,
-                        textAlign: 'right',
-                        paddingRight: 12,
-                        color: 'var(--fg-dim)',
-                        flexShrink: 0,
-                        userSelect: 'none',
-                      }}
-                    >
-                      {line.num || ''}
-                    </span>
-                    <span
-                      style={{
-                        color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : 'var(--fg-subtle)',
-                        whiteSpace: 'pre',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '} {line.content}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
+        {viewMode === 'diff' && <DiffHunkView hunks={diffHunks} />}
 
         {/* Code view — Monaco editor */}
         {viewMode === 'edit' && fileContent !== null && (
-          <div style={{ flex: 1 }}>
-            <Editor
-              key={selectedFile}
-              defaultValue={fileContent}
-              language={getLanguageFromPath(selectedFile)}
-              theme="cortx-dark"
-              options={{
-                fontSize: 13,
-                fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-                minimap: { enabled: false },
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
-                renderLineHighlight: 'line',
-                padding: { top: 8 },
-                wordWrap: 'off',
-                tabSize: 4,
-                smoothScrolling: true,
-                cursorBlinking: 'smooth',
-                bracketPairColorization: { enabled: true },
-              }}
-              beforeMount={(monaco) => {
-                if (!monaco.editor.getModel(null as unknown as Parameters<typeof monaco.editor.getModel>[0])) {
-                  monaco.editor.defineTheme('cortx-dark', {
-                    base: 'vs-dark',
-                    inherit: true,
-                    rules: [
-                      { token: 'keyword', foreground: 'cc7832' },
-                      { token: 'type', foreground: 'a9b7c6' },
-                      { token: 'type.identifier', foreground: 'ffc66d' },
-                      { token: 'class', foreground: 'ffc66d' },
-                      { token: 'string', foreground: '6a8759' },
-                      { token: 'number', foreground: '6897bb' },
-                      { token: 'comment', foreground: '808080', fontStyle: 'italic' },
-                      { token: 'annotation', foreground: 'bbb529' },
-                      { token: 'function', foreground: 'ffc66d' },
-                      { token: 'operator', foreground: 'a9b7c6' },
-                      { token: 'constant', foreground: '9876aa' },
-                    ],
-                    colors: {
-                      'editor.background': 'var(--bg-app)',
-                      'editor.foreground': 'var(--fg-secondary)',
-                      'editorLineNumber.foreground': 'var(--fg-dim)',
-                      'editorLineNumber.activeForeground': 'var(--fg-subtle)',
-                      'editor.lineHighlightBackground': 'var(--border-muted)',
-                      'editor.lineHighlightBorder': '#00000000',
-                      'editor.selectionBackground': 'var(--accent-bg)',
-                      'editorCursor.foreground': 'var(--accent)',
-                      'editorIndentGuide.background': 'var(--border-strong)',
-                    },
-                  });
-                }
-              }}
-            />
-          </div>
+          <FileEditor filePath={selectedFile} content={fileContent} />
         )}
       </div>
     );
@@ -282,53 +170,7 @@ export function ChangesView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '8px 16px',
-          borderBottom: '1px solid var(--border-strong)',
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: 11, color: 'var(--fg-muted)', fontWeight: 500 }}>
-          Changes {changedFiles.length > 0 && <span style={{ color: 'var(--accent)' }}>{changedFiles.length}</span>}
-        </span>
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {changedFiles.length > 0 && (
-            <button
-              onClick={requestDiscardAll}
-              title="Discard all changes"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--fg-subtle)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <Trash2 size={13} strokeWidth={1.5} />
-            </button>
-          )}
-          <button
-            onClick={() => loadChanges(true)}
-            title="Refresh"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--fg-subtle)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <RotateCw size={14} strokeWidth={1.5} />
-          </button>
-        </span>
-      </div>
+      <ToolBar count={changedFiles.length} onDiscardAll={requestDiscardAll} onRefresh={() => loadChanges(true)} />
 
       {/* File list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
@@ -336,62 +178,14 @@ export function ChangesView({
         {filteredFiles.length === 0 && !loading && (
           <div style={{ textAlign: 'center', padding: 32, fontSize: 12, color: 'var(--fg-subtle)' }}>No changes</div>
         )}
-        {filteredFiles.map((file) => {
-          const statusColor =
-            file.status === 'M'
-              ? '#eab308'
-              : file.status === 'A'
-                ? '#34d399'
-                : file.status === 'D'
-                  ? '#ef4444'
-                  : 'var(--fg-subtle)';
-          return (
-            <button
-              key={file.path}
-              onClick={() => (onOpenFile ? onOpenFile(`${cwd}/${file.path}`) : selectFile(file.path, 'diff'))}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                padding: '5px 16px',
-                background: 'none',
-                border: 'none',
-                borderBottom: '1px solid #ffffff06',
-                color: 'var(--fg-secondary)',
-                cursor: 'pointer',
-                fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-                fontSize: 11,
-                textAlign: 'left',
-              }}
-            >
-              {file.status && (
-                <span style={{ color: statusColor, fontSize: 10, fontWeight: 600, width: 14, flexShrink: 0 }}>
-                  {file.status}
-                </span>
-              )}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {file.path}
-              </span>
-              {file.status && (
-                <span
-                  onClick={(e) => requestDiscardFile(file.path, e)}
-                  title="Discard changes"
-                  style={{
-                    color: 'var(--fg-subtle)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                    padding: '0 2px',
-                  }}
-                >
-                  <Undo2 size={12} strokeWidth={1.5} />
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {filteredFiles.map((file) => (
+          <FileRow
+            key={file.path}
+            file={file}
+            onSelect={() => (onOpenFile ? onOpenFile(`${cwd}/${file.path}`) : selectFile(file.path, 'diff'))}
+            onDiscard={(e) => requestDiscardFile(file.path, e)}
+          />
+        ))}
       </div>
 
       {/* Inline confirm modal */}
@@ -451,4 +245,3 @@ export function ChangesView({
     </div>
   );
 }
-
