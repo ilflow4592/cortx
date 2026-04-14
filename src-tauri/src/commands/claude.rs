@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use tauri::Manager;
 use crate::pty::SharedPtyManager;
 
 /// A slash command entry for the autocomplete menu in the chat UI.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct SlashCommand {
     pub name: String,
     pub description: String,

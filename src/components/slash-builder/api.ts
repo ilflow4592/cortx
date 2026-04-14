@@ -8,12 +8,8 @@
 
 export type Source = 'project' | 'user';
 
-export interface SlashCommand {
-  name: string;
-  description: string;
-  /** "builtin" | "user" | "project" */
-  source: string;
-}
+// SlashCommand 타입은 Rust commands/claude.rs에서 ts-rs로 자동 생성
+export type { SlashCommand } from '../../types/generated/SlashCommand';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');

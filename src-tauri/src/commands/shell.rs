@@ -1,9 +1,11 @@
 use std::process::Command;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use crate::types::CommandResult;
 
 /// Metadata extracted from a URL for link preview cards.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct LinkPreview {
     pub url: String,
     pub title: String,
@@ -12,7 +14,8 @@ pub struct LinkPreview {
 }
 
 /// Configuration loaded from a project's cortx.yaml/cortx.yml file.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct CortxConfig {
     /// Shell commands to run during project setup.
     pub setup: Vec<String>,
