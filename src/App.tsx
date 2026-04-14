@@ -15,16 +15,8 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useContextPackStore } from './stores/contextPackStore';
 import { useModalStore } from './stores/modalStore';
 import { useLayoutStore } from './stores/layoutStore';
-import {
-  migrateFromLocalStorageIfNeeded,
-  loadAllProjects,
-  loadAllTasks,
-  upsertTask,
-  deleteTask,
-  setActiveTaskId,
-  upsertProject,
-  deleteProject,
-} from './services/db';
+import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from './services/db';
+import { useStorePersistence } from './hooks/useStorePersistence';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
@@ -90,74 +82,8 @@ function MainApp() {
     useContextPackStore.getState().loadMcpServers();
   }, []);
 
-  // Persist to SQLite via Zustand subscribers (debounced per-task)
-  useEffect(() => {
-    const pending = new Map<string, ReturnType<typeof setTimeout>>();
-    const flushTask = (taskId: string) => {
-      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-      if (task) {
-        upsertTask(task).catch(() => {});
-      }
-    };
-    const scheduleTaskSave = (taskId: string) => {
-      const existing = pending.get(taskId);
-      if (existing) clearTimeout(existing);
-      const handle = setTimeout(() => {
-        pending.delete(taskId);
-        flushTask(taskId);
-      }, 500);
-      pending.set(taskId, handle);
-    };
-
-    let prevTasks = useTaskStore.getState().tasks;
-    let prevActiveId = useTaskStore.getState().activeTaskId;
-    let prevProjects = useProjectStore.getState().projects;
-
-    const unsubTasks = useTaskStore.subscribe((s) => {
-      for (const t of s.tasks) {
-        const prev = prevTasks.find((p) => p.id === t.id);
-        if (!prev || prev.updatedAt !== t.updatedAt) {
-          scheduleTaskSave(t.id);
-        }
-      }
-      for (const p of prevTasks) {
-        if (!s.tasks.find((t) => t.id === p.id)) {
-          deleteTask(p.id).catch(() => {});
-        }
-      }
-      if (s.activeTaskId !== prevActiveId) {
-        prevActiveId = s.activeTaskId;
-        setActiveTaskId(s.activeTaskId).catch(() => {});
-      }
-      prevTasks = s.tasks;
-    });
-
-    const unsubProjects = useProjectStore.subscribe((s) => {
-      // prevProjects를 갱신하지 않으면 매 store 변경마다 전체 프로젝트가 중복 upsert됨 (I/O 폭주)
-      for (const p of s.projects) {
-        const prev = prevProjects.find((x) => x.id === p.id);
-        if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
-          upsertProject(p).catch(() => {});
-        }
-      }
-      for (const p of prevProjects) {
-        if (!s.projects.find((x) => x.id === p.id)) {
-          deleteProject(p.id).catch(() => {});
-        }
-      }
-      prevProjects = s.projects;
-    });
-
-    return () => {
-      unsubTasks();
-      unsubProjects();
-      pending.forEach((handle, id) => {
-        clearTimeout(handle);
-        flushTask(id);
-      });
-      pending.clear();
-    };
-  }, []);
+  // Task / Project Zustand 변경을 SQLite로 영속화 (디바운스 + flush 보장)
+  useStorePersistence();
 
   // Apply theme to document root
   const theme = useSettingsStore((s) => s.theme);
