@@ -1,24 +1,13 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Plus, Minus, Trash2, RotateCw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
+import type { DiffMode, DiffFile, ParsedDiff } from './diff-viewer/types';
+import { parseStat, parseDiffOutput, extractStatFromDiffs } from './diff-viewer/parse';
+import { HeaderButton, RowButton } from './diff-viewer/buttons';
 
-type DiffMode = 'branch' | 'staged' | 'unstaged';
-
-interface DiffFile {
-  path: string;
-  additions: number;
-  deletions: number;
-}
-
-interface DiffHunk {
-  header: string;
-  lines: { type: 'add' | 'del' | 'ctx'; content: string }[];
-}
-
-interface ParsedDiff {
-  file: string;
-  hunks: DiffHunk[];
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
 }
 
 export function DiffViewer({ taskId }: { taskId: string }) {
@@ -29,7 +18,6 @@ export function DiffViewer({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
-
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState<{ type: 'file' | 'all'; path?: string } | null>(null);
 
@@ -41,7 +29,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only on repoPath/mode change
   }, [repoPath, mode]);
 
-  // Run a git command and reload the diff afterward
+  // git 명령 실행 후 diff 재로드
   const runGit = async (command: string) => {
     if (!repoPath) return;
     setBusy(true);
@@ -65,7 +53,8 @@ export function DiffViewer({ taskId }: { taskId: string }) {
 
   const stageFile = (path: string) => runGit(`git add ${escapePath(path)}`);
   const unstageFile = (path: string) => runGit(`git restore --staged ${escapePath(path)}`);
-  const discardFile = (path: string) => runGit(`git restore ${escapePath(path)} && git clean -fd ${escapePath(path)} 2>/dev/null || true`);
+  const discardFile = (path: string) =>
+    runGit(`git restore ${escapePath(path)} && git clean -fd ${escapePath(path)} 2>/dev/null || true`);
   const stageAll = () => runGit('git add -A');
   const unstageAll = () => runGit('git reset');
   const discardAll = () => runGit('git checkout -- . && git clean -fd');
@@ -76,7 +65,6 @@ export function DiffViewer({ taskId }: { taskId: string }) {
     setError('');
 
     try {
-      // Get stat
       if (mode === 'branch') {
         const statResult = await invoke<{ success: boolean; output: string; error: string }>('git_diff', {
           repoPath,
@@ -93,16 +81,18 @@ export function DiffViewer({ taskId }: { taskId: string }) {
           repoPath,
         });
         if (result.success) {
-          setDiffs(parseDiffOutput(result.output));
-          setStat(extractStatFromDiffs(parseDiffOutput(result.output)));
+          const parsed = parseDiffOutput(result.output);
+          setDiffs(parsed);
+          setStat(extractStatFromDiffs(parsed));
         }
       } else {
         const result = await invoke<{ success: boolean; output: string; error: string }>('git_diff_unstaged', {
           repoPath,
         });
         if (result.success) {
-          setDiffs(parseDiffOutput(result.output));
-          setStat(extractStatFromDiffs(parseDiffOutput(result.output)));
+          const parsed = parseDiffOutput(result.output);
+          setDiffs(parsed);
+          setStat(extractStatFromDiffs(parsed));
         }
       }
     } catch (err) {
@@ -257,16 +247,10 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                   <span style={{ color: '#34d399', flexShrink: 0 }}>+{file.additions}</span>
                   <span style={{ color: '#ef4444', flexShrink: 0 }}>-{file.deletions}</span>
                 </button>
-                {/* Row actions */}
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 6 }}>
                   {mode === 'unstaged' && (
                     <>
-                      <RowButton
-                        onClick={() => stageFile(file.path)}
-                        disabled={busy}
-                        color="#34d399"
-                        title="Stage this file"
-                      >
+                      <RowButton onClick={() => stageFile(file.path)} disabled={busy} color="#34d399" title="Stage this file">
                         <Plus size={11} strokeWidth={2} />
                       </RowButton>
                       <RowButton
@@ -280,12 +264,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                     </>
                   )}
                   {mode === 'staged' && (
-                    <RowButton
-                      onClick={() => unstageFile(file.path)}
-                      disabled={busy}
-                      color="#eab308"
-                      title="Unstage this file"
-                    >
+                    <RowButton onClick={() => unstageFile(file.path)} disabled={busy} color="#eab308" title="Unstage this file">
                       <Minus size={11} strokeWidth={2} />
                     </RowButton>
                   )}
@@ -304,9 +283,7 @@ export function DiffViewer({ taskId }: { taskId: string }) {
                 >
                   {diff.hunks.map((hunk, hi) => (
                     <div key={hi}>
-                      <div style={{ padding: '4px 16px', color: '#6366f1', background: '#6366f108' }}>
-                        {hunk.header}
-                      </div>
+                      <div style={{ padding: '4px 16px', color: '#6366f1', background: '#6366f108' }}>{hunk.header}</div>
                       {hunk.lines.map((line, li) => (
                         <div
                           key={li}
@@ -424,145 +401,4 @@ export function DiffViewer({ taskId }: { taskId: string }) {
       )}
     </div>
   );
-}
-
-function HeaderButton({
-  onClick,
-  disabled,
-  color,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  color: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        padding: '4px 10px',
-        borderRadius: 5,
-        fontSize: 10,
-        fontWeight: 500,
-        background: disabled ? 'rgba(55,65,81,0.2)' : hovered ? `${color}20` : `${color}10`,
-        border: `1px solid ${disabled ? 'var(--border-muted)' : `${color}35`}`,
-        color: disabled ? 'var(--fg-dim)' : color,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontFamily: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        transition: 'all 120ms ease',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RowButton({
-  onClick,
-  disabled,
-  color,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  color: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 4,
-        background: disabled ? 'transparent' : hovered ? `${color}20` : 'transparent',
-        border: `1px solid ${disabled ? 'transparent' : hovered ? `${color}40` : 'transparent'}`,
-        color: disabled ? 'var(--border-strong)' : hovered ? color : 'var(--fg-faint)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 0,
-        transition: 'all 120ms ease',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function parseStat(output: string): DiffFile[] {
-  const lines = output.trim().split('\n');
-  const files: DiffFile[] = [];
-  for (const line of lines) {
-    const match = line.match(/^\s*(.+?)\s*\|\s*(\d+)\s*([+-]*)/);
-    if (match) {
-      const path = match[1].trim();
-      const plusCount = (match[3].match(/\+/g) || []).length;
-      const minusCount = (match[3].match(/-/g) || []).length;
-      files.push({ path, additions: plusCount, deletions: minusCount });
-    }
-  }
-  return files;
-}
-
-function parseDiffOutput(output: string): ParsedDiff[] {
-  const diffs: ParsedDiff[] = [];
-  const fileParts = output.split(/^diff --git /m).filter(Boolean);
-  for (const part of fileParts) {
-    const lines = part.split('\n');
-    const headerLine = lines[0] || '';
-    const bMatch = headerLine.match(/b\/(.+)/);
-    const file = bMatch ? bMatch[1] : headerLine;
-    const hunks: DiffHunk[] = [];
-    let currentHunk: DiffHunk | null = null;
-
-    for (const line of lines.slice(1)) {
-      if (line.startsWith('@@')) {
-        currentHunk = { header: line, lines: [] };
-        hunks.push(currentHunk);
-      } else if (currentHunk) {
-        if (line.startsWith('+')) {
-          currentHunk.lines.push({ type: 'add', content: line.slice(1) });
-        } else if (line.startsWith('-')) {
-          currentHunk.lines.push({ type: 'del', content: line.slice(1) });
-        } else if (line.startsWith(' ') || line === '') {
-          currentHunk.lines.push({ type: 'ctx', content: line.slice(1) || '' });
-        }
-      }
-    }
-    diffs.push({ file, hunks });
-  }
-  return diffs;
-}
-
-function extractStatFromDiffs(diffs: ParsedDiff[]): DiffFile[] {
-  return diffs.map((d) => {
-    let additions = 0,
-      deletions = 0;
-    for (const h of d.hunks)
-      for (const l of h.lines) {
-        if (l.type === 'add') additions++;
-        if (l.type === 'del') deletions++;
-      }
-    return { path: d.file, additions, deletions };
-  });
 }
