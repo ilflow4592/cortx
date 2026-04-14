@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing — 테스트가 실제 로직 변경을 잡는지 검증. Stryker는 소스에 미세한 mutation을 주입하고 테스트가 실패하는지 확인. full run은 느리므로 핵심 순수 함수만 대상으로 시작.",
+  "testRunner": "vitest",
+  "mutate": [
+    "src/services/contextCollection.ts",
+    "src/services/db/**/*.ts",
+    "src/components/slash-builder/parse.ts",
+    "src/components/command-palette/search.ts",
+    "src/components/worktree-cleanup/parsing.ts",
+    "src/components/changes-view/parse.ts",
+    "src/components/diff-viewer/parsers.ts",
+    "src/components/claude/pipelineMarkers.ts",
+    "src/components/claude/pipelinePhaseTransitions.ts",
+    "src/components/claude/builtinCommands.ts",
+    "src/components/context/collectSourceBuilder.ts",
+    "src/components/cost-dashboard/aggregations.ts",
+    "src/services/task-export/markdown.ts",
+    "src/components/mcp-manager/parse.ts",
+    "src/components/context/useFileDropHandler.ts"
+  ],
+  "reporters": ["progress", "clear-text", "html"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 50
+  },
+  "concurrency": 4,
+  "timeoutMS": 30000,
+  "coverageAnalysis": "perTest",
+  "ignorePatterns": ["dist", "coverage", "reports", "src-tauri", "e2e", "node_modules"]
+}

@@ -41,3 +41,7 @@ src-tauri/target/
 
 # Coverage
 /coverage/
+
+# Mutation testing
+/reports/
+/.stryker-tmp/
