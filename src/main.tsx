@@ -34,9 +34,17 @@ new MutationObserver((mutations) => {
 // 초기 로드 시 이미 존재하는 input/textarea 처리
 document.querySelectorAll('input, textarea').forEach(disableAutocomplete);
 
-// 앱 시작 시 브라우저 알림 권한 요청 (아직 미결정 상태인 경우에만)
+// 브라우저 알림 권한 — 반드시 user gesture 컨텍스트에서 호출해야 하므로
+// 첫 클릭/키 입력 때 한 번만 요청. module load 시 직접 호출하면 Chrome이
+// "Notification prompting can only be done from a user gesture" 경고로 차단.
 if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission().catch(() => {});
+  const askPermission = () => {
+    window.removeEventListener('pointerdown', askPermission, true);
+    window.removeEventListener('keydown', askPermission, true);
+    Notification.requestPermission().catch(() => {});
+  };
+  window.addEventListener('pointerdown', askPermission, true);
+  window.addEventListener('keydown', askPermission, true);
 }
 
 createRoot(document.getElementById('root')!).render(

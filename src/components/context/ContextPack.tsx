@@ -45,8 +45,10 @@ export function ContextPack({
   onSwitchTab?: (tab: string) => void;
   isVisible?: boolean;
 }) {
-  const isCollecting = useContextPackStore((s) => s.collecting[taskId] || false);
-  const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId] || []);
+  // || []는 셀렉터 *외부*에서 — 내부에서 할당하면 매 getSnapshot마다 새 ref로
+  // "result of getSnapshot should be cached" 무한 루프 경고.
+  const isCollecting = useContextPackStore((s) => s.collecting[taskId]) || false;
+  const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId]) || [];
   const sources = useContextPackStore((s) => s.sources);
   const taskItemsRaw = useContextPackStore((s) => s.items[taskId]);
   const taskDeltaRaw = useContextPackStore((s) => s.deltaItems[taskId]);
