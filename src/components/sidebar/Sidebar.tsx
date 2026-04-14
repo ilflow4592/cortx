@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { BarChart3, CheckCircle2, Play, RotateCcw, Trash2 } from 'lucide-react';
+import { BarChart3, CheckCircle2, Play, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useModalStore } from '../../stores/modalStore';
@@ -7,6 +6,8 @@ import { formatTime } from '../../utils/time';
 import { ProjectGroup } from './ProjectGroup';
 import { TaskRow } from './TaskRow';
 import { usePipelineRunner } from './usePipelineRunner';
+import { useSidebarSelection } from './useSidebarSelection';
+import { DeleteProjectDialog } from './DeleteProjectDialog';
 import type { Task } from '../../types/task';
 
 // Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
@@ -25,26 +26,20 @@ export function Sidebar() {
   const projects = useProjectStore((s) => s.projects);
   const removeProject = useProjectStore((s) => s.removeProject);
 
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [deleteProjectTarget, setDeleteProjectTarget] = useState<{
-    id: string;
-    name: string;
-    taskCount: number;
-  } | null>(null);
+  const {
+    selectedTasks,
+    toggleSelect,
+    clearSelection,
+    collapsedProjects,
+    toggleCollapse,
+    showResetConfirm,
+    setShowResetConfirm,
+    deleteProjectTarget,
+    setDeleteProjectTarget,
+  } = useSidebarSelection();
 
   const { runningPipelines, setRunningPipelines, askingTasks, setAskingTasks, runSelectedPipelines } =
     usePipelineRunner();
-
-  const toggleSelect = (id: string) => {
-    setSelectedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   // Clear asking state when user has responded (last message is from 'user')
   if (askingTasks.size > 0) {
@@ -121,15 +116,6 @@ export function Sidebar() {
     projTasks.forEach((t) => removeTask(t.id));
     removeProject(deleteProjectTarget.id);
     setDeleteProjectTarget(null);
-  };
-
-  const toggleCollapse = (id: string) => {
-    setCollapsedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   // All projects (even empty ones)
@@ -322,7 +308,7 @@ export function Sidebar() {
       {selectedTasks.size > 0 && (
         <div style={{ padding: '8px 16px' }}>
           <button
-            onClick={() => runSelectedPipelines(selectedTasks, () => setSelectedTasks(new Set()))}
+            onClick={() => runSelectedPipelines(selectedTasks, clearSelection)}
             style={{
               width: '100%',
               padding: '8px 12px',
@@ -393,7 +379,7 @@ export function Sidebar() {
                       sessionCache.delete(id);
                       loadingCache.delete(id);
                     }
-                    setSelectedTasks(new Set());
+                    clearSelection();
                   }}
                   style={{
                     padding: '4px 12px',
@@ -507,44 +493,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Delete project confirmation modal */}
       {deleteProjectTarget && (
-        <div className="modal-overlay" onClick={() => setDeleteProjectTarget(null)}>
-          <div className="modal" style={{ width: 400 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Trash2 size={18} strokeWidth={1.5} color="#ef4444" /> Delete Project
-              </h2>
-              <button className="modal-close" onClick={() => setDeleteProjectTarget(null)}>
-                ×
-              </button>
-            </div>
-            <div className="modal-body" style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: 'var(--fg-secondary)', marginBottom: 8 }}>
-                <strong style={{ color: 'var(--fg-primary)' }}>"{deleteProjectTarget.name}"</strong>
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>
-                {deleteProjectTarget.taskCount > 0
-                  ? `This will delete the project and its ${deleteProjectTarget.taskCount} task${deleteProjectTarget.taskCount > 1 ? 's' : ''}. This action cannot be undone.`
-                  : 'Are you sure you want to delete this project? This action cannot be undone.'}
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 24 }}>
-                <button className="btn btn-ghost" onClick={() => setDeleteProjectTarget(null)}>
-                  Cancel
-                </button>
-                <button
-                  className="btn"
-                  style={{ background: '#ef4444', color: '#e5e5e5' }}
-                  onClick={confirmDeleteProject}
-                  onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DeleteProjectDialog
+          name={deleteProjectTarget.name}
+          taskCount={deleteProjectTarget.taskCount}
+          onCancel={() => setDeleteProjectTarget(null)}
+          onConfirm={confirmDeleteProject}
+        />
       )}
     </div>
   );
