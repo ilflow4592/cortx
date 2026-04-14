@@ -128,9 +128,14 @@ async function overlayLiveStatus(current: McpServerStatus[], projectCwd?: string
   }
 }
 
-export const useMcpStore = create<McpState>((set) => ({
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const MCP_INITIAL_STATE: Pick<McpState, 'servers' | 'loading'> = {
   servers: [],
   loading: false,
+};
+
+export const useMcpStore = create<McpState>((set) => ({
+  ...MCP_INITIAL_STATE,
 
   setServers: (servers) => set({ servers }),
 

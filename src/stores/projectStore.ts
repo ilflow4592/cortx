@@ -27,8 +27,13 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const PROJECT_INITIAL_STATE: Pick<ProjectState, 'projects'> = {
   projects: [],
+};
+
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  ...PROJECT_INITIAL_STATE,
 
   // 색상은 현재 프로젝트 수를 기준으로 COLORS 팔레트에서 순환 할당
   addProject: (name, localPath, githubOwner, githubRepo) => {

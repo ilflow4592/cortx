@@ -26,13 +26,10 @@ test('Settings 모달 — Escape로 닫힘', async ({ page }) => {
   await expect(dialog).toHaveCount(0);
 });
 
-// TODO(e2e): Command Palette Escape — Cmd+K 직후 Escape가 닫히지 않는 케이스 있음.
-// 타이핑 경로(type → Enter → 다음 dialog → Esc)는 OK. 초기 상태 Escape 조사 필요.
-test.skip('Command Palette — Escape로 닫힘 (flaky, 조사 필요)', async ({ page }) => {
+test('Command Palette — Escape로 닫힘', async ({ page }) => {
   await page.keyboard.press('Meta+k');
   const input = page.locator('[cmdk-input]');
   await expect(input).toBeVisible();
-  await page.waitForTimeout(100);
   await page.keyboard.press('Escape');
-  await expect(input).toHaveCount(0);
+  await expect(input).toHaveCount(0, { timeout: 2000 });
 });

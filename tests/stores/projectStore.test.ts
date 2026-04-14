@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useProjectStore } from '../../src/stores/projectStore';
+import { useProjectStore, PROJECT_INITIAL_STATE } from '../../src/stores/projectStore';
 
 describe('projectStore', () => {
   beforeEach(() => {
-    useProjectStore.setState({ projects: [] });
+    useProjectStore.setState(PROJECT_INITIAL_STATE);
   });
 
   describe('addProject', () => {
@@ -67,7 +67,9 @@ describe('projectStore', () => {
     });
 
     it('preserves existing fields during migration', () => {
-      const raw = [{ id: 'p1', name: 'Existing', localPath: '/dev/app', baseBranch: 'develop', slackChannels: ['C1'] } as any];
+      const raw = [
+        { id: 'p1', name: 'Existing', localPath: '/dev/app', baseBranch: 'develop', slackChannels: ['C1'] } as any,
+      ];
       useProjectStore.getState().loadProjects(raw);
 
       const project = useProjectStore.getState().projects[0];

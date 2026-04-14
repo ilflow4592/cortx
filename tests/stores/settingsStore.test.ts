@@ -1,22 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useSettingsStore } from '../../src/stores/settingsStore';
+import { useSettingsStore, SETTINGS_INITIAL_STATE } from '../../src/stores/settingsStore';
 
 describe('settingsStore', () => {
   beforeEach(() => {
     localStorage.clear();
-    // Reset to defaults
-    useSettingsStore.setState({
-      aiProvider: 'claude',
-      authMethod: 'oauth',
-      apiKey: '',
-      oauthClientId: '',
-      oauthAccessToken: '',
-      oauthRefreshToken: '',
-      modelId: 'claude-sonnet-4-20250514',
-      ollamaUrl: 'http://localhost:11434',
-      theme: 'dark',
-      language: 'en',
-    });
+    // Reset to defaults (override language to 'en' for deterministic tests regardless of navigator locale)
+    useSettingsStore.setState({ ...SETTINGS_INITIAL_STATE, language: 'en' });
   });
 
   describe('setSettings', () => {
@@ -48,10 +37,7 @@ describe('settingsStore', () => {
 
   describe('loadSettings', () => {
     it('loads persisted settings from localStorage', () => {
-      localStorage.setItem(
-        'cortx-settings',
-        JSON.stringify({ theme: 'light', language: 'ko', apiKey: 'sk-loaded' }),
-      );
+      localStorage.setItem('cortx-settings', JSON.stringify({ theme: 'light', language: 'ko', apiKey: 'sk-loaded' }));
       useSettingsStore.getState().loadSettings();
       const state = useSettingsStore.getState();
       expect(state.theme).toBe('light');

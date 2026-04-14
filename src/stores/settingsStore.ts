@@ -44,7 +44,8 @@ const STORAGE_KEY = 'cortx-settings';
 // Auto-detect initial language from browser (ko if Korean system, else en)
 const initialLang: Language = typeof navigator !== 'undefined' && navigator.language?.startsWith('ko') ? 'ko' : 'en';
 
-const defaults: Settings = {
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const SETTINGS_INITIAL_STATE: Settings = {
   aiProvider: 'claude',
   authMethod: 'oauth',
   apiKey: '',
@@ -60,7 +61,7 @@ const defaults: Settings = {
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  ...defaults,
+  ...SETTINGS_INITIAL_STATE,
 
   // 상태 변경 즉시 localStorage에 동기 저장 (다른 스토어와 달리 자체 persist)
   setSettings: (updates) => {
@@ -94,7 +95,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        set({ ...defaults, ...data });
+        set({ ...SETTINGS_INITIAL_STATE, ...data });
       }
     } catch {
       // ignore

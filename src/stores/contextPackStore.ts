@@ -97,7 +97,20 @@ function hashItem(item: ContextItem): string {
   return `${item.title}|${item.summary}|${item.timestamp}`;
 }
 
-export const useContextPackStore = create<ContextPackState>((set, get) => ({
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const CONTEXT_PACK_INITIAL_STATE: Pick<
+  ContextPackState,
+  | 'items'
+  | 'snapshots'
+  | 'sources'
+  | 'keywords'
+  | 'collecting'
+  | 'collectAborts'
+  | 'collectProgresses'
+  | 'lastCollectedAt'
+  | 'collectHistory'
+  | 'deltaItems'
+> = {
   items: {},
   snapshots: {},
   sources: [],
@@ -108,6 +121,10 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   lastCollectedAt: {},
   collectHistory: {},
   deltaItems: {},
+};
+
+export const useContextPackStore = create<ContextPackState>((set, get) => ({
+  ...CONTEXT_PACK_INITIAL_STATE,
 
   // 사용자가 수동으로 고정(pin)한 아이템. clearCollected에서도 삭제되지 않음
   addPin: (taskId, item) => {

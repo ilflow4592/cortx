@@ -35,9 +35,14 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const TASK_INITIAL_STATE: Pick<TaskState, 'tasks' | 'activeTaskId'> = {
   tasks: [],
   activeTaskId: null,
+};
+
+export const useTaskStore = create<TaskState>((set, get) => ({
+  ...TASK_INITIAL_STATE,
 
   addTask: (title, repoPath, branchName, extras) => {
     const id = genId();

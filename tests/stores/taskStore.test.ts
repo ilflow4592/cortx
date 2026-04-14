@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useTaskStore } from '../../src/stores/taskStore';
+import { useTaskStore, TASK_INITIAL_STATE } from '../../src/stores/taskStore';
 
 describe('taskStore', () => {
   beforeEach(() => {
-    useTaskStore.setState({ tasks: [], activeTaskId: null });
+    useTaskStore.setState(TASK_INITIAL_STATE);
   });
 
   describe('addTask', () => {
@@ -127,9 +127,7 @@ describe('taskStore', () => {
 
   describe('loadTasks (migration)', () => {
     it('fills missing fields with defaults', () => {
-      const rawTasks = [
-        { id: 'old1', title: 'Old task' } as any,
-      ];
+      const rawTasks = [{ id: 'old1', title: 'Old task' } as any];
 
       useTaskStore.getState().loadTasks(rawTasks, 'old1');
 
@@ -145,7 +143,13 @@ describe('taskStore', () => {
 
     it('preserves existing fields during migration', () => {
       const rawTasks = [
-        { id: 't1', title: 'Existing', status: 'active', elapsedSeconds: 100, chatHistory: [{ id: 'm1', role: 'user', content: 'hi', timestamp: '' }] } as any,
+        {
+          id: 't1',
+          title: 'Existing',
+          status: 'active',
+          elapsedSeconds: 100,
+          chatHistory: [{ id: 'm1', role: 'user', content: 'hi', timestamp: '' }],
+        } as any,
       ];
 
       useTaskStore.getState().loadTasks(rawTasks, 't1');

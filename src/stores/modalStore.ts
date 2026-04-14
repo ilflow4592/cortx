@@ -105,7 +105,12 @@ export const useModalStore = create<ModalState>((set, get) => ({
 
   closeTopmost: () => {
     const s = get();
-    // 우선순위: 최근 열린 것부터 닫는다 (기존 App.tsx의 if-else 체인과 동일)
+    // 우선순위: 최근 열린 것부터. CommandPalette는 lazy-load 타이밍상
+    // 자체 Escape listener가 늦게 등록될 수 있어 최상단에 두고 App의 Escape에서 바로 처리.
+    if (s.commandPalette) {
+      set({ commandPalette: false });
+      return true;
+    }
     if (s.editProjectId) {
       set({ editProjectId: null });
       return true;
