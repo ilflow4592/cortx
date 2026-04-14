@@ -7,13 +7,15 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
-import type { ContextItem } from '../../types/contextPack';
 import { GitHubIcon, SlackIcon, NotionIcon, ObsidianIcon, PinIcon } from '../SourceIcons';
 import { McpStatusBar } from './McpStatusBar';
 import { ContextItemCard } from './ContextItemCard';
 import { PinDialog } from './PinDialog';
 import { CollectProgress } from './CollectProgress';
-import { SEARCH_MCP_REGISTRY, detectServiceType } from '../../config/searchResources';
+import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
+import { useFileDropHandler } from './useFileDropHandler';
+import { useMcpFileWatcher } from './useMcpFileWatcher';
+import { buildCollectSources } from './collectSourceBuilder';
 
 const MODEL_OPTIONS = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
@@ -51,64 +53,14 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
   const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
   const [collectModel, setCollectModel] = useState('claude-haiku-4-5-20251001');
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const isDragging = useFileDropHandler(taskId);
   const [preview, setPreview] = useState<{ url: string; title: string; description: string } | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const mcpServers = useContextPackStore((s) => s.mcpServers);
   const [searchResources, setSearchResources] = useState<Set<string>>(new Set(['github']));
 
-  // Tauri native file drop handler
-  useEffect(() => {
-    let unlisten: (() => void) | null = null;
-    let lastDropTime = 0;
-
-    import('@tauri-apps/api/window')
-      .then(({ getCurrentWindow }) => {
-        getCurrentWindow()
-          .onDragDropEvent((event) => {
-            const payload = event.payload as { type: string; paths?: string[] };
-            if (payload.type === 'enter' || payload.type === 'over') {
-              setIsDragging(true);
-            } else if (payload.type === 'drop') {
-              setIsDragging(false);
-
-              // Debounce: ignore duplicate drop events within 500ms
-              const now = Date.now();
-              if (now - lastDropTime < 500) return;
-              lastDropTime = now;
-
-              const paths = payload.paths || [];
-              const store = useContextPackStore.getState();
-              const existing = store.items[taskId] || [];
-              for (const filePath of paths) {
-                if (existing.some((item) => item.url === filePath)) continue;
-                const fileName = filePath.split('/').pop() || filePath;
-                store.addPin(taskId, {
-                  id: `pin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
-                  sourceType: 'pin',
-                  title: fileName,
-                  url: filePath,
-                  summary: `File · ${filePath}`,
-                  timestamp: new Date().toISOString(),
-                  isNew: false,
-                  category: 'pinned',
-                } as ContextItem);
-              }
-            } else {
-              setIsDragging(false);
-            }
-          })
-          .then((fn) => {
-            unlisten = fn;
-          });
-      })
-      .catch(() => {}); // Not in Tauri context
-
-    return () => {
-      unlisten?.();
-    };
-  }, [taskId]);
+  useMcpFileWatcher(projectCwd);
 
   useEffect(() => {
     // Clear this task's progress on mount
@@ -127,43 +79,13 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
     }
   }, [isVisible, projectCwd]);
 
-  // Watch ~/.claude.json for changes (Claude /mcp modifies this file)
-  // Auto-reload MCP servers when the file is modified
-  useEffect(() => {
-    if (!projectCwd) return;
-    let lastMtime = '';
-    const interval = setInterval(async () => {
-      try {
-        const result = await tauriInvoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd: '/',
-          command: 'stat -f "%m" ~/.claude.json 2>/dev/null',
-        });
-        if (result.success && result.output.trim() !== lastMtime) {
-          if (lastMtime !== '') {
-            // File changed → fast config-only reload (skip slow health check)
-            const servers = await tauriInvoke<{ name: string; command: string; args: string[]; env: Record<string, string>; server_type: string; url: string; source: string; disabled: boolean }[]>(
-              'list_mcp_servers', { projectCwd: projectCwd || null }
-            );
-            const statuses = servers.map((s) => ({
-              name: s.name, command: s.command, args: s.args || [],
-              env: s.env || {}, status: (s.disabled ? 'unknown' : 'ready') as 'ready' | 'auth-needed' | 'unknown',
-              authUrl: '', serviceType: detectServiceType(s.name),
-              source: s.source || 'global', disabled: s.disabled || false,
-            }));
-            useContextPackStore.setState({ mcpServers: statuses });
-          }
-          lastMtime = result.output.trim();
-        }
-      } catch { /* ignore */ }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [projectCwd]);
-
-  // Auto-enable search resources when mcpServers change
+  // Auto-enable search resources when mcpServers change — mcpServers는 외부
+  // store 변경을 통해 들어오므로 effect 내 setState가 적절한 동기화 지점
   useEffect(() => {
     const readyServices = new Set<string>(
       mcpServers.filter((s) => s.status === 'ready' && s.serviceType !== 'other').map((s) => s.serviceType),
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (readyServices.size > 0) setSearchResources(readyServices);
   }, [mcpServers]);
 
@@ -183,70 +105,20 @@ export function ContextPack({ taskId, onSwitchTab, isVisible }: { taskId: string
       store.setKeywords(taskId, autoKeywords);
     }
 
-    // Build sources from selected search resources + MCP server tokens
-    const mcpSources: Array<{
-      type: string;
-      enabled: boolean;
-      token: string;
-      owner?: string;
-      repo?: string;
-    }> = [];
-
-    for (const resType of searchResources) {
-      if (resType === 'other') continue;
-      const mcpServer = mcpServers.find((s) => s.serviceType === resType && s.status === 'ready');
-      if (!mcpServer) continue;
-
-      // Extract token: MCP env → Settings source → empty (gh CLI fallback for GitHub)
-      const env = mcpServer.env || {};
-      let token = '';
-
-      // 1. Try MCP env vars
-      if (resType === 'github') {
-        token = env.GITHUB_TOKEN || env.GITHUB_PERSONAL_ACCESS_TOKEN || '';
-      } else if (resType === 'notion') {
-        token = env.NOTION_API_KEY || '';
-        if (!token && env.OPENAPI_MCP_HEADERS) {
-          try {
-            const headers = JSON.parse(env.OPENAPI_MCP_HEADERS);
-            token = (headers.Authorization || headers.authorization || '').replace(/^Bearer\s+/i, '');
-          } catch {
-            /* ignore */
-          }
-        }
-        if (!token) token = Object.values(env).find((v) => v.startsWith('ntn_') || v.startsWith('secret_')) || '';
-      } else if (resType === 'slack') {
-        token = env.SLACK_BOT_TOKEN || env.SLACK_TOKEN || Object.values(env).find((v) => v.startsWith('xoxb-')) || '';
-      }
-
-      // Get owner/repo from project or Settings source (but don't use settings token — use MCP instead)
-      const settingsSource = store.sources.find((s) => s.type === resType);
-      const owner = project?.githubOwner || settingsSource?.owner || '';
-      const repo = project?.githubRepo || settingsSource?.repo || '';
-
-      // MCP-connected services: always use MCP (no token = MCP path in collectAll)
-      mcpSources.push({
-        type: resType,
-        enabled: true,
-        token: '',
-        owner,
-        repo,
-        ...(settingsSource?.slackChannel ? { slackChannel: settingsSource.slackChannel } : {}),
-        ...(settingsSource?.notionDatabaseId ? { notionDatabaseId: settingsSource.notionDatabaseId } : {}),
-      });
-    }
-
-    // Merge with existing configured sources, MCP sources take priority
-    const existingSources = store.sources;
-    const mergedTypes = new Set<string>(mcpSources.map((s) => s.type));
-    const finalSources = [...mcpSources, ...existingSources.filter((s) => !mergedTypes.has(s.type))];
+    const finalSources = buildCollectSources({
+      searchResources,
+      mcpServers,
+      existingSources: store.sources,
+      projectOwner: project?.githubOwner,
+      projectRepo: project?.githubRepo,
+    });
 
     store.collectAll(
       taskId,
       task?.branchName || '',
       project?.slackChannels,
       task?.title,
-      finalSources as typeof existingSources,
+      finalSources,
       collectModel,
     );
   };
