@@ -26,8 +26,9 @@ fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
         },
     };
 
-    // 5 minute timeout
-    listener.set_nonblocking(false).ok();
+    // 5분 타임아웃 — nonblocking 모드로 WouldBlock 수신 시 sleep/retry, 그래야 timeout 루프가 작동한다.
+    // (기존: set_nonblocking(false)로 영구 블록 → timeout이 의미 없음)
+    listener.set_nonblocking(true).ok();
     let _ = listener.set_ttl(300);
     use std::time::Duration;
     let timeout = Duration::from_secs(300);
@@ -41,11 +42,12 @@ fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
                 error: "Login timed out (5 minutes)".to_string(),
             };
         }
-        // Set a short accept timeout
-        let _ = listener.set_nonblocking(false);
 
         match listener.accept() {
         Ok((mut stream, _)) => {
+            // accept된 소켓은 nonblocking 속성을 상속하므로 blocking 모드로 전환 + read timeout
+            let _ = stream.set_nonblocking(false);
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
             let mut buf = [0u8; 4096];
             let n = stream.read(&mut buf).unwrap_or(0);
             let request = String::from_utf8_lossy(&buf[..n]).to_string();

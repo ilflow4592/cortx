@@ -125,7 +125,14 @@ fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source
 
 /// Resolve the absolute .md path for a slash command by name + source.
 /// name format: "pipeline:dev-task" → "pipeline/dev-task.md"
+///
+/// 보안: name에 `..` 또는 `/`가 포함되면 거부. canonicalize 후 base 하위인지 재확인.
 fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> Result<std::path::PathBuf, String> {
+    // 1) Name validation — `..` path traversal 및 절대 경로 차단
+    if name.contains("..") || name.contains('/') || name.contains('\\') {
+        return Err(format!("Invalid command name: {}", name));
+    }
+
     let home = std::env::var_os("HOME").ok_or_else(|| "HOME not set".to_string())?;
     let base = match source {
         "user" => std::path::Path::new(&home).join(".claude").join("commands"),
@@ -137,7 +144,18 @@ fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> 
     };
     // Convert colons in name to path separators: "pipeline:dev-task" -> "pipeline/dev-task"
     let rel = name.replace(':', "/");
-    Ok(base.join(format!("{}.md", rel)))
+    let candidate = base.join(format!("{}.md", rel));
+
+    // 2) canonicalize 후 base 하위인지 재확인 — 심볼릭 링크/정규화로 우회 방지
+    // 파일이 아직 없을 수 있으므로 부모 디렉토리 기준으로 체크
+    if let (Ok(base_canon), Some(parent)) = (base.canonicalize(), candidate.parent()) {
+        if let Ok(parent_canon) = parent.canonicalize() {
+            if !parent_canon.starts_with(&base_canon) {
+                return Err(format!("Path traversal detected: {}", name));
+            }
+        }
+    }
+    Ok(candidate)
 }
 
 /// Read the contents of a slash command .md file.

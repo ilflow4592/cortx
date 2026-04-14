@@ -84,10 +84,23 @@ pub fn read_cortx_yaml(repo_path: String) -> Result<CortxConfig, String> {
 
 /// Fetch a URL via curl and extract OpenGraph/meta title and description
 /// for rendering link preview cards in the UI. Times out after 5 seconds.
+/// 보안: http/https 스킴만 허용 (file://, gopher://, --option 등 차단).
 #[tauri::command]
 pub fn fetch_link_preview(url: String) -> LinkPreview {
+    // URL 스킴 검증 — curl 옵션으로 해석 가능한 값(`-`, `--output` 등) 또는 file:// 차단
+    let is_safe = url.starts_with("http://") || url.starts_with("https://");
+    if !is_safe {
+        return LinkPreview {
+            url,
+            title: String::new(),
+            description: String::new(),
+            success: false,
+        };
+    }
+
+    // `--`로 옵션 종료 — 이후 `&url`은 무조건 positional arg로 취급됨
     let result = Command::new("curl")
-        .args(["-sL", "--max-time", "5", &url])
+        .args(["-sL", "--max-time", "5", "--", &url])
         .output();
 
     match result {
@@ -150,7 +163,7 @@ archive:
   - rm -rf tmp
   - git clean -fd
 "#;
-        let config = parse_cortx_yaml(yaml).unwrap();
+        let config = parse_cortx_yaml(yaml).expect("valid yaml parses");
         assert_eq!(config.setup, vec!["npm install", "cargo build", "echo \"ready\""]);
         assert_eq!(config.archive, vec!["rm -rf tmp", "git clean -fd"]);
     }
@@ -158,7 +171,7 @@ archive:
     #[test]
     fn parse_cortx_yaml_handles_empty_sections() {
         let yaml = "setup:\narchive:\n";
-        let config = parse_cortx_yaml(yaml).unwrap();
+        let config = parse_cortx_yaml(yaml).expect("valid yaml parses");
         assert!(config.setup.is_empty());
         assert!(config.archive.is_empty());
     }
@@ -175,7 +188,7 @@ other:
 archive:
   - cleanup
 "#;
-        let config = parse_cortx_yaml(yaml).unwrap();
+        let config = parse_cortx_yaml(yaml).expect("valid yaml parses");
         assert_eq!(config.setup, vec!["npm install"]);
         assert_eq!(config.archive, vec!["cleanup"]);
     }

@@ -1,14 +1,27 @@
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
-/// A single PTY session holding the master side and its writer handle.
+/// A single PTY session holding the master side, writer handle, and child process.
+/// `child`는 Option으로 둬 Drop 시 take()로 안전하게 소유권 이동이 가능하도록 한다.
 pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    child: Option<Box<dyn Child + Send + Sync>>,
+}
+
+impl Drop for PtySession {
+    /// 세션이 폐기될 때 child 프로세스를 반드시 정리 — 좀비 프로세스 방지.
+    /// `close_all` 호출 누락 또는 panic 경로에서도 작동.
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
 }
 
 /// Manages multiple PTY sessions (terminal shells) and Claude CLI processes.
@@ -52,7 +65,7 @@ impl PtyManager {
         cmd.env("TERM", "xterm-256color");
         cmd.env("CORTX_TASK", id);
 
-        let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+        let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
         drop(pair.slave);
 
         let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
@@ -75,7 +88,14 @@ impl PtyManager {
             let _ = app_handle.emit(&format!("pty-exit-{}", event_id), ());
         });
 
-        self.sessions.insert(id.to_string(), PtySession { master: pair.master, writer });
+        self.sessions.insert(
+            id.to_string(),
+            PtySession {
+                master: pair.master,
+                writer,
+                child: Some(child),
+            },
+        );
         Ok(())
     }
 
@@ -107,16 +127,28 @@ impl PtyManager {
                 .suffix(".md")
                 .tempfile()
                 .map_err(|e| format!("Failed to create temp file: {}", e));
+            // write_secure_temp 실패 시 keep()된 파일을 즉시 제거해 /tmp leak 방지.
             let msg_path = match msg_file {
                 Ok(f) => {
                     let p = f.path().to_string_lossy().to_string();
                     f.keep().ok(); // persist so claude CLI can read it
-                    let _ = write_secure_temp(&p, &msg_owned);
-                    p
+                    if let Err(e) = write_secure_temp(&p, &msg_owned) {
+                        log::warn!("[pty] write_secure_temp msg failed: {} — cleanup + fallback", e);
+                        let _ = std::fs::remove_file(&p);
+                        let fallback = format!("/tmp/cortx-msg-{}.md", event_id);
+                        if write_secure_temp(&fallback, &msg_owned).is_err() {
+                            let _ = std::fs::remove_file(&fallback);
+                        }
+                        fallback
+                    } else {
+                        p
+                    }
                 }
                 Err(_) => {
                     let fallback = format!("/tmp/cortx-msg-{}.md", event_id);
-                    let _ = write_secure_temp(&fallback, &msg_owned);
+                    if write_secure_temp(&fallback, &msg_owned).is_err() {
+                        let _ = std::fs::remove_file(&fallback);
+                    }
                     fallback
                 }
             };
@@ -132,12 +164,23 @@ impl PtyManager {
                     Ok(f) => {
                         let p = f.path().to_string_lossy().to_string();
                         f.keep().ok();
-                        let _ = write_secure_temp(&p, &summary_owned);
-                        p
+                        if let Err(e) = write_secure_temp(&p, &summary_owned) {
+                            log::warn!("[pty] write_secure_temp ctx failed: {} — cleanup + fallback", e);
+                            let _ = std::fs::remove_file(&p);
+                            let fallback = format!("/tmp/cortx-ctx-{}.md", event_id);
+                            if write_secure_temp(&fallback, &summary_owned).is_err() {
+                                let _ = std::fs::remove_file(&fallback);
+                            }
+                            fallback
+                        } else {
+                            p
+                        }
                     }
                     Err(_) => {
                         let fallback = format!("/tmp/cortx-ctx-{}.md", event_id);
-                        let _ = write_secure_temp(&fallback, &summary_owned);
+                        if write_secure_temp(&fallback, &summary_owned).is_err() {
+                            let _ = std::fs::remove_file(&fallback);
+                        }
                         fallback
                     }
                 }
@@ -351,11 +394,19 @@ impl PtyManager {
             if let Ok(lock) = pid_holder.lock() {
                 if let Some(pid) = *lock {
                     #[cfg(unix)]
-                    unsafe {
-                        // Kill the process group (zsh + claude + children)
-                        libc::kill(-(pid as i32), libc::SIGTERM);
-                        // Also kill the specific PID
-                        libc::kill(pid as i32, libc::SIGTERM);
+                    {
+                        // nix crate 사용 — unsafe libc 블록 제거, i32 오버플로 안전
+                        use nix::sys::signal::{kill, killpg, Signal};
+                        use nix::unistd::Pid;
+                        // i32 범위 초과 PID는 리눅스/맥에서 발생하지 않지만 방어적으로 체크
+                        if let Ok(pid_i32) = i32::try_from(pid) {
+                            let pid_obj = Pid::from_raw(pid_i32);
+                            // 프로세스 그룹에 먼저, 실패 시 개별 PID로
+                            let _ = killpg(pid_obj, Signal::SIGTERM);
+                            let _ = kill(pid_obj, Signal::SIGTERM);
+                        } else {
+                            log::warn!("[pty] PID {} exceeds i32 range, skip", pid);
+                        }
                     }
                     #[cfg(windows)]
                     {
