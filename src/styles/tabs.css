@@ -1,0 +1,60 @@
+/* ── Tabs ── */
+.tabs {
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  background: var(--bg-app);
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tab {
+  padding: 7px 16px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  border-radius: 6px 6px 0 0;
+  background: none;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tab:hover {
+  color: var(--fg-secondary);
+  background: rgba(255, 255, 255, 0.015);
+}
+.tab.active {
+  color: var(--fg-primary);
+  border-bottom-color: var(--accent);
+  background: var(--bg-panel-alt);
+}
+.tab .badge {
+  margin-left: 6px;
+  font-size: 9px;
+  background: rgba(234, 179, 8, 0.08);
+  color: #eab308;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* ── Content split ── */
+.content-split {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  overflow: hidden;
+}
+

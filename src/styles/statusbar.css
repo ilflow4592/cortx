@@ -1,0 +1,39 @@
+/* ── Status bar ── */
+.statusbar {
+  grid-column: 1/-1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-strong);
+  font-size: 11px;
+}
+.sb-l {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--fg-faint);
+}
+.sb-active-tag {
+  color: var(--accent-bright);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+.sb-active-tag .dot {
+  width: 4px;
+  height: 4px;
+  background: var(--accent-bright);
+  border-radius: 50%;
+}
+.sb-r {
+  display: flex;
+  gap: 12px;
+  color: var(--fg-faint);
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+

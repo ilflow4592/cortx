@@ -5,8 +5,8 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
   return invoke<T>(cmd, args);
 }
 import { useContextPackStore } from '../../stores/contextPackStore';
-import { McpIcon, GitHubIcon, SlackIcon, NotionIcon } from '../SourceIcons';
-import { isClaudeActiveInTerminal, terminalCache } from '../../utils/terminalState';
+import { GitHubIcon, SlackIcon, NotionIcon } from '../SourceIcons';
+import { terminalCache } from '../../utils/terminalState';
 import type { ContextSourceConfig } from '../../types/contextPack';
 
 interface McpStatusBarProps {
@@ -100,7 +100,6 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
                       const statusColor = isDisabled ? 'var(--fg-dim)' : isReady ? '#34d399' : needsAuth ? '#eab308' : '#ef4444';
                       const statusLabel = isDisabled ? 'disabled' : isReady ? 'connected' : needsAuth ? 'auth-needed' : 'failed';
                       const isSelected = selectedServer === server.name;
-                      const canToggle = true; // 모든 MCP 서버는 enable/disable 가능
                       return (
                         <div key={server.name} style={{ position: 'relative' }}>
                           <span

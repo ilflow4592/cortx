@@ -1,0 +1,142 @@
+/* ── Dock ── */
+.dock {
+  background: var(--bg-app);
+  border-right: 1px solid var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0 12px;
+  gap: 2px;
+}
+.dock-traffic {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+  -webkit-app-region: drag;
+  padding-top: 4px;
+}
+.dock-traffic span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  -webkit-app-region: no-drag;
+}
+.dock-traffic .r {
+  background: #ff5f57;
+}
+.dock-traffic .y {
+  background: #febc2e;
+}
+.dock-traffic .g {
+  background: #28c840;
+}
+.dock-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+.dock-icon:hover {
+  background: var(--bg-surface-hover);
+  color: var(--fg-primary);
+}
+.dock-icon.active {
+  background: var(--bg-surface-hover);
+  color: var(--fg-primary);
+  position: relative;
+}
+.dock-icon.active::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.dock-sep {
+  width: 24px;
+  height: 1px;
+  background: var(--bg-surface-hover);
+  margin: 8px 0;
+}
+.dock-task {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  position: relative;
+  margin-bottom: 2px;
+}
+.dock-task.t-active {
+  background: rgba(90, 165, 165, 0.08);
+  color: var(--accent-bright);
+  border: 1px solid rgba(90, 165, 165, 0.15);
+}
+.dock-task.t-paused {
+  background: rgba(234, 179, 8, 0.04);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.1);
+}
+.dock-task.t-waiting {
+  background: var(--bg-surface-hover);
+  color: var(--fg-subtle);
+  border: 1px solid var(--border-strong);
+}
+.dock-task .td {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.dock-task.t-active .td {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+.dock-task.t-paused .td {
+  background: #eab308;
+}
+.dock-add {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px dashed var(--fg-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-faint);
+  font-size: 18px;
+  cursor: pointer;
+  margin-top: 2px;
+  background: none;
+}
+.dock-add:hover {
+  border-color: var(--fg-subtle);
+  color: var(--fg-subtle);
+}
+.dock-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+

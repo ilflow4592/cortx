@@ -1,0 +1,267 @@
+/* ── Context Pack (full tab view) ── */
+.ctx-pack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* 전체 컨테이너가 스크롤 — header 영역(MCP 목록·Services·Pin 등)이 길어져도 보이도록 */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.ctx-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-strong);
+  flex-shrink: 0;
+}
+.ctx-delta-banner {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: rgba(234, 179, 8, 0.04);
+  border: 1px solid rgba(234, 179, 8, 0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #eab308;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ctx-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--fg-subtle);
+  margin-bottom: 8px;
+}
+.ctx-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.ctx-kw {
+  padding: 4px 10px;
+  background: var(--border-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctx-kw button {
+  background: none;
+  border: none;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  transition: color 200ms ease;
+}
+.ctx-kw button:hover {
+  color: #ef4444;
+}
+.ctx-kw-input {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.ctx-kw-input input {
+  flex: 1;
+  background: var(--bg-chip);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--fg-primary);
+  font-family: inherit;
+  outline: none;
+}
+.ctx-kw-input input::placeholder {
+  color: var(--fg-subtle);
+}
+.ctx-kw-input input:focus {
+  border-color: rgba(90, 165, 165, 0.3);
+}
+.ctx-kw-input button {
+  padding: 8px 12px;
+  background: var(--border-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--fg-muted);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+.ctx-kw-input button:hover {
+  color: var(--fg-secondary);
+  border-color: var(--fg-faint);
+  background: var(--bg-surface-hover);
+}
+.ctx-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ctx-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-align: center;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+.ctx-btn-collect {
+  background: rgba(90, 165, 165, 0.08);
+  color: var(--accent-bright);
+}
+.ctx-btn-collect:hover {
+  background: rgba(90, 165, 165, 0.15);
+}
+.ctx-btn-collect:disabled {
+  opacity: 0.4;
+}
+.ctx-btn-pin {
+  background: var(--border-muted);
+  border: 1px solid var(--border-strong);
+  color: var(--fg-secondary);
+}
+.ctx-btn-pin:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--fg-faint);
+}
+.search-resource-item {
+  position: relative;
+}
+.search-resource-tooltip {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.search-resource-item:hover .search-resource-tooltip {
+  display: block;
+}
+.ctx-collected-at {
+  font-size: 10px;
+  color: var(--fg-subtle);
+  margin-bottom: 4px;
+}
+.ctx-filters {
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border-strong);
+  flex-shrink: 0;
+}
+.ctx-filter {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+.ctx-filter:hover {
+  color: var(--fg-secondary);
+  background: rgba(255, 255, 255, 0.03);
+}
+.ctx-filter.active {
+  background: rgba(90, 165, 165, 0.08);
+  color: var(--accent-bright);
+}
+.ctx-filter .count {
+  margin-left: 4px;
+  opacity: 0.5;
+}
+.ctx-new-count {
+  margin-left: auto;
+  padding: 2px 6px;
+  background: rgba(234, 179, 8, 0.06);
+  color: #eab308;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+}
+.ctx-items {
+  /* 부모(.ctx-pack)가 스크롤을 담당하므로 자체 overflow는 제거 — 이중 스크롤 방지 */
+  flex: 1 0 auto;
+  padding: 12px 20px;
+}
+.ctx-empty {
+  text-align: center;
+  padding: 40px 0;
+  font-size: 12px;
+  color: var(--fg-subtle);
+}
+.ctx-pin-form {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ctx-pin-form input {
+  background: var(--bg-chip);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--fg-primary);
+  outline: none;
+  font-family: inherit;
+}
+.ctx-pin-form input::placeholder {
+  color: var(--fg-subtle);
+}
+.ctx-pin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.ctx-pin-actions button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+.ctx-pin-actions button:hover {
+  filter: brightness(1.2);
+}
+

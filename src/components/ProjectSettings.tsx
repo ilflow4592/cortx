@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useProjectStore } from '../stores/projectStore';
+import type { Project } from '../types/project';
 import { ProjectScanPanel } from './project-settings/ProjectScanPanel';
 import { SlackChannelInput } from './project-settings/SlackChannelInput';
 import { BranchPicker } from './project-settings/BranchPicker';

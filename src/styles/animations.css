@@ -1,0 +1,112 @@
+/* ── Animations ── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 12px currentColor;
+  }
+}
+
+.sb-task {
+  animation: fadeIn 0.15s ease-out;
+}
+.msg {
+  animation: fadeIn 0.2s ease-out;
+}
+.modal {
+  animation: scaleIn 0.15s ease-out;
+}
+.modal-overlay {
+  animation: fadeIn 0.1s ease-out;
+}
+.tab {
+  transition:
+    color 200ms ease,
+    background 200ms ease,
+    border-color 200ms ease;
+}
+.dock-task {
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease;
+}
+.dock-task:hover {
+  transform: scale(1.05);
+}
+.dock-task:active {
+  transform: scale(0.95);
+}
+.dock-icon {
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+.mh-btn {
+  transition:
+    background 200ms ease,
+    filter 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+.mh-btn:hover {
+  color: var(--fg-secondary) !important;
+  border-color: var(--fg-faint) !important;
+}
+.sb-dot.running {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.delta-banner {
+  animation: slideInUp 0.2s ease-out;
+}
+.cp-item {
+  animation: fadeIn 0.15s ease-out;
+}
+.rp-tab {
+  transition:
+    color 200ms ease,
+    border-color 200ms ease;
+}
+

@@ -1,0 +1,24 @@
+/* ── Command Palette (cmdk) ── */
+[cmdk-group-heading] {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-faint);
+  padding: 10px 12px 4px;
+}
+[cmdk-item][data-selected='true'] {
+  background: rgba(90, 165, 165, 0.12);
+  color: var(--fg-primary);
+}
+[cmdk-item][data-selected='true'] span {
+  color: var(--fg-primary);
+}
+
+/* FTS snippet highlight in command palette */
+[cmdk-item] mark {
+  background: rgba(125, 189, 189, 0.25);
+  color: #b5e5e5;
+  padding: 0 2px;
+  border-radius: 2px;
+}

@@ -4,7 +4,7 @@
  * 기존 `handleCollect`에 75줄로 인라인돼 있던 로직 — 순수 함수로 격리해 테스트
  * 가능 · 새 MCP 서비스 추가 시 이 파일만 수정하면 됨.
  */
-import type { ContextSourceConfig } from '../../types/contextPack';
+import type { ContextSourceConfig, ContextSourceType } from '../../types/contextPack';
 import type { McpServerStatus } from '../../stores/contextPackStore';
 
 /** MCP env 변수에서 서비스별 토큰 추출 — 없으면 빈 문자열 */
@@ -65,7 +65,7 @@ export function buildCollectSources(params: BuildSourcesParams): ContextSourceCo
     const repo = projectRepo || settingsSource?.repo || '';
 
     mcpSources.push({
-      type: resType,
+      type: resType as ContextSourceType,
       enabled: true,
       token: '',
       owner,

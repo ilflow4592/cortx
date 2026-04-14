@@ -1,0 +1,26 @@
+/* ── Empty state ── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-subtle);
+}
+.empty-state-inner {
+  text-align: center;
+}
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.2;
+}
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.empty-state-sub {
+  font-size: 13px;
+}
+

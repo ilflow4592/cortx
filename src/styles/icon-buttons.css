@@ -1,0 +1,13 @@
+/* ── Inline icon buttons (Open via, Reset, etc.) ── */
+.icon-btn-subtle {
+  transition:
+    color 200ms ease,
+    background 200ms ease,
+    border-color 200ms ease;
+}
+.icon-btn-subtle:hover {
+  color: var(--fg-secondary) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--fg-faint) !important;
+}
+

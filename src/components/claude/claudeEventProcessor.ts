@@ -70,8 +70,11 @@ export class ClaudeEventProcessor {
   private currentMsgId = '';
   private turnCounter = 0;
   private response = '';
+  private ctx: ClaudeEventProcessorContext;
 
-  constructor(private ctx: ClaudeEventProcessorContext) {}
+  constructor(ctx: ClaudeEventProcessorContext) {
+    this.ctx = ctx;
+  }
 
   process(line: string): void {
     try {
