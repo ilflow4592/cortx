@@ -1,49 +1,22 @@
 /**
  * Cmd+K command palette — fuzzy-searchable global command launcher.
- * Lists tasks, projects, actions, and pipeline triggers in one searchable UI.
+ * Orchestrator: owns search input, store subscriptions, FTS hook,
+ * and composes section components from `command-palette/`.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
-import {
-  CheckCircle2,
-  Circle,
-  FolderOpen,
-  Plus,
-  Settings as SettingsIcon,
-  Play,
-  PanelLeftClose,
-  PanelRightClose,
-  FileText,
-  Search,
-  Pause,
-  RotateCcw,
-  Square,
-  MessageSquare,
-  Trash2,
-  Download,
-  Upload,
-  Server,
-  Slash,
-  ArrowUp,
-  ExternalLink,
-} from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useModalStore } from '../stores/modalStore';
 import { useLayoutStore } from '../stores/layoutStore';
-import { runPipeline } from '../utils/pipelineExec';
-
-// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const mod = await import('@tauri-apps/api/core');
-  return mod.invoke<T>(cmd, args);
-}
-import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
-import { searchAll, type SearchHit } from '../services/db';
-import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
 import { useT } from '../i18n';
 import { matchesAtBoundary, matchesLabelOrKeywords } from './command-palette/search';
-import { PaletteItem } from './command-palette/PaletteItem';
+import { useCommandPaletteSearch } from './command-palette/useCommandPaletteSearch';
+import { ActionsSection } from './command-palette/ActionsSection';
+import { CurrentTaskSection } from './command-palette/CurrentTaskSection';
+import { TasksSection } from './command-palette/TasksSection';
+import { ProjectsSection } from './command-palette/ProjectsSection';
+import { MessagesSection } from './command-palette/MessagesSection';
 
 interface Props {
   open: boolean;
@@ -51,11 +24,9 @@ interface Props {
 }
 
 export function CommandPalette({ open, onClose }: Props) {
-  const modal = useModalStore();
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
   const [search, setSearch] = useState('');
-  const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
   const t = useT();
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
@@ -67,25 +38,10 @@ export function CommandPalette({ open, onClose }: Props) {
 
   // Reset search when reopened
   useEffect(() => {
-    if (open) {
-      setSearch('');
-      setFtsHits([]);
-    }
+    if (open) setSearch('');
   }, [open]);
 
-  // Debounced full-text search
-  useEffect(() => {
-    if (!search.trim() || search.length < 2) {
-      setFtsHits([]);
-      return;
-    }
-    const handle = setTimeout(() => {
-      searchAll(search, 30)
-        .then((hits) => setFtsHits(hits.filter((h) => h.kind === 'message')))
-        .catch(() => setFtsHits([]));
-    }, 150);
-    return () => clearTimeout(handle);
-  }, [search]);
+  const ftsHits = useCommandPaletteSearch(open, search);
 
   // 경계 인식 매칭 — 로직은 command-palette/search.ts로 추출됨
   const searchLower = search.trim().toLowerCase();
@@ -157,6 +113,72 @@ export function CommandPalette({ open, onClose }: Props) {
   const activeTask = tasks.find((t) => t.id === activeTaskId);
 
   if (!open) return null;
+
+  const sectionActions = (
+    <ActionsSection
+      key="actions"
+      heading={t('palette.actions')}
+      showAction={showAction}
+      activeTask={activeTask}
+      projects={projects}
+      toggleSidebar={toggleSidebar}
+      toggleRightPanel={toggleRightPanel}
+      run={run}
+    />
+  );
+
+  const sectionCurrentTask = activeTask ? (
+    <CurrentTaskSection
+      key="current"
+      activeTask={activeTask}
+      search={search}
+      pauseWithReason={pauseWithReason}
+      resumeTask={resumeTask}
+      setTaskStatus={setTaskStatus}
+      run={run}
+    />
+  ) : null;
+
+  const sectionTasks = (
+    <TasksSection
+      key="tasks"
+      heading={t('palette.tasks')}
+      tasks={filteredTasks}
+      projects={projects}
+      onPick={setActiveTask}
+      run={run}
+    />
+  );
+
+  const sectionProjects = (
+    <ProjectsSection
+      key="projects"
+      heading={t('palette.projects')}
+      projects={filteredProjects}
+      tasks={tasks}
+      onPickFirstTask={setActiveTask}
+      run={run}
+    />
+  );
+
+  const sectionChat = (
+    <MessagesSection
+      key="chat"
+      heading={t('palette.chatMessages')}
+      hits={ftsHits}
+      tasks={tasks}
+      projects={projects}
+      search={search}
+      onPick={setActiveTask}
+      run={run}
+    />
+  );
+
+  // Empty search: Actions → Current Task → Tasks → Projects
+  // With search:   Current Task → Projects → Tasks → Chat Messages → Actions
+  const sections = !searchLower
+    ? [sectionActions, sectionCurrentTask, sectionTasks, sectionProjects]
+    : [sectionCurrentTask, sectionProjects, sectionTasks, sectionChat, sectionActions];
 
   return (
     <div
@@ -246,386 +268,10 @@ export function CommandPalette({ open, onClose }: Props) {
               {t('palette.noResults')}
             </Command.Empty>
 
-            {(() => {
-              // Define each section as a render function so we can reorder them
-              const sectionActions = (
-                <Command.Group key="actions" heading={t('palette.actions')}>
-                  {showAction('New Task') && (
-                    <PaletteItem
-                      icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label={t('action.newTask')}
-                      hint="⌘N"
-                      onSelect={() => run(() => modal.openNewTask())}
-                    />
-                  )}
-                  {showAction('New Project') && (
-                    <PaletteItem
-                      icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label={t('action.newProject')}
-                      onSelect={() => run(() => modal.open('newProject'))}
-                    />
-                  )}
-                  {showAction('Open Settings') && (
-                    <PaletteItem
-                      icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label={t('action.openSettings')}
-                      hint="⌘,"
-                      onSelect={() => run(() => modal.open('settings'))}
-                    />
-                  )}
-                  {showAction('Daily Report') && (
-                    <PaletteItem
-                      icon={<FileText size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label={t('action.dailyReport')}
-                      onSelect={() => run(() => modal.open('report'))}
-                    />
-                  )}
-                  {showAction('Worktree Cleanup') && (
-                    <PaletteItem
-                      icon={<Trash2 size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Worktree Cleanup"
-                      onSelect={() => run(() => modal.open('worktreeCleanup'))}
-                    />
-                  )}
-                  {showAction('Manage MCP Servers') && (
-                    <PaletteItem
-                      icon={<Server size={14} color="var(--accent)" strokeWidth={1.5} />}
-                      label="Manage MCP Servers"
-                      onSelect={() => run(() => modal.open('mcpManager'))}
-                    />
-                  )}
-                  {showAction('Slash Command Builder') && (
-                    <PaletteItem
-                      icon={<Slash size={14} color="var(--accent)" strokeWidth={1.5} />}
-                      label="Slash Command Builder"
-                      onSelect={() => run(() => modal.open('slashBuilder'))}
-                    />
-                  )}
-                  {showAction('Check for Updates') && (
-                    <PaletteItem
-                      icon={<ArrowUp size={14} color="var(--accent)" strokeWidth={1.5} />}
-                      label="Check for Updates"
-                      onSelect={() => run(() => modal.open('updateChecker'))}
-                    />
-                  )}
-                  {activeTask && showAction('Edit Pipeline Config') && (
-                    <PaletteItem
-                      icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label="Edit Pipeline Config"
-                      onSelect={() =>
-                        run(() => {
-                          const project = activeTask.projectId
-                            ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId)
-                            : null;
-                          if (!project?.localPath) {
-                            alert('Current task has no project with a local path');
-                            return;
-                          }
-                          modal.openPipelineEditor(project.localPath, project.name);
-                        })
-                      }
-                    />
-                  )}
-                  {activeTask && showAction('Export Current Task (Markdown)') && (
-                    <PaletteItem
-                      icon={<Download size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label="Export Current Task (Markdown)"
-                      onSelect={() =>
-                        run(() => {
-                          exportTaskAsMarkdown(activeTask).catch((err) =>
-                            alert(`Export failed: ${err}`),
-                          );
-                        })
-                      }
-                    />
-                  )}
-                  {activeTask && showAction('Export Current Task (JSON)') && (
-                    <PaletteItem
-                      icon={<Download size={14} color="#818cf8" strokeWidth={1.5} />}
-                      label="Export Current Task (JSON)"
-                      onSelect={() =>
-                        run(() => {
-                          exportTaskAsJson(activeTask).catch((err) => alert(`Export failed: ${err}`));
-                        })
-                      }
-                    />
-                  )}
-                  {showAction('Import Tasks from JSON') && (
-                    <PaletteItem
-                      icon={<Upload size={14} color="#34d399" strokeWidth={1.5} />}
-                      label="Import Tasks from JSON"
-                      onSelect={() =>
-                        run(() => {
-                          importTasksFromJson()
-                            .then((result) => {
-                              if (result) {
-                                alert(
-                                  `Imported ${result.importedTasks} task(s) and ${result.importedProjects} project(s)`,
-                                );
-                              }
-                            })
-                            .catch((err) => alert(`Import failed: ${err}`));
-                        })
-                      }
-                    />
-                  )}
-                  {showAction('Toggle Sidebar') && (
-                    <PaletteItem
-                      icon={<PanelLeftClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label={t('action.toggleSidebar')}
-                      hint="⌘B"
-                      onSelect={() => run(toggleSidebar)}
-                    />
-                  )}
-                  {showAction('Toggle Right Panel') && (
-                    <PaletteItem
-                      icon={<PanelRightClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
-                      label={t('action.toggleRightPanel')}
-                      hint="⌘⇧B"
-                      onSelect={() => run(toggleRightPanel)}
-                    />
-                  )}
-                </Command.Group>
-              );
-
-              // Current Task actions — shown both when browsing and when searching (filtered)
-              const currentTaskItems: React.ReactNode[] = [];
-              if (activeTask) {
-                const matchCurrent = (label: string, keywords: string[] = []) =>
-                  matchesLabelOrKeywords(search, label, keywords);
-
-                if (matchCurrent('Run Pipeline (/pipeline:dev-task)', ['run', 'pipeline', 'dev-task', 'start'])) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="run-pipeline"
-                      icon={<Play size={14} color="#34d399" strokeWidth={1.5} />}
-                      label="Run Pipeline (/pipeline:dev-task)"
-                      onSelect={() =>
-                        run(() => {
-                          runPipeline(activeTask.id, '/pipeline:dev-task');
-                        })
-                      }
-                    />,
-                  );
-                }
-                if (
-                  loadingCache.get(activeTask.id) &&
-                  matchCurrent('Stop Claude Process (kill running pipeline)', ['stop', 'kill', 'abort', 'cancel'])
-                ) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="stop-claude"
-                      icon={<Square size={14} color="#ef4444" strokeWidth={1.5} fill="#ef4444" />}
-                      label="Stop Claude Process (kill running pipeline)"
-                      onSelect={() =>
-                        run(() => {
-                          invoke('claude_stop_task', { taskId: activeTask.id }).catch(() => {});
-                          messageCache.delete(activeTask.id);
-                          sessionCache.delete(activeTask.id);
-                          loadingCache.delete(activeTask.id);
-                          useTaskStore.getState().updateTask(activeTask.id, {
-                            status: 'waiting',
-                            pipeline: undefined,
-                            elapsedSeconds: 0,
-                          });
-                        })
-                      }
-                    />,
-                  );
-                }
-                if (activeTask.status === 'active' && matchCurrent('Pause Current Task (timer only)', ['pause', 'timer'])) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="pause-task"
-                      icon={<Pause size={14} color="#eab308" strokeWidth={1.5} />}
-                      label="Pause Current Task (timer only)"
-                      hint="⌘⇧P"
-                      onSelect={() =>
-                        run(() => pauseWithReason(activeTask.id, 'other', 'Paused via command palette'))
-                      }
-                    />,
-                  );
-                }
-                if (activeTask.status === 'paused' && matchCurrent('Resume Current Task', ['resume', 'continue'])) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="resume-task"
-                      icon={<RotateCcw size={14} color="#34d399" strokeWidth={1.5} />}
-                      label="Resume Current Task"
-                      hint="⌘⇧R"
-                      onSelect={() => run(() => resumeTask(activeTask.id))}
-                    />,
-                  );
-                }
-                if (activeTask.status !== 'done' && matchCurrent('Mark as Done', ['done', 'complete', 'finish'])) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="mark-done"
-                      icon={<CheckCircle2 size={14} color="var(--accent)" strokeWidth={1.5} />}
-                      label="Mark as Done"
-                      onSelect={() => run(() => setTaskStatus(activeTask.id, 'done'))}
-                    />,
-                  );
-                }
-                if (matchCurrent('Open in New Window', ['window', 'popout', 'new', 'open'])) {
-                  currentTaskItems.push(
-                    <PaletteItem
-                      key="popout-window"
-                      icon={<ExternalLink size={14} color="var(--indigo)" strokeWidth={1.5} />}
-                      label="Open in New Window"
-                      onSelect={() =>
-                        run(() => {
-                          invoke('open_task_window', {
-                            taskId: activeTask.id,
-                            taskTitle: activeTask.title,
-                          }).catch((err) => alert(`Failed to open window: ${err}`));
-                        })
-                      }
-                    />,
-                  );
-                }
-              }
-
-              const sectionCurrentTask =
-                activeTask && currentTaskItems.length > 0 ? (
-                  <Command.Group key="current" heading={`Current Task: ${activeTask.title}`}>
-                    {currentTaskItems}
-                  </Command.Group>
-                ) : null;
-
-              const sectionTasks =
-                filteredTasks.length > 0 ? (
-                  <Command.Group key="tasks" heading={t('palette.tasks')}>
-                    {filteredTasks.map((task) => {
-                      const project = projects.find((p) => p.id === task.projectId);
-                      const dotColor =
-                        task.status === 'active'
-                          ? '#34d399'
-                          : task.status === 'paused'
-                            ? '#eab308'
-                            : task.status === 'done'
-                              ? 'var(--accent)'
-                              : 'var(--fg-dim)';
-                      return (
-                        <PaletteItem
-                          key={task.id}
-                          icon={<Circle size={10} fill={dotColor} stroke="none" />}
-                          label={task.title}
-                          hint={project?.name || (task.branchName ? task.branchName : undefined)}
-                          keywords={[task.title, task.branchName, project?.name || '']}
-                          onSelect={() => run(() => setActiveTask(task.id))}
-                        />
-                      );
-                    })}
-                  </Command.Group>
-                ) : null;
-
-              const sectionProjects =
-                filteredProjects.length > 0 ? (
-                  <Command.Group key="projects" heading={t('palette.projects')}>
-                    {filteredProjects.map((project) => (
-                      <PaletteItem
-                        key={project.id}
-                        icon={
-                          <span
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: 3,
-                              background: project.color,
-                              display: 'inline-block',
-                            }}
-                          />
-                        }
-                        label={project.name}
-                        hint={project.localPath || project.githubRepo}
-                        keywords={[project.name, project.githubRepo, project.githubOwner]}
-                        onSelect={() =>
-                          run(() => {
-                            const firstTask = tasks.find((t) => t.projectId === project.id);
-                            if (firstTask) setActiveTask(firstTask.id);
-                          })
-                        }
-                      />
-                    ))}
-                  </Command.Group>
-                ) : null;
-
-              const sectionChat =
-                ftsHits.length > 0 ? (
-                  <Command.Group key="chat" heading={t('palette.chatMessages')}>
-                    {ftsHits.map((hit) => {
-                      const task = tasks.find((t) => t.id === hit.taskId);
-                      if (!task) return null;
-                      const project = projects.find((p) => p.id === task.projectId);
-                      const plainSnippet = hit.snippet.replace(/<\/?mark>/g, '');
-                      return (
-                        <Command.Item
-                          key={`fts-${hit.messageId}`}
-                          value={`msg-${hit.messageId}-${search}`}
-                          onSelect={() => run(() => setActiveTask(hit.taskId))}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: 12,
-                            padding: '8px 12px',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            color: 'var(--fg-secondary)',
-                          }}
-                        >
-                          <MessageSquare
-                            size={12}
-                            color="var(--accent-bright)"
-                            strokeWidth={1.5}
-                            style={{ flexShrink: 0, marginTop: 2 }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: 'var(--fg-subtle)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {task.title}
-                              {project && <span style={{ color: 'var(--fg-dim)' }}> · {project.name}</span>}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: 'var(--fg-muted)',
-                                marginTop: 2,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                              }}
-                              dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                            />
-                            <span style={{ display: 'none' }}>{plainSnippet}</span>
-                          </div>
-                        </Command.Item>
-                      );
-                    })}
-                  </Command.Group>
-                ) : null;
-
-              // Empty search: Actions → Current Task → Tasks → Projects
-              // With search:   Current Task → Projects → Tasks → Chat Messages → Actions
-              if (!searchLower) {
-                return [sectionActions, sectionCurrentTask, sectionTasks, sectionProjects];
-              }
-              return [sectionCurrentTask, sectionProjects, sectionTasks, sectionChat, sectionActions];
-            })()}
+            {sections}
           </Command.List>
         </Command>
       </div>
     </div>
   );
 }
-
