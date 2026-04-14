@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { InterruptReason } from '../types/task';
 import { ModalBackdrop } from './common/ModalBackdrop';
 
@@ -21,6 +21,11 @@ export function PauseDialog({
 }) {
   const [reason, setReason] = useState<InterruptReason>('interrupt');
   const [memo, setMemo] = useState(defaultMemo);
+  const memoRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    memoRef.current?.focus();
+  }, []);
 
   return (
     <ModalBackdrop onClose={onCancel} dialogStyle={{ width: 400 }} ariaLabel="Pause task">
@@ -58,11 +63,11 @@ export function PauseDialog({
         <div className="field">
           <span className="field-label">Memo (what were you doing?)</span>
           <input
+            ref={memoRef}
             className="field-input"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="e.g. Implementing auth flow..."
-            autoFocus
           />
         </div>
         <div className="modal-actions">

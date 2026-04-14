@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { Project } from '../../types/project';
 import type { TaskLayer } from '../../types/task';
 import { LAYERS, slugify } from './types';
@@ -36,6 +37,12 @@ export function TaskFormFields({
   showBranchPicker,
   setShowBranchPicker,
 }: TaskFormFieldsProps) {
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
   return (
     <>
       {/* Task title */}
@@ -44,8 +51,8 @@ export function TaskFormFields({
           Task title <span style={{ color: '#6366f1' }}>*</span>
         </span>
         <input
+          ref={titleRef}
           className="field-input"
-          autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. API 인증 리팩토링"

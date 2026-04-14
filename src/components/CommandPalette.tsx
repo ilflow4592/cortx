@@ -3,7 +3,7 @@
  * Orchestrator: owns search input, store subscriptions, FTS hook,
  * and composes section components from `command-palette/`.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
@@ -36,9 +36,14 @@ export function CommandPalette({ open, onClose }: Props) {
   const resumeTask = useTaskStore((s) => s.resumeTask);
   const setTaskStatus = useTaskStore((s) => s.setTaskStatus);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
   // Reset search when reopened
   useEffect(() => {
-    if (open) setSearch('');
+    if (open) {
+      setSearch('');
+      inputRef.current?.focus();
+    }
   }, [open]);
 
   const ftsHits = useCommandPaletteSearch(open, search);
@@ -216,7 +221,7 @@ export function CommandPalette({ open, onClose }: Props) {
           >
             <Search size={16} color="var(--accent)" strokeWidth={1.5} />
             <Command.Input
-              autoFocus
+              ref={inputRef}
               value={search}
               onValueChange={setSearch}
               placeholder={t('palette.search')}

@@ -1,4 +1,5 @@
 /** 새 slash command 생성 폼 — 이름/스코프 입력 후 생성. */
+import { useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import type { Source } from './api';
 
@@ -14,6 +15,12 @@ interface Props {
 }
 
 export function CreateForm({ name, setName, source, setSource, projectCwd, onCreate, onCancel, saving }: Props) {
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
   return (
     <div
       style={{
@@ -38,6 +45,7 @@ export function CreateForm({ name, setName, source, setSource, projectCwd, onCre
 
         <div style={{ marginBottom: 12 }}>
           <label
+            htmlFor="slash-builder-name"
             style={{
               display: 'block',
               fontSize: 10,
@@ -50,13 +58,14 @@ export function CreateForm({ name, setName, source, setSource, projectCwd, onCre
             Name
           </label>
           <input
+            id="slash-builder-name"
+            ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="my-command or group:my-command"
             onKeyDown={(e) => {
               if (e.key === 'Enter') onCreate();
             }}
-            autoFocus
             style={{
               width: '100%',
               padding: '6px 10px',
@@ -75,7 +84,7 @@ export function CreateForm({ name, setName, source, setSource, projectCwd, onCre
         </div>
 
         <div style={{ marginBottom: 18 }}>
-          <label
+          <div
             style={{
               display: 'block',
               fontSize: 10,
@@ -86,7 +95,7 @@ export function CreateForm({ name, setName, source, setSource, projectCwd, onCre
             }}
           >
             Scope
-          </label>
+          </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={() => setSource('project')}

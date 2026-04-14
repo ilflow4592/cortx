@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface BranchPickerProps {
   branches: string[];
@@ -10,6 +10,11 @@ interface BranchPickerProps {
 
 export function BranchPicker({ branches, currentBranch, onSelect, open, onToggle }: BranchPickerProps) {
   const [branchSearch, setBranchSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
 
   return (
     <span style={{ position: 'relative' }}>
@@ -47,7 +52,7 @@ export function BranchPicker({ branches, currentBranch, onSelect, open, onToggle
         >
           <div style={{ padding: '8px', borderBottom: '1px solid #1e1e26' }}>
             <input
-              autoFocus
+              ref={searchRef}
               value={branchSearch}
               onChange={(e) => setBranchSearch(e.target.value)}
               placeholder="Search branch..."

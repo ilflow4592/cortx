@@ -11,6 +11,7 @@ export function BranchPicker({ value, branches, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -19,6 +20,10 @@ export function BranchPicker({ value, branches, onChange }: Props) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
   }, [open]);
 
   const filtered = branches.filter((b) => b.toLowerCase().includes(search.toLowerCase()));
@@ -76,7 +81,7 @@ export function BranchPicker({ value, branches, onChange }: Props) {
           >
             <span style={{ color: 'var(--fg-faint)', fontSize: 14 }}>🔍</span>
             <input
-              autoFocus
+              ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Select target branch..."
