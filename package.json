@@ -14,6 +14,7 @@
     "e2e:ui": "playwright test --ui",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "prepare": "husky"
