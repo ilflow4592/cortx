@@ -49,8 +49,9 @@ export function parseEnvText(text: string): Record<string, string> {
   return env;
 }
 
-export function stringifyEnv(env: Record<string, string>): string {
+export function stringifyEnv(env: Record<string, string | undefined>): string {
   return Object.entries(env)
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
     .map(([k, v]) => `${k}=${v}`)
     .join('\n');
 }

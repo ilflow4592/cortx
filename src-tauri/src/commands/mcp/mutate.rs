@@ -2,17 +2,24 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use ts_rs::TS;
 
 use super::json_io::{read_claude_json, write_claude_json};
 
-#[derive(Serialize, Deserialize, Debug)]
+/// 새 MCP 서버 추가/수정 시의 입력. 프론트엔드 DraftServer 변환 결과.
+#[derive(Serialize, Deserialize, Debug, TS)]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct McpServerInput {
     pub name: String,
     /// "stdio" or "http"
     pub server_type: String,
+    #[ts(optional)]
     pub command: Option<String>,
+    #[ts(optional)]
     pub args: Option<Vec<String>>,
+    #[ts(optional)]
     pub env: Option<std::collections::HashMap<String, String>>,
+    #[ts(optional)]
     pub url: Option<String>,
 }
 

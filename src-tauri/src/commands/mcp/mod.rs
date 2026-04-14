@@ -5,6 +5,7 @@
 //! - `toggle`: 프로젝트 settings.local.json에서 enable/disable 토글
 //! - `json_io`: ~/.claude.json 읽기/쓰기 헬퍼
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 // 서브모듈은 pub — Tauri `generate_handler!`가 함수 정의 위치를 직접 참조하므로
 // re-export로는 부족하고 lib.rs에서 `commands::mcp::discovery::...`로 호출한다.
@@ -14,7 +15,9 @@ pub mod mutate;
 pub mod toggle;
 
 /// Information about a configured MCP (Model Context Protocol) server.
-#[derive(Serialize, Deserialize)]
+/// 프론트엔드 RawServer (mcp-manager/types.ts)와 1:1 매핑.
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct McpServerInfo {
     pub name: String,
     pub command: String,
