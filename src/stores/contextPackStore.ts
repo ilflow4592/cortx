@@ -20,34 +20,13 @@ import {
   filterByVectorSearch,
   type ProgressUpdater,
 } from '../services/contextCollection';
-import { detectServiceType } from '../config/searchResources';
 
-// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const mod = await import('@tauri-apps/api/core');
-  return mod.invoke<T>(cmd, args);
-}
+// MCP 관련 상태는 별도 store(mcpStore)로 분리됨 — 수집 관심사와 무관.
+// 기존 `import { McpServerStatus } from '../stores/contextPackStore'`는
+// re-export로 뒤로 호환.
+export type { McpServerStatus } from './mcpStore';
 
 const STORAGE_KEY = 'cortx-context-pack';
-
-export interface McpServerStatus {
-  name: string;
-  command: string;
-  args: string[];
-  status: 'ready' | 'auth-needed' | 'unknown';
-  authUrl?: string;
-  serviceType: string;
-  env: Record<string, string>;
-  /** "project" | "local" | "global" | "claude.ai" | "built-in" */
-  source: string;
-  /** disabled in Claude Code settings */
-  disabled: boolean;
-}
-
-/** 인증이 필요한 서비스만 별도 체크. 나머지는 레지스트리에 있으면 자동 ready */
-const AUTH_CHECKS: Record<string, { cmd: string; authUrl: string }> = {
-  github: { cmd: 'gh auth status 2>&1', authUrl: 'https://github.com/settings/tokens' },
-};
 
 /** 개별 소스의 수집 진행 상태 (UI 진행률 표시용) */
 export interface SourceCollectStatus {
@@ -83,11 +62,6 @@ interface ContextPackState {
   lastCollectedAt: Record<string, string>;
   collectHistory: Record<string, CollectHistoryEntry[]>; // taskId -> history
   deltaItems: Record<string, ContextItem[]>; // items changed since pause
-
-  // MCP servers (loaded once at app start)
-  mcpServers: McpServerStatus[];
-  mcpLoading: boolean;
-  loadMcpServers: (projectCwd?: string) => Promise<void>;
 
   // Actions
   addPin: (taskId: string, item: ContextItem) => void;
@@ -134,104 +108,6 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   lastCollectedAt: {},
   collectHistory: {},
   deltaItems: {},
-  mcpServers: [],
-  mcpLoading: false,
-
-  loadMcpServers: async (projectCwd?: string) => {
-    set({ mcpLoading: true });
-    try {
-      // 1. Get config-based server list (sources, disabled state)
-      const servers = await invoke<
-        {
-          name: string;
-          command: string;
-          args: string[];
-          env: Record<string, string>;
-          server_type: string;
-          url: string;
-          source: string;
-          disabled: boolean;
-        }[]
-      >('list_mcp_servers', { projectCwd: projectCwd || null });
-      const statuses: McpServerStatus[] = [];
-      for (const server of servers) {
-        const serviceType = detectServiceType(server.name);
-        const authCheck = Object.keys(AUTH_CHECKS).find((k) => server.name.toLowerCase().includes(k));
-
-        let status: 'ready' | 'auth-needed' | 'unknown' = 'ready';
-        let authUrl = '';
-
-        if (authCheck) {
-          // 인증이 필요한 서비스 (github 등) — 실제 체크
-          const check = AUTH_CHECKS[authCheck];
-          authUrl = check.authUrl;
-          try {
-            const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-              cwd: '/',
-              command: check.cmd,
-            });
-            status =
-              result.success || result.output.includes('Logged in') || result.output.includes('ok')
-                ? 'ready'
-                : 'auth-needed';
-          } catch {
-            status = 'auth-needed';
-          }
-        }
-
-        // Detect likely failed: command-based servers with empty env that need API keys
-        const env = server.env || {};
-        const hasEnv = Object.keys(env).length > 0;
-        const needsApiKey = ['tavily', 'brave', 'exa'].some((k) => server.name.toLowerCase().includes(k));
-        if (!hasEnv && needsApiKey && !server.disabled) {
-          status = 'unknown'; // likely failed — missing API key
-        }
-        // configured + not disabled → default 'ready' (assume connected)
-
-        statuses.push({
-          name: server.name,
-          command: server.command,
-          args: server.args || [],
-          env: server.env || {},
-          status: server.disabled ? 'unknown' : status,
-          authUrl,
-          serviceType,
-          source: server.source || 'global',
-          disabled: server.disabled || false,
-        });
-      }
-      // Show config-based results immediately (fast)
-      set({ mcpServers: [...statuses], mcpLoading: false });
-
-      // Then run health check in background and overlay real status
-      invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: projectCwd || '/',
-        command: 'claude mcp list 2>/dev/null',
-      })
-        .then((healthResult) => {
-          if (!healthResult.success || !healthResult.output) return;
-          const liveServers = new Map<string, 'ready' | 'unknown'>();
-          for (const line of healthResult.output.split('\n')) {
-            const connected = line.includes('✓ Connected');
-            const failed = line.includes('✗ Failed');
-            if (!connected && !failed) continue;
-            const nameMatch = line.match(/^(.+?):\s/);
-            if (!nameMatch) continue;
-            liveServers.set(nameMatch[1].trim(), connected ? 'ready' : 'unknown');
-          }
-          // Only update status for NON-disabled servers
-          const updated = statuses.map((s) => {
-            if (s.disabled) return s;
-            if (liveServers.has(s.name)) return { ...s, status: liveServers.get(s.name)! };
-            return s;
-          });
-          set({ mcpServers: updated });
-        })
-        .catch(() => {});
-    } catch {
-      set({ mcpLoading: false });
-    }
-  },
 
   // 사용자가 수동으로 고정(pin)한 아이템. clearCollected에서도 삭제되지 않음
   addPin: (taskId, item) => {

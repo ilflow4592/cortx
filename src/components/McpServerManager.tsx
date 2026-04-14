@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Server, RotateCw, AlertCircle } from 'lucide-react';
-import { useContextPackStore } from '../stores/contextPackStore';
+import { useMcpStore } from '../stores/mcpStore';
 import type { RawServer, DraftServer } from './mcp-manager/types';
 import { listMcpServers, removeMcpServer, upsertMcpServer, stringifyEnv, emptyDraft } from './mcp-manager/api';
 import { ServerRow } from './mcp-manager/ServerRow';
@@ -24,7 +24,7 @@ export function McpServerManager({ onClose }: Props) {
   const [draft, setDraft] = useState<DraftServer>(emptyDraft());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const loadMcpServers = useContextPackStore((s) => s.loadMcpServers);
+  const loadMcpServers = useMcpStore((s) => s.load);
 
   const load = useCallback(async () => {
     setLoading(true);

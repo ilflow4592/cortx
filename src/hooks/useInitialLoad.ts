@@ -9,6 +9,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { useMcpStore } from '../stores/mcpStore';
 import { useModalStore } from '../stores/modalStore';
 import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '../services/db';
 
@@ -36,6 +37,6 @@ export function useInitialLoad(): void {
     })();
     useSettingsStore.getState().loadSettings();
     useContextPackStore.getState().loadState();
-    useContextPackStore.getState().loadMcpServers();
+    useMcpStore.getState().load();
   }, []);
 }

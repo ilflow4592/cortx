@@ -5,6 +5,7 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
   return invoke<T>(cmd, args);
 }
 import { useContextPackStore } from '../../stores/contextPackStore';
+import { useMcpStore } from '../../stores/mcpStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
@@ -71,7 +72,7 @@ export function ContextPack({
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  const mcpServers = useContextPackStore((s) => s.mcpServers);
+  const mcpServers = useMcpStore((s) => s.servers);
   const [searchResources, setSearchResources] = useState<Set<string>>(new Set(['github']));
 
   useMcpFileWatcher(projectCwd);
@@ -82,14 +83,14 @@ export function ContextPack({
     useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
     // Reload MCP servers for this project's context (project/local configs differ per project)
     if (projectCwd) {
-      useContextPackStore.getState().loadMcpServers(projectCwd);
+      useMcpStore.getState().load(projectCwd);
     }
   }, [taskId, projectCwd]);
 
   // Reload MCP servers when tab becomes visible (e.g. returning from Terminal after /mcp config)
   useEffect(() => {
     if (isVisible && projectCwd) {
-      useContextPackStore.getState().loadMcpServers(projectCwd);
+      useMcpStore.getState().load(projectCwd);
     }
   }, [isVisible, projectCwd]);
 

@@ -1,4 +1,4 @@
-import type { McpServerStatus } from '../../stores/contextPackStore';
+import type { McpServerStatus } from '../../stores/mcpStore';
 
 interface ServerChipProps {
   server: McpServerStatus;

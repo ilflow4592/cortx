@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { GitHubIcon, SlackIcon, NotionIcon, ObsidianIcon } from '../SourceIcons';
 import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
-import type { McpServerStatus } from '../../stores/contextPackStore';
+import type { McpServerStatus } from '../../stores/mcpStore';
 
 interface SearchResourcesGridProps {
   mcpServers: McpServerStatus[];

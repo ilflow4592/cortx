@@ -5,7 +5,7 @@
  * 가능 · 새 MCP 서비스 추가 시 이 파일만 수정하면 됨.
  */
 import type { ContextSourceConfig, ContextSourceType } from '../../types/contextPack';
-import type { McpServerStatus } from '../../stores/contextPackStore';
+import type { McpServerStatus } from '../../stores/mcpStore';
 
 /** MCP env 변수에서 서비스별 토큰 추출 — 없으면 빈 문자열 */
 function extractToken(resType: string, env: Record<string, string>): string {

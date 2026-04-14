@@ -1,5 +1,5 @@
 import { terminalCache } from '../../utils/terminalState';
-import type { McpServerStatus } from '../../stores/contextPackStore';
+import type { McpServerStatus } from '../../stores/mcpStore';
 
 // Dynamic import to avoid static Tauri API import (CLAUDE.md rule)
 async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {

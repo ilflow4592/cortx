@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useContextPackStore } from '../../stores/contextPackStore';
+import { useMcpStore } from '../../stores/mcpStore';
 import { GitHubIcon, SlackIcon, NotionIcon } from '../SourceIcons';
 import { ServerChip } from './ServerChip';
 import { ServerDropdown } from './ServerDropdown';
@@ -35,8 +35,8 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectedServer]);
-  const mcpServers = useContextPackStore((s) => s.mcpServers);
-  const mcpLoading = useContextPackStore((s) => s.mcpLoading);
+  const mcpServers = useMcpStore((s) => s.servers);
+  const mcpLoading = useMcpStore((s) => s.loading);
 
   const groups = [
     { key: 'project', label: 'Project MCPs', source: 'project' },
@@ -83,7 +83,7 @@ export function McpStatusBar({ sources, projectCwd, taskId, onSwitchTab }: McpSt
             MCP Servers {mcpServers.length > 0 && <span style={{ color: 'var(--fg-dim)' }}>({mcpServers.length})</span>}
           </div>
           <button
-            onClick={() => useContextPackStore.getState().loadMcpServers(projectCwd)}
+            onClick={() => useMcpStore.getState().load(projectCwd)}
             disabled={mcpLoading}
             className="icon-btn-subtle"
             style={{

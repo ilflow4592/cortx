@@ -5,7 +5,7 @@
  * 비용이 낮고, 변경 감지 후에도 full 헬스체크는 건너뛰고 config-only fast path.
  */
 import { useEffect } from 'react';
-import { useContextPackStore, type McpServerStatus } from '../../stores/contextPackStore';
+import { useMcpStore, type McpServerStatus } from '../../stores/mcpStore';
 import { detectServiceType } from '../../config/searchResources';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -57,7 +57,7 @@ export function useMcpFileWatcher(projectCwd: string): void {
           source: s.source || 'global',
           disabled: s.disabled || false,
         }));
-        useContextPackStore.setState({ mcpServers: statuses });
+        useMcpStore.getState().setServers(statuses);
         lastMtime = result.output.trim();
       } catch {
         /* ignore */

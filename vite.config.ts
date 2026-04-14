@@ -50,5 +50,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    // e2e/는 Playwright 전용 — vitest가 import 시 playwright 의존성으로 깨짐
+    exclude: ['node_modules', 'dist', 'e2e', 'src-tauri'],
   },
 });
