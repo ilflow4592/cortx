@@ -40,4 +40,4 @@ tauri-plugin-process = "2.3.1"
 
 # TS 타입 자동 생성 — Rust 구조체에 #[derive(TS)] 적용 후 cargo test 실행 시
 # src/types/generated/*.ts로 export. serde-compat 기능으로 #[serde(rename_all)] 존중.
-ts-rs = { version = "10", features = ["serde-compat"] }
+ts-rs = { version = "12", features = ["serde-compat"] }
