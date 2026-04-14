@@ -7,12 +7,13 @@
  * interrupted by a crash, force-quit, or system shutdown.
  */
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Play, X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { runPipeline } from '../utils/pipelineExec';
-import { PHASE_NAMES, PHASE_ORDER } from '../constants/pipeline';
-import type { Task, PipelinePhase } from '../types/task';
+import { PHASE_ORDER } from '../constants/pipeline';
+import { TaskList } from './crash-recovery/TaskList';
+import type { Task } from '../types/task';
 
 interface Props {
   onClose: () => void;
@@ -64,11 +65,6 @@ export function CrashRecoveryDialog({ onClose }: Props) {
     onClose();
   };
 
-  const activePhaseName = (task: Task): string => {
-    const active = PHASE_ORDER.find((p) => task.pipeline?.phases[p]?.status === 'in_progress');
-    return active ? PHASE_NAMES[active as PipelinePhase] : '—';
-  };
-
   return (
     <div
       onClick={onClose}
@@ -110,7 +106,9 @@ export function CrashRecoveryDialog({ onClose }: Props) {
         >
           <AlertTriangle size={20} color="#eab308" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg-primary)' }}>중단된 파이프라인이 있습니다</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg-primary)' }}>
+              중단된 파이프라인이 있습니다
+            </div>
             <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2 }}>
               {interruptedTasks.length}개의 task가 비정상 종료되었습니다. 재개하거나 취소할 수 있습니다.
             </div>
@@ -132,108 +130,12 @@ export function CrashRecoveryDialog({ onClose }: Props) {
         </div>
 
         {/* Task list */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
-          {interruptedTasks.map((task) => {
-            const project = projects.find((p) => p.id === task.projectId);
-            return (
-              <div
-                key={task.id}
-                style={{
-                  padding: 14,
-                  marginBottom: 8,
-                  background: 'var(--bg-surface-hover)',
-                  border: '1px solid var(--border-muted)',
-                  borderRadius: 8,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: 'var(--fg-primary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {task.title}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 2, display: 'flex', gap: 8 }}>
-                      {project && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: 2,
-                              background: project.color,
-                              display: 'inline-block',
-                            }}
-                          />
-                          {project.name}
-                        </span>
-                      )}
-                      {task.branchName && <span style={{ color: 'var(--fg-faint)' }}>{task.branchName}</span>}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: '#eab308',
-                      background: 'rgba(234,179,8,0.08)',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      border: '1px solid rgba(234,179,8,0.2)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {activePhaseName(task)} 중단됨
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => handleResume(task)}
-                    style={{
-                      flex: 1,
-                      padding: '6px 12px',
-                      borderRadius: 5,
-                      fontSize: 11,
-                      fontWeight: 500,
-                      background: 'rgba(52,211,153,0.1)',
-                      border: '1px solid rgba(52,211,153,0.3)',
-                      color: '#34d399',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Play size={11} strokeWidth={1.5} /> 재개
-                  </button>
-                  <button
-                    onClick={() => handleDismiss(task)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 5,
-                      fontSize: 11,
-                      background: 'none',
-                      border: '1px solid var(--fg-dim)',
-                      color: 'var(--fg-muted)',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <TaskList
+          tasks={interruptedTasks}
+          projects={projects}
+          onResume={handleResume}
+          onDismiss={handleDismiss}
+        />
 
         {/* Footer */}
         {interruptedTasks.length > 1 && (
