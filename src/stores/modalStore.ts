@@ -61,11 +61,13 @@ interface ModalState {
 
 const ONBOARDED_KEY = 'cortx-onboarded';
 
-export const useModalStore = create<ModalState>((set, get) => ({
+/** 초기 state — 테스트에서 `resetModalState()`로 재사용 가능. 필드 추가 시 여기만 수정하면 됨. */
+export const MODAL_INITIAL_STATE = {
   newProject: false,
   settings: false,
   report: false,
-  onboarding: !localStorage.getItem(ONBOARDED_KEY),
+  // onboarding 기본값은 localStorage 기반 — 테스트는 별도 override 가능
+  onboarding: false,
   crashRecovery: false,
   costDashboard: false,
   worktreeCleanup: false,
@@ -73,10 +75,15 @@ export const useModalStore = create<ModalState>((set, get) => ({
   slashBuilder: false,
   updateChecker: false,
   commandPalette: false,
+  newTask: { open: false, projectId: undefined } as { open: boolean; projectId?: string },
+  editProjectId: null as string | null,
+  pipelineConfigEditor: null as { path: string; name: string } | null,
+} as const;
 
-  newTask: { open: false, projectId: undefined },
-  editProjectId: null,
-  pipelineConfigEditor: null,
+export const useModalStore = create<ModalState>((set, get) => ({
+  ...MODAL_INITIAL_STATE,
+  // onboarding만 런타임 결정 — 이전에 완료하지 않았으면 true
+  onboarding: !localStorage.getItem(ONBOARDED_KEY),
 
   open: (name) => set({ [name]: true } as Pick<ModalState, SimpleModal>),
   close: (name) => set({ [name]: false } as Pick<ModalState, SimpleModal>),

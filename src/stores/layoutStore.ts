@@ -27,11 +27,16 @@ interface LayoutState {
   setIsResizing: (v: boolean) => void;
 }
 
-export const useLayoutStore = create<LayoutState>((set) => ({
+/** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
+export const LAYOUT_INITIAL_STATE = {
   showSidebar: true,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   showRightPanel: true,
   isResizing: false,
+} as const;
+
+export const useLayoutStore = create<LayoutState>((set) => ({
+  ...LAYOUT_INITIAL_STATE,
 
   toggleSidebar: () => set((s) => ({ showSidebar: !s.showSidebar })),
   setShowSidebar: (v) => set({ showSidebar: v }),

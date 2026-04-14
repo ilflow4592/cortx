@@ -1,25 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useModalStore } from '../../src/stores/modalStore';
+import { useModalStore, MODAL_INITIAL_STATE } from '../../src/stores/modalStore';
 
 describe('useModalStore', () => {
   beforeEach(() => {
-    // 각 테스트 전 상태 초기화
-    useModalStore.setState({
-      newProject: false,
-      settings: false,
-      report: false,
-      onboarding: false,
-      crashRecovery: false,
-      costDashboard: false,
-      worktreeCleanup: false,
-      mcpManager: false,
-      slashBuilder: false,
-      updateChecker: false,
-      commandPalette: false,
-      newTask: { open: false, projectId: undefined },
-      editProjectId: null,
-      pipelineConfigEditor: null,
-    });
+    // MODAL_INITIAL_STATE를 사용 — 신규 필드 추가 시 테스트가 자동 따라감 (drift 방지)
+    useModalStore.setState(MODAL_INITIAL_STATE);
   });
 
   describe('open/close simple modals', () => {

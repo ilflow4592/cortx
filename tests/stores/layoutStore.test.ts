@@ -1,14 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useLayoutStore } from '../../src/stores/layoutStore';
+import { useLayoutStore, LAYOUT_INITIAL_STATE } from '../../src/stores/layoutStore';
 
 describe('useLayoutStore', () => {
   beforeEach(() => {
-    useLayoutStore.setState({
-      showSidebar: true,
-      sidebarWidth: 260,
-      showRightPanel: true,
-      isResizing: false,
-    });
+    useLayoutStore.setState(LAYOUT_INITIAL_STATE);
   });
 
   describe('setSidebarWidth clamps', () => {
