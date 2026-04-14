@@ -4,10 +4,10 @@ import { useTaskStore } from '../../stores/taskStore';
 import type { ContextItem } from '../../types/contextPack';
 import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../../types/task';
 import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../../constants/pipeline';
-import { isClaudeActiveInTerminal } from '../../utils/terminalState';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
+import { handleBuiltinCommand } from './builtinCommands';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -238,129 +238,36 @@ export function useClaudeSession(
     return cleaned;
   };
 
-  // Handle built-in CLI commands locally (e.g. /mcp, /clear, /help, /cost, /model, /status)
-  const handleBuiltinCommand = async (text: string): Promise<boolean> => {
+  // Built-in 커맨드 디스패처 — 실제 핸들러는 builtinCommands.ts에 위치
+  const tryHandleBuiltinCommand = async (text: string): Promise<boolean> => {
     const cmd = text.slice(1).split(/\s+/)[0]?.toLowerCase();
     if (!cmd) return false;
 
     const msgId = Date.now().toString(36);
     const userMsg: Message = { id: msgId, role: 'user', content: text };
     const sysMsg = (content: string) => {
-      setMessages((prev) => [...prev, userMsg, { id: `${msgId}-sys`, role: 'activity', content, toolName: `/${cmd}` }]);
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        { id: `${msgId}-sys`, role: 'activity', content, toolName: `/${cmd}` },
+      ]);
     };
 
-    switch (cmd) {
-      case 'mcp': {
-        // Switch to terminal tab and send /mcp command
-        const ptyId = `term-${taskId}`;
-        onSwitchTab?.('terminal');
-        // Check if Claude CLI is already running in the terminal
-        const claudeRunning = isClaudeActiveInTerminal(taskId);
-        const mcpCmd = claudeRunning ? '/mcp\r' : 'claude /mcp\r';
-        // Small delay to ensure terminal is mounted and PTY is ready
-        setTimeout(() => {
-          invoke('pty_write', { id: ptyId, data: mcpCmd }).catch(() => {});
-        }, 300);
-        return true;
-      }
-
-      case 'clear': {
-        // If running, stop the process first
-        if (loading && currentReqIdRef.current) {
-          invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
-          unlistenRefs.current.forEach((fn) => fn());
-          unlistenRefs.current = [];
-        }
-        setLoading(false);
-        setMessages([]);
-        messageCache.set(taskId, []);
-        loadingCache.delete(taskId);
-        sessionCache.delete(taskId);
-        claudeSessionIdRef.current = '';
-        // Reset task status to waiting, clear pipeline, and reset timer
-        useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
-        return true;
-      }
-
-      case 'cost': {
-        const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        if (!task?.pipeline?.enabled) {
-          sysMsg('No pipeline active — token tracking is only available during pipeline runs.');
-        } else {
-          const phases = task.pipeline.phases;
-          let totalIn = 0,
-            totalOut = 0,
-            totalCost = 0;
-          const rows = PHASE_ORDER.filter((p) => phases[p]?.inputTokens || phases[p]?.outputTokens).map((p) => {
-            const e = phases[p];
-            const inT = e.inputTokens || 0;
-            const outT = e.outputTokens || 0;
-            const cost = e.costUsd || 0;
-            totalIn += inT;
-            totalOut += outT;
-            totalCost += cost;
-            return `| ${PHASE_NAMES[p]} | ${inT.toLocaleString()} | ${outT.toLocaleString()} | $${cost.toFixed(4)} |`;
-          });
-          if (rows.length === 0) {
-            sysMsg('No token usage recorded yet.');
-          } else {
-            const table = `| Phase | Input | Output | Cost |\n|---|---|---|---|\n${rows.join('\n')}\n| **Total** | **${totalIn.toLocaleString()}** | **${totalOut.toLocaleString()}** | **$${totalCost.toFixed(4)}** |`;
-            sysMsg(table);
-          }
-        }
-        return true;
-      }
-
-      case 'help': {
-        const builtinHelp = [
-          '`/mcp` — Show configured MCP servers',
-          '`/clear` — Clear chat messages',
-          '`/cost` — Show token usage per pipeline phase',
-          '`/help` — Show this help',
-          '`/model` — Show current model',
-          '`/status` — Show session status',
-        ];
-        const pipelineCmds = slashCommands
-          .filter((c) => c.name.startsWith('pipeline:'))
-          .map((c) => `\`/${c.name}\` — ${c.description}`);
-        const customCmds = slashCommands
-          .filter((c) => c.source !== 'builtin' && !c.name.startsWith('pipeline:'))
-          .map((c) => `\`/${c.name}\` — ${c.description}`);
-
-        let content = `**Built-in Commands**\n${builtinHelp.join('\n')}`;
-        if (pipelineCmds.length > 0) content += `\n\n**Pipeline Commands**\n${pipelineCmds.join('\n')}`;
-        if (customCmds.length > 0) content += `\n\n**Custom Commands**\n${customCmds.join('\n')}`;
-        sysMsg(content);
-        return true;
-      }
-
-      case 'model': {
-        const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        const isImpl = task?.pipeline?.phases?.implement?.status === 'in_progress';
-        const model = isImpl ? 'claude-sonnet-4-6 (Implement phase)' : 'claude-opus-4-6 (default)';
-        sysMsg(`**Current model:** ${model}`);
-        return true;
-      }
-
-      case 'status': {
-        const hasSession = !!(claudeSessionIdRef.current || sessionCache.get(taskId));
-        const msgCount = messagesRef.current.length;
-        const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        const pipelineStatus = task?.pipeline?.enabled
-          ? PHASE_ORDER.find((p) => task.pipeline!.phases[p]?.status === 'in_progress') || 'idle'
-          : 'disabled';
-        sysMsg(
-          `**Session:** ${hasSession ? 'active' : 'none'}\n` +
-            `**Messages:** ${msgCount}\n` +
-            `**Pipeline:** ${pipelineStatus === 'disabled' ? 'disabled' : `active (${PHASE_NAMES[pipelineStatus as PipelinePhase] || pipelineStatus})`}\n` +
-            `**CWD:** ${cwd || '/'}`,
-        );
-        return true;
-      }
-
-      default:
-        return false;
-    }
+    return handleBuiltinCommand({
+      taskId,
+      cwd,
+      cmd,
+      slashCommands,
+      loading,
+      messagesRef,
+      claudeSessionIdRef,
+      currentReqIdRef,
+      unlistenRefs,
+      setMessages,
+      setLoading,
+      sysMsg,
+      onSwitchTab,
+    });
   };
 
   const resolveSlashCommand = async (text: string): Promise<string> => {
@@ -443,7 +350,7 @@ export function useClaudeSession(
 
     // Intercept built-in commands before sending to Claude
     if (text.startsWith('/')) {
-      const handled = await handleBuiltinCommand(text);
+      const handled = await tryHandleBuiltinCommand(text);
       if (handled) return;
     }
 
