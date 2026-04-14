@@ -9,16 +9,26 @@
  * Persistence: 자체 persist() 메서드로 localStorage에 저장.
  */
 import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
-import { collectGitHub } from '../services/contextCollectors/github';
-import { collectSlack } from '../services/contextCollectors/slack';
-import { collectNotion } from '../services/contextCollectors/notion';
-import { collectViaMcp } from '../services/contextCollectors/mcpSearch';
+import {
+  runPhase1,
+  runPhase2GitHub,
+  extractRegexKeywords,
+  extractSemanticKeywords,
+  mergeKeywords,
+  rankByKeywordMatch,
+  filterByVectorSearch,
+  type ProgressUpdater,
+} from '../services/contextCollection';
+import { detectServiceType } from '../config/searchResources';
+
+// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 const STORAGE_KEY = 'cortx-context-pack';
-
-import { detectServiceType, isSearchableService } from '../config/searchResources';
 
 export interface McpServerStatus {
   name: string;
@@ -106,24 +116,6 @@ interface ContextPackState {
   // Persistence
   loadState: () => void;
   persist: () => void;
-}
-
-/** Notion/Slack에서 수집한 아이템에서 JIRA 티켓 ID, 브랜치명, PR 번호를 정규식으로 추출 */
-function extractKeywordsFromItems(items: ContextItem[]): string[] {
-  const keywords = new Set<string>();
-  for (const item of items) {
-    const text = `${item.title} ${item.summary}`;
-    // Ticket IDs: BE-1390, FE-123, PROJ-456, etc.
-    const tickets = text.match(/[A-Z]{2,}-\d+/g);
-    if (tickets) tickets.forEach((t) => keywords.add(t));
-    // Branch-like patterns: feat/xxx, fix/xxx, hotfix/xxx
-    const branches = text.match(/(?:feat|fix|hotfix|chore|refactor)\/[^\s,)]+/g);
-    if (branches) branches.forEach((b) => keywords.add(b));
-    // PR references: #1234
-    const prs = text.match(/#(\d{3,})/g);
-    if (prs) prs.forEach((p) => keywords.add(p));
-  }
-  return [...keywords].slice(0, 10); // Limit to avoid too many queries
 }
 
 /** 스냅샷 비교용 해시. title+summary+timestamp로 아이템 변경 여부를 판단 */
@@ -309,232 +301,101 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
   },
 
   /**
-   * 2-phase 컨텍스트 수집 파이프라인.
-   * Phase 1: Notion/Slack을 병렬 수집 → 티켓 ID, 브랜치명 등 키워드 추출.
-   * Phase 2: 추출된 키워드로 GitHub PR/이슈 검색 (더 정확한 결과).
-   * 수집 후 벡터 DB에 저장하고 시맨틱 필터링으로 관련도 높은 아이템만 유지.
+   * 2-phase 컨텍스트 수집 파이프라인 오케스트레이터.
+   *
+   * 실제 수집/키워드/필터 로직은 `services/contextCollection`에 위치하고,
+   * 여기서는 store 상태(progress·abort·history) 조율만 담당한다.
    */
   collectAll: async (taskId, branchName, slackChannels, taskTitle, overrideSources, model) => {
     const state = get();
-    if (state.collecting[taskId]) return; // 해당 task 중복 실행 방지
+    if (state.collecting[taskId]) return;
 
     const enabledSources = (overrideSources || state.sources).filter((s) => s.enabled);
-    const progress: SourceCollectStatus[] = enabledSources.map((s) => ({
-      type: s.type,
-      status: 'pending',
-      itemCount: 0,
-    }));
-
     const abort = new AbortController();
     const startTime = Date.now();
+
     set((s) => ({
       collecting: { ...s.collecting, [taskId]: true },
       collectAborts: { ...s.collectAborts, [taskId]: abort },
       collectProgresses: {
         ...s.collectProgresses,
-        [taskId]: progress.map((p) => ({ ...p, status: 'collecting' as const })),
+        [taskId]: enabledSources.map((src) => ({
+          type: src.type,
+          status: 'collecting',
+          itemCount: 0,
+        })),
       },
     }));
-    const kw = state.keywords[taskId] || [];
 
-    // Phase 1: Notion/Slack을 먼저 수집하여 GitHub 검색용 키워드를 추출
-    const nonGithubSources = enabledSources.filter((s) => s.type !== 'github');
-    const githubSources = enabledSources.filter((s) => s.type === 'github');
-
-    const collected: ContextItem[] = [];
-
-    // Run Notion/Slack in parallel
-    if (nonGithubSources.length > 0) {
-      const phase1 = await Promise.allSettled(
-        nonGithubSources.map(async (source) => {
-          if (abort.signal.aborted) return [] as ContextItem[];
-          const idx = enabledSources.indexOf(source);
-          let items: ContextItem[] = [];
-          let tokenUsage: { input: number; output: number } | undefined;
-          if (source.type === 'slack') {
-            if (source.token) {
-              items = await collectSlack(source, kw, slackChannels);
-            } else {
-              const r = await collectViaMcp('slack', kw, '', { model });
-              items = r?.items || [];
-              tokenUsage = r?.tokenUsage;
-            }
-          } else if (source.type === 'notion') {
-            if (source.token) {
-              items = await collectNotion(source, kw, taskTitle);
-            } else {
-              const r = await collectViaMcp('notion', kw, '', { model });
-              items = r?.items || [];
-              tokenUsage = r?.tokenUsage;
-            }
-          } else if (isSearchableService(source.type)) {
-            // 레지스트리에 등록된 MCP 서비스 — 범용 수집
-            const r = await collectViaMcp(source.type, kw, '', { model });
-            items = r?.items || [];
-            tokenUsage = r?.tokenUsage;
-          }
-          if (abort.signal.aborted) return [] as ContextItem[];
-          set((s) => ({
-            collectProgresses: {
-              ...s.collectProgresses,
-              [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
-                i === idx ? { ...p, status: 'done', itemCount: (items || []).length, tokenUsage } : p,
-              ),
-            },
-          }));
-          return items || [];
-        }),
-      );
-
-      for (let i = 0; i < phase1.length; i++) {
-        const r = phase1[i];
-        if (r.status === 'fulfilled') {
-          collected.push(...r.value);
-        } else {
-          const idx = enabledSources.indexOf(nonGithubSources[i]);
-          set((s) => ({
-            collectProgresses: {
-              ...s.collectProgresses,
-              [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
-                j === idx ? { ...p, status: 'error', error: String(r.reason) } : p,
-              ),
-            },
-          }));
-        }
-      }
-    }
-
-    if (abort.signal.aborted) return;
-
-    // Phase 2: Phase 1 결과에서 키워드를 추출한 뒤 GitHub 검색
-    if (githubSources.length > 0) {
-      // 정규식 기반 추출 (빠르고 안정적)
-      const regexKeywords = extractKeywordsFromItems(collected);
-
-      // Ollama 임베딩 기반 시맨틱 키워드 추출 (선택적, Ollama 미실행 시 skip)
-      let semanticKeywords: string[] = [];
-      if (collected.length > 0) {
-        try {
-          const vs = await import('../services/vectorSearch');
-          const texts = collected.map((item) => `${item.title} ${item.summary}`);
-          const query = kw.join(' ') || taskTitle || '';
-          semanticKeywords = await vs.extractKeywords(query, texts, 5);
-        } catch {
-          // Ollama not available — use regex only
-        }
-      }
-
-      // 사용자 키워드 + 정규식 키워드 + 시맨틱 키워드를 합쳐서 중복 제거
-      const githubKw = [...new Set([...kw, ...regexKeywords, ...semanticKeywords])];
-      console.log('[cortx] GitHub search with keywords:', {
-        original: kw,
-        regex: regexKeywords,
-        semantic: semanticKeywords,
-        final: githubKw,
-      });
-
-      const phase2 = await Promise.allSettled(
-        githubSources.map(async (source) => {
-          if (abort.signal.aborted) return [] as ContextItem[];
-          const idx = enabledSources.indexOf(source);
-          let items: ContextItem[] = [];
-          if (source.token && source.owner && source.repo) {
-            items = await collectGitHub(source, githubKw, branchName);
-          } else {
-            const r = await collectViaMcp('github', githubKw, '', { owner: source.owner, repo: source.repo, model });
-            items = r?.items || [];
-          }
-          if (abort.signal.aborted) return [] as ContextItem[];
-          set((s) => ({
-            collectProgresses: {
-              ...s.collectProgresses,
-              [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
-                i === idx ? { ...p, status: 'done', itemCount: (items || []).length } : p,
-              ),
-            },
-          }));
-          return items || [];
-        }),
-      );
-
-      for (let i = 0; i < phase2.length; i++) {
-        const r = phase2[i];
-        if (r.status === 'fulfilled') {
-          collected.push(...r.value);
-        } else {
-          const idx = enabledSources.indexOf(githubSources[i]);
-          set((s) => ({
-            collectProgresses: {
-              ...s.collectProgresses,
-              [taskId]: (s.collectProgresses[taskId] || []).map((p, j) =>
-                j === idx ? { ...p, status: 'error', error: String(r.reason) } : p,
-              ),
-            },
-          }));
-        }
-      }
-    }
-
-    if (abort.signal.aborted) return;
-
-    // 키워드가 제목에 포함된 아이템을 상위로 정렬 (간단한 relevance ranking)
-    const sorted =
-      kw.length > 0
-        ? [...collected].sort((a, b) => {
-            const aTitle = kw.some((k) => a.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
-            const bTitle = kw.some((k) => b.title.toLowerCase().includes(k.toLowerCase())) ? 0 : 1;
-            return aTitle - bTitle;
-          })
-        : collected;
-
-    // 벡터 DB 저장 + 시맨틱 필터링 (Ollama/Qdrant 미실행 시 전체 아이템 사용)
-    let relevant = sorted;
-    try {
-      const vs = await import('../services/vectorSearch');
-      const vectorItems = collected.map((item) => ({
-        id: item.id,
-        taskId,
-        sourceType: item.sourceType,
-        title: item.title,
-        content: item.metadata?.fullText || item.summary || item.title,
-        url: item.url,
-        timestamp: item.timestamp,
+    // 서비스 계층에 넘길 progress updater — store 구조 의존을 격리
+    const onProgress: ProgressUpdater = (sourceIdx, patch) => {
+      set((s) => ({
+        collectProgresses: {
+          ...s.collectProgresses,
+          [taskId]: (s.collectProgresses[taskId] || []).map((p, i) =>
+            i === sourceIdx ? { ...p, ...patch } : p,
+          ),
+        },
       }));
-      await vs.storeContextBatch(vectorItems);
+    };
 
-      // 아이템이 10개 이상이면 시맨틱 검색으로 상위 15개만 필터링
-      if (taskTitle && collected.length > 10) {
-        const searchResults = await vs.searchContext(taskTitle, 15, taskId);
-        const relevantIds = new Set(searchResults.map((r) => r.id));
-        const filtered = collected.filter((item) => relevantIds.has(item.id));
-        if (filtered.length > 0) relevant = filtered;
-      }
-    } catch {
-      // Vector DB not available — use all collected items
+    const userKw = state.keywords[taskId] || [];
+
+    // Phase 1: Notion/Slack/MCP
+    const phase1Items = await runPhase1(enabledSources, enabledSources, {
+      branchName,
+      slackChannels,
+      taskTitle,
+      model,
+      userKeywords: userKw,
+      abort: abort.signal,
+      onProgress,
+    });
+    if (abort.signal.aborted) return;
+
+    // Phase 2: GitHub — Phase 1 결과에서 키워드 파생 후 검색
+    const githubSources = enabledSources.filter((s) => s.type === 'github');
+    let phase2Items: ContextItem[] = [];
+    if (githubSources.length > 0) {
+      const regex = extractRegexKeywords(phase1Items);
+      const query = userKw.join(' ') || taskTitle || '';
+      const semantic = await extractSemanticKeywords(phase1Items, query);
+      const githubKw = mergeKeywords(userKw, regex, semantic);
+      phase2Items = await runPhase2GitHub(enabledSources, enabledSources, githubKw, {
+        branchName,
+        slackChannels,
+        taskTitle,
+        model,
+        abort: abort.signal,
+        onProgress,
+      });
     }
+    if (abort.signal.aborted) return;
 
-    // pinned 아이템 보존 + 새로 수집된 아이템 병합
+    const collected = [...phase1Items, ...phase2Items];
+
+    // 1차: 키워드 매칭 기반 순위 → 2차: 벡터 필터 (graceful fallback)
+    const ranked = rankByKeywordMatch(collected, userKw);
+    const relevant = await filterByVectorSearch(ranked, taskTitle || '', taskId);
+
+    // pinned 보존 + 신규 아이템 병합 (id 기준 중복 제거, pinned 우선)
     const existing = state.items[taskId] || [];
     const pinned = existing.filter((i) => i.category === 'pinned');
-    const merged = [...pinned, ...relevant];
-
-    // id 기준 중복 제거 (pinned가 먼저이므로 pinned 우선)
-
     const seen = new Set<string>();
-    const deduped = merged.filter((item) => {
+    const deduped = [...pinned, ...relevant].filter((item) => {
       if (seen.has(item.id)) return false;
       seen.add(item.id);
       return true;
     });
 
-    // 수집 이력 기록 (UI에서 과거 수집 결과 조회용, 최대 20건 유지)
+    // 수집 이력 — 최대 20건 유지
     const finalProgress = get().collectProgresses[taskId] || [];
     const historyEntry: CollectHistoryEntry = {
       id: `ch-${Date.now().toString(36)}`,
       taskId,
       timestamp: new Date().toISOString(),
       durationMs: Date.now() - startTime,
-      keywords: kw,
+      keywords: userKw,
       model: model || 'default',
       resources: enabledSources.map((s) => s.type),
       results: finalProgress.map((p) => ({
@@ -557,7 +418,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
       collectHistory: {
         ...s.collectHistory,
-        [taskId]: [...(s.collectHistory[taskId] || []), historyEntry].slice(-20), // keep last 20
+        [taskId]: [...(s.collectHistory[taskId] || []), historyEntry].slice(-20),
       },
     }));
     get().persist();
