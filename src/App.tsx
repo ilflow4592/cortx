@@ -1,14 +1,8 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, lazy, Suspense } from 'react';
 import { Dock } from './components/Dock';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
-import { NewTaskModal } from './components/NewTaskModal';
-import { NewProjectModal } from './components/NewProjectModal';
-import { SettingsModal } from './components/settings/SettingsModal';
-import { DailyReport } from './components/DailyReport';
-import { Onboarding } from './components/Onboarding';
-import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -19,15 +13,40 @@ import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '
 import { useStorePersistence } from './hooks/useStorePersistence';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
-import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
-import { CostDashboard } from './components/CostDashboard';
-import { WorktreeCleanup } from './components/WorktreeCleanup';
-import { PipelineConfigEditor } from './components/PipelineConfigEditor';
-import { McpServerManager } from './components/McpServerManager';
-import { SlashCommandBuilder } from './components/SlashCommandBuilder';
-import { UpdateChecker } from './components/UpdateChecker';
 import { TaskPopoutWindow } from './components/TaskPopoutWindow';
 import { useProjectScan } from './hooks/useProjectScan';
+
+// 모달들은 lazy-load — 실제 열기 전엔 main bundle에 포함되지 않아 1MB chunk 감소.
+// Monaco editor를 쓰는 SlashCommandBuilder가 특히 무거움.
+const NewTaskModal = lazy(() => import('./components/NewTaskModal').then((m) => ({ default: m.NewTaskModal })));
+const NewProjectModal = lazy(() =>
+  import('./components/NewProjectModal').then((m) => ({ default: m.NewProjectModal })),
+);
+const SettingsModal = lazy(() =>
+  import('./components/settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+);
+const DailyReport = lazy(() => import('./components/DailyReport').then((m) => ({ default: m.DailyReport })));
+const Onboarding = lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
+const ProjectSettings = lazy(() =>
+  import('./components/ProjectSettings').then((m) => ({ default: m.ProjectSettings })),
+);
+const CrashRecoveryDialog = lazy(() =>
+  import('./components/CrashRecoveryDialog').then((m) => ({ default: m.CrashRecoveryDialog })),
+);
+const CostDashboard = lazy(() => import('./components/CostDashboard').then((m) => ({ default: m.CostDashboard })));
+const WorktreeCleanup = lazy(() =>
+  import('./components/WorktreeCleanup').then((m) => ({ default: m.WorktreeCleanup })),
+);
+const PipelineConfigEditor = lazy(() =>
+  import('./components/PipelineConfigEditor').then((m) => ({ default: m.PipelineConfigEditor })),
+);
+const McpServerManager = lazy(() =>
+  import('./components/McpServerManager').then((m) => ({ default: m.McpServerManager })),
+);
+const SlashCommandBuilder = lazy(() =>
+  import('./components/SlashCommandBuilder').then((m) => ({ default: m.SlashCommandBuilder })),
+);
+const UpdateChecker = lazy(() => import('./components/UpdateChecker').then((m) => ({ default: m.UpdateChecker })));
 
 // Detect if this window is a task popout (URL query string has ?mode=popout&task=<id>)
 function getPopoutTaskId(): string | null {
@@ -210,12 +229,13 @@ function MainApp() {
   );
 }
 
-/** 조건부 모달 렌더링만 한 곳에 모은다 — App의 return JSX 폭주 방지 */
+/** 조건부 모달 렌더링만 한 곳에 모은다 — App의 return JSX 폭주 방지.
+ *  모든 모달은 lazy chunk로 로드되므로 Suspense fallback은 빈 노드. */
 function ModalRenderer() {
   const modal = useModalStore();
 
   return (
-    <>
+    <Suspense fallback={null}>
       {modal.crashRecovery && <CrashRecoveryDialog onClose={() => modal.close('crashRecovery')} />}
       {modal.costDashboard && <CostDashboard onClose={() => modal.close('costDashboard')} />}
       {modal.worktreeCleanup && <WorktreeCleanup onClose={() => modal.close('worktreeCleanup')} />}
@@ -239,7 +259,7 @@ function ModalRenderer() {
       {modal.editProjectId && (
         <ProjectSettings projectId={modal.editProjectId} onClose={modal.closeEditProject} />
       )}
-    </>
+    </Suspense>
   );
 }
 
