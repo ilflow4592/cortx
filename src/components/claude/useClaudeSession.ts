@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import type { ContextItem } from '../../types/contextPack';
-import type { PipelinePhase, PhaseStatus, PipelineState, PipelinePhaseEntry } from '../../types/task';
-import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES } from '../../constants/pipeline';
+import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
+import { PHASE_KEYS, PHASE_ORDER } from '../../constants/pipeline';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
 import { handleBuiltinCommand } from './builtinCommands';
+import { parsePipelineMarkers, applyPipelineMarkerUpdates } from './pipelineMarkers';
+import { sendNotification } from '../../utils/notification';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -28,16 +30,6 @@ const CORTX_DESCRIPTIONS: Record<string, string> = {
   'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
   'pipeline:dev-resume': '중단된 파이프라인 재개',
 };
-
-function sendNotification(title: string, body: string) {
-  try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body });
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 function serializeContextItems(items: ContextItem[]): string {
   if (items.length === 0) return '';
@@ -176,64 +168,14 @@ export function useClaudeSession(
     return () => clearInterval(interval);
   }, [taskId, messages.length, loading]);
 
-  // Parse pipeline markers from Claude's text output and update task state
-  const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z_]+)(?::([^\]]*))?\]/g;
-  const parsePipelineMarkers = (text: string): string => {
-    let cleaned = text;
-    let match: RegExpExecArray | null;
-    const re = new RegExp(PIPELINE_MARKER_RE.source, 'g');
-    while ((match = re.exec(text)) !== null) {
-      const [fullMatch, key, value, memo] = match;
-      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-      if (!task?.pipeline?.enabled) continue;
-
-      const phases = { ...task.pipeline.phases };
-
-      if (key === 'complexity') {
-        useTaskStore.getState().updateTask(taskId, {
-          pipeline: { ...task.pipeline, complexity: value },
-        });
-      } else if (key === 'pr') {
-        useTaskStore.getState().updateTask(taskId, {
-          pipeline: { ...task.pipeline, prNumber: parseInt(value) || 0, prUrl: memo || '' },
-        });
-      } else if (PHASE_KEYS.has(key as PipelinePhase)) {
-        const phase = key as PipelinePhase;
-        const status = value as PhaseStatus;
-        const now = new Date().toISOString();
-        phases[phase] = {
-          ...phases[phase],
-          status,
-          ...(status === 'in_progress' ? { startedAt: now } : {}),
-          ...(status === 'done' || status === 'skipped' ? { completedAt: now } : {}),
-          ...(memo ? { memo } : {}),
-        };
-        const updates: Partial<PipelineState> = { ...task.pipeline, phases };
-        // Save dev plan from all assistant messages when dev_plan completes
-        if (phase === 'dev_plan' && status === 'done') {
-          const planMessages = messagesRef.current
-            .filter((m) => m.role === 'assistant')
-            .map((m) => m.content)
-            .join('\n\n---\n\n');
-          if (planMessages.length > 50) {
-            const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
-            if (t?.pipeline) {
-              useTaskStore.getState().updateTask(taskId, {
-                pipeline: { ...t.pipeline, devPlan: planMessages },
-              });
-            }
-          }
-        }
-        useTaskStore.getState().updateTask(taskId, { pipeline: updates as PipelineState });
-
-        // macOS notification on phase completion
-        if (status === 'done') {
-          sendNotification('Cortx Pipeline', `${PHASE_NAMES[phase] || phase} completed`);
-        }
-      }
-
-      // Remove marker from display text
-      cleaned = cleaned.replace(fullMatch, '');
+  /**
+   * 스트리밍 텍스트에서 파이프라인 마커를 파싱해 store에 적용하고, 마커가 제거된
+   * 표시용 텍스트를 반환한다. 실제 파싱/적용 로직은 `pipelineMarkers.ts` 순수 함수.
+   */
+  const processPipelineMarkers = (text: string): string => {
+    const { cleaned, updates } = parsePipelineMarkers(text);
+    if (updates.length > 0) {
+      applyPipelineMarkerUpdates(taskId, updates, () => messagesRef.current);
     }
     return cleaned;
   };
@@ -477,9 +419,9 @@ export function useClaudeSession(
               if (!currentMsgId) {
                 turnCounter++;
                 currentMsgId = `${reqId}-turn-${turnCounter}`;
-                response = parsePipelineMarkers(newText).trimStart();
+                response = processPipelineMarkers(newText).trimStart();
               } else {
-                response = parsePipelineMarkers(response + newText).trimStart();
+                response = processPipelineMarkers(response + newText).trimStart();
               }
               const msgId = currentMsgId;
               setMessages((prev) => {
@@ -506,7 +448,7 @@ export function useClaudeSession(
             }
           } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
             // Append to current turn's message
-            response = parsePipelineMarkers(response + evt.delta.text).trimStart();
+            response = processPipelineMarkers(response + evt.delta.text).trimStart();
             if (!currentMsgId) {
               turnCounter++;
               currentMsgId = `${reqId}-turn-${turnCounter}`;
@@ -526,7 +468,7 @@ export function useClaudeSession(
           } else if (evt.type === 'result') {
             // Final result — only add if it differs from current response (avoid duplicates)
             if (evt.result) {
-              const resultText = parsePipelineMarkers(evt.result).trim();
+              const resultText = processPipelineMarkers(evt.result).trim();
               if (resultText && resultText !== response.trim()) {
                 turnCounter++;
                 const resultId = `${reqId}-result`;
@@ -564,7 +506,7 @@ export function useClaudeSession(
           }
         } catch {
           // Not JSON — treat as plain text (fallback), append to current message
-          response = parsePipelineMarkers(response + line + '\n');
+          response = processPipelineMarkers(response + line + '\n');
           if (!currentMsgId) {
             turnCounter++;
             currentMsgId = `${reqId}-turn-${turnCounter}`;
