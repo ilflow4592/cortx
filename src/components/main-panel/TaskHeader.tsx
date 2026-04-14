@@ -6,7 +6,7 @@
 import { Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import type { Task, InterruptReason } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
-import { useContextPackStore } from '../../stores/contextPackStore';
+import { useContextHistoryStore } from '../../stores/contextHistoryStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { formatTime } from '../../utils/time';
 import { useT } from '../../i18n';
@@ -36,7 +36,7 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
           : task.status;
 
   const handleResume = async () => {
-    await useContextPackStore.getState().detectDelta(task.id, task.branchName);
+    await useContextHistoryStore.getState().detectDelta(task.id, task.branchName);
     resumeTask(task.id);
   };
 

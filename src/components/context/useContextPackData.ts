@@ -5,6 +5,7 @@
  * 반복되고 정렬/필터/newCount는 매번 계산되지만 순수 함수라 훅으로 묶어 격리.
  */
 import { useContextPackStore } from '../../stores/contextPackStore';
+import { useContextHistoryStore } from '../../stores/contextHistoryStore';
 import { useMcpStore } from '../../stores/mcpStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -43,7 +44,7 @@ export function useContextPackData(taskId: string): ContextPackData {
   const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId]) || [];
   const sources = useContextPackStore((s) => s.sources);
   const taskItemsRaw = useContextPackStore((s) => s.items[taskId]);
-  const taskDeltaRaw = useContextPackStore((s) => s.deltaItems[taskId]);
+  const taskDeltaRaw = useContextHistoryStore((s) => s.deltaItems[taskId]);
   const lastCollectedAt = useContextPackStore((s) => s.lastCollectedAt[taskId]);
   const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
 

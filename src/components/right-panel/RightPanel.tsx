@@ -8,6 +8,7 @@ import { useTaskStore } from '../../stores/taskStore';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { useProjectStore } from '../../stores/projectStore';
 import { useContextPackStore } from '../../stores/contextPackStore';
+import { useContextHistoryStore } from '../../stores/contextHistoryStore';
 import { ProjectFiles } from '../ProjectFiles';
 import { PHASE_ORDER } from '../../constants/pipeline';
 
@@ -50,8 +51,8 @@ export function RightPanel({
   // Subscribe only to the specific task's data to avoid infinite re-renders
   const task = tasks.find((t) => t.id === activeTaskId);
   const taskItemsRaw = useContextPackStore((s) => (task ? s.items[task.id] : undefined));
-  const taskDeltaRaw = useContextPackStore((s) => (task ? s.deltaItems[task.id] : undefined));
-  const taskHistory = useContextPackStore((s) => (task ? s.collectHistory[task.id] : undefined)) || [];
+  const taskDeltaRaw = useContextHistoryStore((s) => (task ? s.deltaItems[task.id] : undefined));
+  const taskHistory = useContextHistoryStore((s) => (task ? s.collectHistory[task.id] : undefined)) || [];
 
   if (!task) return <div className="right-panel" />;
 

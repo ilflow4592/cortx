@@ -1,6 +1,6 @@
 import { useState, useCallback, lazy, Suspense } from 'react';
 import { useTaskStore } from '../stores/taskStore';
-import { useContextPackStore } from '../stores/contextPackStore';
+import { useContextHistoryStore } from '../stores/contextHistoryStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { ClaudeChat } from './claude/ClaudeChat';
 import { ContextPack } from './context/ContextPack';
@@ -48,7 +48,7 @@ export function MainPanel() {
   const projects = useProjectStore((s) => s.projects);
   const t = useT();
   const task = tasks.find((task) => task.id === activeTaskId);
-  const taskDeltaCount = useContextPackStore((s) => (s.deltaItems[task?.id || ''] || []).length);
+  const taskDeltaCount = useContextHistoryStore((s) => (s.deltaItems[task?.id || ''] || []).length);
   const taskProject = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const taskCwd = task?.worktreePath || task?.repoPath || taskProject?.localPath || '';
 
@@ -112,7 +112,7 @@ export function MainPanel() {
   }
 
   const handlePauseConfirm = (reason: InterruptReason, memo: string) => {
-    useContextPackStore.getState().takeSnapshot(task.id);
+    useContextHistoryStore.getState().takeSnapshot(task.id);
     pauseWithReason(task.id, reason, memo);
     setShowPause(false);
   };

@@ -5,11 +5,11 @@
  * 수집 파이프라인: Notion/Slack 먼저 수집 → 키워드 추출 → GitHub 검색 (2-phase).
  * 벡터 DB(Ollama 임베딩)를 통한 시맨틱 필터링도 지원하며, 실패 시 graceful fallback.
  *
- * Snapshot/Delta: 작업 중단 시 스냅샷을 찍고, 재개 시 변경분만 감지하여 표시.
+ * Snapshot/Delta/History는 contextHistoryStore로 분리됨 (별도 persistence key).
  * Persistence: 자체 persist() 메서드로 localStorage에 저장.
  */
 import { create } from 'zustand';
-import type { ContextItem, ContextSnapshot, ContextSourceConfig } from '../types/contextPack';
+import type { ContextItem, ContextSourceConfig } from '../types/contextPack';
 import {
   runPhase1,
   runPhase2GitHub,
@@ -20,11 +20,14 @@ import {
   filterByVectorSearch,
   type ProgressUpdater,
 } from '../services/contextCollection';
+import { useContextHistoryStore, type CollectHistoryEntry } from './contextHistoryStore';
 
 // MCP 관련 상태는 별도 store(mcpStore)로 분리됨 — 수집 관심사와 무관.
 // 기존 `import { McpServerStatus } from '../stores/contextPackStore'`는
 // re-export로 뒤로 호환.
 export type { McpServerStatus } from './mcpStore';
+// History entry 타입은 history store로 이동했지만, 기존 import 경로 호환을 위해 re-export.
+export type { CollectHistoryEntry } from './contextHistoryStore';
 
 const STORAGE_KEY = 'cortx-context-pack';
 
@@ -37,31 +40,14 @@ export interface SourceCollectStatus {
   tokenUsage?: { input: number; output: number };
 }
 
-/** 수집 이력 기록. 어떤 소스에서 몇 개의 아이템을 몇 초 만에 수집했는지 추적 */
-export interface CollectHistoryEntry {
-  id: string;
-  taskId: string;
-  timestamp: string;
-  durationMs: number;
-  keywords: string[];
-  model: string;
-  resources: string[];
-  results: { type: string; itemCount: number; tokenUsage?: { input: number; output: number }; error?: string }[];
-  totalItems: number;
-  totalTokens: number;
-}
-
 interface ContextPackState {
   items: Record<string, ContextItem[]>;
-  snapshots: Record<string, ContextSnapshot>;
   sources: ContextSourceConfig[];
   keywords: Record<string, string[]>;
   collecting: Record<string, boolean>; // per-task collecting state
   collectAborts: Record<string, AbortController>; // per-task abort controllers
   collectProgresses: Record<string, SourceCollectStatus[]>; // per-task progress
   lastCollectedAt: Record<string, string>;
-  collectHistory: Record<string, CollectHistoryEntry[]>; // taskId -> history
-  deltaItems: Record<string, ContextItem[]>; // items changed since pause
 
   // Actions
   addPin: (taskId: string, item: ContextItem) => void;
@@ -84,43 +70,24 @@ interface ContextPackState {
     overrideSources?: ContextSourceConfig[],
     model?: string,
   ) => Promise<void>;
-  takeSnapshot: (taskId: string) => void;
-  detectDelta: (taskId: string, branchName: string) => Promise<void>;
 
   // Persistence
   loadState: () => void;
   persist: () => void;
 }
 
-/** 스냅샷 비교용 해시. title+summary+timestamp로 아이템 변경 여부를 판단 */
-function hashItem(item: ContextItem): string {
-  return `${item.title}|${item.summary}|${item.timestamp}`;
-}
-
 /** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
 export const CONTEXT_PACK_INITIAL_STATE: Pick<
   ContextPackState,
-  | 'items'
-  | 'snapshots'
-  | 'sources'
-  | 'keywords'
-  | 'collecting'
-  | 'collectAborts'
-  | 'collectProgresses'
-  | 'lastCollectedAt'
-  | 'collectHistory'
-  | 'deltaItems'
+  'items' | 'sources' | 'keywords' | 'collecting' | 'collectAborts' | 'collectProgresses' | 'lastCollectedAt'
 > = {
   items: {},
-  snapshots: {},
   sources: [],
   keywords: {},
   collecting: {},
   collectAborts: {},
   collectProgresses: {},
   lastCollectedAt: {},
-  collectHistory: {},
-  deltaItems: {},
 };
 
 export const useContextPackStore = create<ContextPackState>((set, get) => ({
@@ -200,7 +167,8 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
    * 2-phase 컨텍스트 수집 파이프라인 오케스트레이터.
    *
    * 실제 수집/키워드/필터 로직은 `services/contextCollection`에 위치하고,
-   * 여기서는 store 상태(progress·abort·history) 조율만 담당한다.
+   * 여기서는 store 상태(progress·abort) 조율만 담당한다. 수집 이력은
+   * contextHistoryStore로 위임.
    */
   collectAll: async (taskId, branchName, slackChannels, taskTitle, overrideSources, model) => {
     const state = get();
@@ -282,7 +250,7 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       return true;
     });
 
-    // 수집 이력 — 최대 20건 유지
+    // 수집 이력 — history store에 위임
     const finalProgress = get().collectProgresses[taskId] || [];
     const historyEntry: CollectHistoryEntry = {
       id: `ch-${Date.now().toString(36)}`,
@@ -310,75 +278,13 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       collecting: { ...s.collecting, [taskId]: false },
       collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
       lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
-      collectHistory: {
-        ...s.collectHistory,
-        [taskId]: [...(s.collectHistory[taskId] || []), historyEntry].slice(-20),
-      },
     }));
+    useContextHistoryStore.getState().appendHistory(taskId, historyEntry);
     get().persist();
   },
 
-  // 작업 중단(pause) 시 현재 컨텍스트 상태를 스냅샷으로 저장. 재개 시 delta 비교용
-  takeSnapshot: (taskId) => {
-    const items = get().items[taskId] || [];
-    const snapshot: ContextSnapshot = {
-      taskId,
-      takenAt: new Date().toISOString(),
-      itemIds: items.map((i) => i.id),
-      itemHashes: Object.fromEntries(items.map((i) => [i.id, hashItem(i)])),
-    };
-    set((s) => ({
-      snapshots: { ...s.snapshots, [taskId]: snapshot },
-      deltaItems: { ...s.deltaItems, [taskId]: [] },
-    }));
-    get().persist();
-  },
-
-  /**
-   * 작업 재개 시 delta 감지: 새로 수집한 데이터를 이전 스냅샷과 비교하여
-   * 새로 추가되거나 변경된 아이템에 isNew 플래그를 붙인다.
-   */
-  detectDelta: async (taskId, branchName) => {
-    const state = get();
-    const snapshot = state.snapshots[taskId];
-
-    // 먼저 최신 데이터 수집
-    await get().collectAll(taskId, branchName);
-
-    if (!snapshot) {
-      // 스냅샷이 없으면 delta 비교 불가
-      return;
-    }
-
-    const currentItems = get().items[taskId] || [];
-    const delta: ContextItem[] = [];
-
-    for (const item of currentItems) {
-      const oldHash = snapshot.itemHashes[item.id];
-      if (!oldHash) {
-        // 스냅샷 이후 새로 추가된 아이템
-        delta.push({ ...item, isNew: true });
-      } else if (oldHash !== hashItem(item)) {
-        // 스냅샷 이후 내용이 변경된 아이템
-        delta.push({ ...item, isNew: true });
-      }
-    }
-
-    // 메인 목록에서 변경된 아이템에 isNew 표시
-    set((s) => ({
-      items: {
-        ...s.items,
-        [taskId]: currentItems.map((item) => ({
-          ...item,
-          isNew: delta.some((d) => d.id === item.id),
-        })),
-      },
-      deltaItems: { ...s.deltaItems, [taskId]: delta },
-    }));
-    get().persist();
-  },
-
-  // localStorage에서 복원. 각 필드에 기본값을 두어 이전 스키마 데이터와 호환
+  // localStorage에서 복원. 각 필드에 기본값을 두어 이전 스키마 데이터와 호환.
+  // snapshots/collectHistory/deltaItems는 contextHistoryStore가 로드.
   loadState: () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -386,12 +292,9 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         const data = JSON.parse(raw);
         set({
           items: data.items || {},
-          snapshots: data.snapshots || {},
           sources: data.sources || [],
           keywords: data.keywords || {},
           lastCollectedAt: data.lastCollectedAt || {},
-          collectHistory: data.collectHistory || {},
-          deltaItems: data.deltaItems || {},
         });
       }
     } catch {
@@ -399,19 +302,17 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     }
   },
 
-  // 런타임 전용 필드(isCollecting, collectAbort, collectProgress)는 직렬화에서 제외
+  // 런타임 전용 필드(collecting, collectAborts, collectProgresses)는 직렬화에서 제외.
+  // history 관련 필드는 contextHistoryStore가 별도 key로 persist.
   persist: () => {
     const s = get();
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         items: s.items,
-        snapshots: s.snapshots,
         sources: s.sources,
         keywords: s.keywords,
         lastCollectedAt: s.lastCollectedAt,
-        collectHistory: s.collectHistory,
-        deltaItems: s.deltaItems,
       }),
     );
   },

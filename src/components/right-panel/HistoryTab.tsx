@@ -1,4 +1,4 @@
-import type { CollectHistoryEntry } from '../../stores/contextPackStore';
+import type { CollectHistoryEntry } from '../../stores/contextHistoryStore';
 
 export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[] }) {
   return (

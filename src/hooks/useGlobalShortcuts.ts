@@ -6,7 +6,7 @@
  */
 
 import { useTaskStore } from '../stores/taskStore';
-import { useContextPackStore } from '../stores/contextPackStore';
+import { useContextHistoryStore } from '../stores/contextHistoryStore';
 
 /**
  * 전역 단축키를 등록한다.
@@ -24,7 +24,7 @@ export async function registerShortcuts() {
       const state = useTaskStore.getState();
       const active = state.tasks.find((t) => t.status === 'active');
       if (active) {
-        useContextPackStore.getState().takeSnapshot(active.id);
+        useContextHistoryStore.getState().takeSnapshot(active.id);
         state.setTaskStatus(active.id, 'paused');
       }
     });
@@ -36,7 +36,7 @@ export async function registerShortcuts() {
       if (activeId) {
         const task = state.tasks.find((t) => t.id === activeId);
         if (task && task.status === 'paused') {
-          useContextPackStore.getState().detectDelta(activeId, task.branchName);
+          useContextHistoryStore.getState().detectDelta(activeId, task.branchName);
           state.setTaskStatus(activeId, 'active');
         } else if (task && task.status === 'waiting') {
           state.startTask(activeId);
