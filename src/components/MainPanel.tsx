@@ -1,9 +1,8 @@
-import { useState, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { ClaudeChat } from './claude/ClaudeChat';
-import { TerminalView } from './TerminalView';
 import { ContextPack } from './context/ContextPack';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './right-panel/RightPanel';
@@ -18,6 +17,8 @@ import { TaskTabBar, type MainTab, type TabDef } from './main-panel/TaskTabBar';
 // Monaco editor는 ~600KB라 lazy chunk로 분리 — 사용자가 editor 탭 열기 전까지 로드 안함
 const CodeEditor = lazy(() => import('./CodeEditor').then((m) => ({ default: m.CodeEditor })));
 const DiffEditorView = lazy(() => import('./DiffEditor').then((m) => ({ default: m.DiffEditorView })));
+// xterm은 ~344KB — Terminal 탭 활성 전엔 로드하지 않음
+const TerminalView = lazy(() => import('./TerminalView').then((m) => ({ default: m.TerminalView })));
 
 // Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -28,6 +29,11 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 export function MainPanel() {
   const showRightPanel = useLayoutStore((s) => s.showRightPanel);
   const [activeTab, setActiveTab] = useState<MainTab>('claude');
+  // 한 번 활성화되면 unmount 안 됨 — PTY 세션 유지 + xterm chunk 재로드 방지
+  const [terminalEverActive, setTerminalEverActive] = useState(false);
+  useEffect(() => {
+    if (activeTab === 'terminal') setTerminalEverActive(true);
+  }, [activeTab]);
   const [showPause, setShowPause] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
@@ -152,9 +158,13 @@ export function MainPanel() {
               onSwitchTab={(tab) => setActiveTab(tab as MainTab)}
             />
           </div>
-          <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
-            <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} isActive={activeTab === 'terminal'} />
-          </div>
+          {terminalEverActive && (
+            <div style={{ display: activeTab === 'terminal' ? 'contents' : 'none' }}>
+              <Suspense fallback={<div style={{ padding: 16, color: 'var(--fg-faint)', fontSize: 12 }}>Loading terminal...</div>}>
+                <TerminalView key={task.id} taskId={task.id} worktreePath={taskCwd} isActive={activeTab === 'terminal'} />
+              </Suspense>
+            </div>
+          )}
           <div style={{ display: activeTab === 'context' ? 'contents' : 'none' }}>
             <ContextPack
               key={task.id}
