@@ -4,10 +4,14 @@
  * Validates JSON on save and displays errors inline.
  */
 import { useEffect, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { X, Save, AlertTriangle, FileCode, RotateCcw } from 'lucide-react';
 import { invalidatePipelineConfig } from '../services/pipelineConfig';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 interface Props {
   projectPath: string;

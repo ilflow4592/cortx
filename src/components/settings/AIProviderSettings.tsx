@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { open as openUrl } from '@tauri-apps/plugin-shell';
 import { useSettingsStore, type AIProvider } from '../../stores/settingsStore';
 import { startAnthropicOAuth } from '../../services/oauth';
+
+async function openUrl(url: string): Promise<void> {
+  const mod = await import('@tauri-apps/plugin-shell');
+  await mod.open(url);
+}
 
 interface ProviderConfig {
   value: AIProvider;

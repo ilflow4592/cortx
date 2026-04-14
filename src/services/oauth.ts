@@ -7,8 +7,15 @@
  * 플로우: PKCE 생성 -> 브라우저에서 인증 -> 로컬 콜백 서버로 code 수신 -> token 교환
  */
 
-import { invoke } from '@tauri-apps/api/core';
-import { open as openUrl } from '@tauri-apps/plugin-shell';
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+
+async function openUrl(url: string): Promise<void> {
+  const mod = await import('@tauri-apps/plugin-shell');
+  await mod.open(url);
+}
 
 /** Tauri 백엔드에서 OAuth 콜백을 수신할 로컬 서버 포트 */
 const OAUTH_PORT = 10000;

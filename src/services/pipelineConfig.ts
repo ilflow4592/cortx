@@ -21,7 +21,6 @@
  * src/constants/pipeline.ts. Phase order and total phase set are NOT
  * customizable yet (pipeline skills emit specific phase names).
  */
-import { invoke } from '@tauri-apps/api/core';
 import { useProjectStore } from '../stores/projectStore';
 import { useTaskStore } from '../stores/taskStore';
 import {
@@ -30,6 +29,11 @@ import {
   PHASE_ORDER,
 } from '../constants/pipeline';
 import type { PipelinePhase } from '../types/task';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 export interface PipelineConfig {
   names: Record<PipelinePhase, string>;

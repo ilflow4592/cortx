@@ -6,8 +6,12 @@
  * 없으면 gh CLI를 통해 인증된 요청을 보낸다 (fallback).
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 /**
  * GitHub에서 태스크 관련 컨텍스트를 수집한다.

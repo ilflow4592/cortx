@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useCallback, lazy, Suspense } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useLayoutStore } from '../stores/layoutStore';
@@ -28,12 +28,14 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 export function MainPanel() {
   const showRightPanel = useLayoutStore((s) => s.showRightPanel);
-  const [activeTab, setActiveTab] = useState<MainTab>('claude');
-  // 한 번 활성화되면 unmount 안 됨 — PTY 세션 유지 + xterm chunk 재로드 방지
+  const [activeTab, setActiveTabRaw] = useState<MainTab>('claude');
+  // 한 번 활성화되면 unmount 안 됨 — PTY 세션 유지 + xterm chunk 재로드 방지.
+  // setActiveTabRaw와 동기화하여 effect 회피 (cascading render 방지).
   const [terminalEverActive, setTerminalEverActive] = useState(false);
-  useEffect(() => {
-    if (activeTab === 'terminal') setTerminalEverActive(true);
-  }, [activeTab]);
+  const selectTab = useCallback((tab: MainTab) => {
+    setActiveTabRaw(tab);
+    if (tab === 'terminal') setTerminalEverActive(true);
+  }, []);
   const [showPause, setShowPause] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
@@ -59,11 +61,12 @@ export function MainPanel() {
       });
       if (result.success) {
         setEditorFile({ path: filePath, content: result.output });
-        setActiveTab('editor');
+        selectTab('editor');
       }
     } catch {
       /* skip */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectTab은 stable callback
   }, []);
 
   const handleOpenDiff = useCallback(
@@ -84,12 +87,13 @@ export function MainPanel() {
             content: modResult.output,
             original: origResult.success ? origResult.output : '',
           });
-          setActiveTab('editor');
+          selectTab('editor');
         }
       } catch {
         /* skip */
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectTab은 stable callback
     [taskCwd],
   );
 
@@ -123,7 +127,7 @@ export function MainPanel() {
 
   const closeEditor = () => {
     setEditorFile(null);
-    setActiveTab('claude');
+    selectTab('claude');
   };
 
   return (
@@ -137,13 +141,13 @@ export function MainPanel() {
       {task.status === 'active' && taskDeltaCount > 0 && (
         <div className="delta-banner">
           <span className="delta-banner-text">⚡ {taskDeltaCount} updates while you were away</span>
-          <span className="delta-banner-link" onClick={() => setActiveTab('context')}>
+          <span className="delta-banner-link" onClick={() => selectTab('context')}>
             View changes →
           </span>
         </div>
       )}
 
-      <TaskTabBar tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} onCloseEditor={closeEditor} />
+      <TaskTabBar tabs={tabs} activeTab={activeTab} onSelect={selectTab} onCloseEditor={closeEditor} />
 
       <div
         className="content-split"
@@ -155,7 +159,7 @@ export function MainPanel() {
               key={`${task.id}-${claudeResetKey}`}
               taskId={task.id}
               cwd={taskCwd}
-              onSwitchTab={(tab) => setActiveTab(tab as MainTab)}
+              onSwitchTab={(tab) => selectTab(tab as MainTab)}
             />
           </div>
           {terminalEverActive && (
@@ -169,7 +173,7 @@ export function MainPanel() {
             <ContextPack
               key={task.id}
               taskId={task.id}
-              onSwitchTab={(tab) => setActiveTab(tab as MainTab)}
+              onSwitchTab={(tab) => selectTab(tab as MainTab)}
               isVisible={activeTab === 'context'}
             />
           </div>

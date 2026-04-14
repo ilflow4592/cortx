@@ -8,9 +8,13 @@
  * Notion/Slack: Claude CLI -> MCP 서버 -> JSON 파싱 (토큰 소모 있음)
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceType } from '../../types/contextPack';
 import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 /** MCP 수집 결과 — 아이템 목록 + 토큰 사용량 (Claude CLI 경유 시) */
 export interface McpCollectResult {

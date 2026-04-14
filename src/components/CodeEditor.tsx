@@ -1,7 +1,11 @@
 import { useRef, useCallback } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import { invoke } from '@tauri-apps/api/core';
 import { ArrowLeft } from 'lucide-react';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 const EXT_LANG: Record<string, string> = {
   java: 'java',

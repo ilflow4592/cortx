@@ -1,6 +1,10 @@
 import { useState, lazy, Suspense } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 import { useTaskStore } from '../../stores/taskStore';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { useProjectStore } from '../../stores/projectStore';

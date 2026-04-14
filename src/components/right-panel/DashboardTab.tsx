@@ -1,5 +1,4 @@
 import { type ReactNode } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import {
   CheckCircle2,
   Loader2,
@@ -12,6 +11,11 @@ import {
 import type { PhaseStatus, PipelineState } from '../../types/task';
 import { PHASE_ORDER, PHASE_NAMES, PHASE_MODELS } from '../../constants/pipeline';
 import type { PipelineConfig } from '../../services/pipelineConfig';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 function formatTokens(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Folder, File, ChevronRight, ChevronDown } from 'lucide-react';
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 
 interface TreeNode {
   name: string;
