@@ -1,15 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { FolderOpen, Globe } from 'lucide-react';
-import { useProjectStore } from '../stores/projectStore';
-import { useContextPackStore } from '../stores/contextPackStore';
-import { triggerProjectScan } from '../hooks/useProjectScan';
+import {
+  createProject,
+  cloneAndCreateProject,
+  parseGitHubUrl,
+  deriveProjectName,
+} from '../services/projectCreation';
 
-// Tauri API는 동적 import만 허용 (CLAUDE.md 규칙 + quality gate 훅).
-// 호출 지점마다 반복하지 않도록 래퍼 둘만 정의.
-async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const mod = await import('@tauri-apps/api/core');
-  return mod.invoke<T>(cmd, args);
-}
+// 폴더 선택 다이얼로그만 UI 로컬 관심사 — Tauri plugin-dialog 동적 로드
 async function openDialog(opts: { directory?: boolean; multiple?: boolean; title?: string }) {
   const mod = await import('@tauri-apps/plugin-dialog');
   return mod.open(opts);
@@ -37,66 +35,13 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
     try {
       const selected = await openDialog({ directory: true, multiple: false, title: 'Select project folder' });
       if (selected && typeof selected === 'string') {
-        // Check if it's a git repo
-        const result = await invoke<{ success: boolean; output: string }>('list_worktrees', { repoPath: selected });
-        if (result.success) {
-          createFromPath(selected);
-        } else {
-          // Not a git repo, still add as project
-          createFromPath(selected);
-        }
+        await createProject({ localPath: selected });
+        onClose();
       }
     } catch {
+      // 다이얼로그 취소 또는 서비스 에러 — 상세 입력 폼으로 fallback
       onSelect('open');
     }
-  };
-
-  const addProject = useProjectStore((s) => s.addProject);
-  const addSource = useContextPackStore((s) => s.addSource);
-
-  const createFromPath = (localPath: string) => {
-    const parts = localPath.split('/');
-    const name = parts[parts.length - 1] || 'project';
-
-    // Try to detect GitHub remote
-    invoke<{ success: boolean; output: string }>('list_worktrees', { repoPath: localPath })
-      .then(() => {
-        // Try git remote
-        invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
-          cwd: localPath,
-          command: 'git remote get-url origin',
-        })
-          .then((r) => {
-            let owner = '',
-              repo = '';
-            if (r.success) {
-              const match = r.output.trim().match(/github\.com[:/]([^/]+)\/([^/\s.]+)/);
-              if (match) {
-                owner = match[1];
-                repo = match[2].replace(/\.git$/, '');
-              }
-            }
-            const projectId = addProject(name, localPath, owner, repo);
-            void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
-            if (owner && repo) {
-              const sources = useContextPackStore.getState().sources;
-              if (!sources.some((s) => s.type === 'github' && s.owner === owner && s.repo === repo)) {
-                addSource({ type: 'github', enabled: true, token: '', owner, repo });
-              }
-            }
-            onClose();
-          })
-          .catch(() => {
-            const projectId = addProject(name, localPath, '', '');
-            void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
-            onClose();
-          });
-      })
-      .catch(() => {
-        const projectId = addProject(name, localPath, '', '');
-        void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
-        onClose();
-      });
   };
 
   return (
@@ -168,32 +113,31 @@ function OptionButton({
 
 // ── Open existing project ──
 function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void }) {
-  const addProject = useProjectStore((s) => s.addProject);
   const [localPath, setLocalPath] = useState('');
   const [name, setName] = useState('');
+  const [error, setError] = useState('');
 
   const handleBrowse = async () => {
     try {
       const selected = await openDialog({ directory: true, multiple: false, title: 'Select project folder' });
       if (selected && typeof selected === 'string') {
         setLocalPath(selected);
-        if (!name) {
-          const parts = selected.split('/');
-          setName(parts[parts.length - 1] || '');
-        }
+        if (!name) setName(deriveProjectName(selected));
       }
     } catch {
       /* cancelled */
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!localPath) return;
-    const finalName = name || localPath.split('/').pop() || 'project';
-    const projectId = addProject(finalName, localPath, '', '');
-    void triggerProjectScan({ projectId, projectName: finalName, projectPath: localPath });
-    onClose();
+    try {
+      await createProject({ localPath, name: name || undefined });
+      onClose();
+    } catch (err) {
+      setError(`Failed to add project: ${String(err)}`);
+    }
   };
 
   return (
@@ -214,7 +158,7 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
               value={localPath}
               onChange={(e) => {
                 setLocalPath(e.target.value);
-                if (!name) setName(e.target.value.split('/').pop() || '');
+                if (!name) setName(deriveProjectName(e.target.value));
               }}
               placeholder="/Users/ilya/Dev/my-project"
             />
@@ -237,6 +181,7 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
             </button>
           </div>
         </div>
+        {error && <div className="error-box">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onBack}>
             ← Back
@@ -252,26 +197,15 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
 
 // ── Clone from URL ──
 function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => void }) {
-  const addProject = useProjectStore((s) => s.addProject);
-  const addSource = useContextPackStore((s) => s.addSource);
   const [gitUrl, setGitUrl] = useState('');
   const [cloneLocation, setCloneLocation] = useState('/Users/ilya/cortx/repos');
   const [cloning, setCloning] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
-  // Parse repo name from URL
-  const repoName = (() => {
-    const match = gitUrl.match(/\/([^/\s.]+?)(?:\.git)?$/);
-    return match ? match[1] : '';
-  })();
-
+  // 라이브 프리뷰용 파싱 (UI 전용 — 실제 생성은 서비스 내부에서 재파싱)
+  const { owner: githubOwner, repo: githubRepo, repoName } = parseGitHubUrl(gitUrl);
   const clonePath = repoName ? `${cloneLocation}/${repoName}` : '';
-
-  // Parse GitHub owner/repo
-  const githubMatch = gitUrl.match(/github\.com[:/]([^/]+)\/([^/\s.]+)/);
-  const githubOwner = githubMatch ? githubMatch[1] : '';
-  const githubRepo = githubMatch ? githubMatch[2].replace(/\.git$/, '') : '';
 
   const handleBrowse = async () => {
     try {
@@ -290,36 +224,12 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
     setStatus('Cloning repository...');
 
     try {
-      const result = await invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
-        cwd: cloneLocation,
-        command: `git clone ${gitUrl}`,
-      });
-
-      if (!result.success && !result.error.includes('already exists')) {
-        setError(`Clone failed: ${result.error}`);
-        setCloning(false);
-        setStatus('');
-        return;
-      }
-
-      setStatus('Setting up project...');
-
-      const finalName = repoName || 'project';
-      const projectId = addProject(finalName, clonePath, githubOwner, githubRepo);
-      void triggerProjectScan({ projectId, projectName: finalName, projectPath: clonePath });
-
-      if (githubOwner && githubRepo) {
-        const sources = useContextPackStore.getState().sources;
-        if (!sources.some((s) => s.type === 'github' && s.owner === githubOwner && s.repo === githubRepo)) {
-          addSource({ type: 'github', enabled: true, token: '', owner: githubOwner, repo: githubRepo });
-        }
-      }
-
-      setCloning(false);
+      await cloneAndCreateProject({ gitUrl, cloneLocation });
       setStatus('');
+      setCloning(false);
       onClose();
     } catch (err) {
-      setError(`Error: ${err}`);
+      setError(String(err));
       setCloning(false);
       setStatus('');
     }
