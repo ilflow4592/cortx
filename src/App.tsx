@@ -12,12 +12,14 @@ import { useLayoutStore } from './stores/layoutStore';
 import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from './services/db';
 import { useStorePersistence } from './hooks/useStorePersistence';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { CommandPalette } from './components/CommandPalette';
 import { TaskPopoutWindow } from './components/TaskPopoutWindow';
 import { useProjectScan } from './hooks/useProjectScan';
 
 // 모달들은 lazy-load — 실제 열기 전엔 main bundle에 포함되지 않아 1MB chunk 감소.
-// Monaco editor를 쓰는 SlashCommandBuilder가 특히 무거움.
+// CommandPalette는 cmdk(~185KB) 의존성이라 특히 큼. SlashCommandBuilder는 Monaco 사용.
+const CommandPalette = lazy(() =>
+  import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })),
+);
 const NewTaskModal = lazy(() => import('./components/NewTaskModal').then((m) => ({ default: m.NewTaskModal })));
 const NewProjectModal = lazy(() =>
   import('./components/NewProjectModal').then((m) => ({ default: m.NewProjectModal })),
@@ -223,7 +225,11 @@ function MainApp() {
         <MainPanel />
       </ErrorBoundary>
       <StatusBar />
-      <CommandPalette open={modal.commandPalette} onClose={() => modal.close('commandPalette')} />
+      {modal.commandPalette && (
+        <Suspense fallback={null}>
+          <CommandPalette open={modal.commandPalette} onClose={() => modal.close('commandPalette')} />
+        </Suspense>
+      )}
       <ModalRenderer />
     </div>
   );
