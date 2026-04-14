@@ -142,13 +142,11 @@ async function collectViaClaudeCli(
     if (usageMatch) {
       tokenUsage = { input: parseInt(usageMatch[1]), output: parseInt(usageMatch[2]) };
     }
-    console.log('[cortx:mcp:' + serviceType + '] raw output:', JSON.stringify(output.slice(0, 500)));
     const jsonMatch = output.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       console.warn('[cortx:mcp:' + serviceType + '] no JSON array found in output');
       return { items: [], tokenUsage };
     }
-    console.log('[cortx:mcp:' + serviceType + '] matched JSON:', jsonMatch[0].slice(0, 200));
 
     let parsed: Array<Record<string, string>>;
     try {

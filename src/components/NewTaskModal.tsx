@@ -98,7 +98,6 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
       }
 
       setStatus('Creating worktree...');
-      console.log('[cortx] create_worktree params:', { repoPath, worktreePath, branchName, baseBranch });
 
       try {
         const result = await invoke<{ success: boolean; output: string; error: string }>('create_worktree', {
@@ -107,7 +106,6 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           branchName,
           baseBranch,
         });
-        console.log('[cortx] create_worktree result:', result);
 
         if (!result.success) {
           if (result.error.includes('already exists')) {

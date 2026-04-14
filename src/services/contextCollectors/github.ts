@@ -25,24 +25,9 @@ export async function collectGitHub(
   keywords: string[],
   branchName: string,
 ): Promise<ContextItem[]> {
-  console.log('[cortx:github] config:', {
-    owner: config.owner,
-    repo: config.repo,
-    token: config.token ? 'yes' : 'no',
-    keywords,
-    branchName,
-  });
-  if (!config.owner || !config.repo) {
-    console.log('[cortx:github] skipped: no owner/repo');
-    return [];
-  }
-
-  // If token provided, use direct API. Otherwise try gh CLI.
-  if (config.token) {
-    console.log('[cortx:github] using direct API');
-    return collectWithToken(config, keywords, branchName);
-  }
-  console.log('[cortx:github] using gh CLI fallback');
+  if (!config.owner || !config.repo) return [];
+  // 토큰 있으면 직접 API, 없으면 gh CLI fallback
+  if (config.token) return collectWithToken(config, keywords, branchName);
   return collectWithGhCli(config.owner, config.repo, keywords, branchName);
 }
 
@@ -182,20 +167,10 @@ async function collectWithToken(
 async function ghApi(endpoint: string): Promise<unknown | null> {
   try {
     const escaped = endpoint.replace(/'/g, "'\\''");
-    const cmd = `gh api '${escaped}' 2>/dev/null`;
-    console.log('[cortx:ghApi] cmd:', cmd);
     const result = await invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
       cwd: '/',
-      command: cmd,
+      command: `gh api '${escaped}' 2>/dev/null`,
     });
-    console.log(
-      '[cortx:ghApi] success:',
-      result.success,
-      'output length:',
-      result.output?.length,
-      'error:',
-      result.error?.slice(0, 100),
-    );
     if (result.success && result.output.trim()) {
       return JSON.parse(result.output);
     }
