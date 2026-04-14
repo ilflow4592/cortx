@@ -7,11 +7,13 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use ts_rs::TS;
 
 use super::{ProjectQuality, AUTO_GEN_MARKER};
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, TS)]
 #[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub enum DocGrade {
     Rich,
     Partial,
@@ -19,13 +21,16 @@ pub enum DocGrade {
     Missing,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct DocEntry {
     pub path: String,
     pub grade: DocGrade,
+    #[ts(type = "number")]
     pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub first_h1: Option<String>,
 }
 

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
+use ts_rs::TS;
 
 mod fallback;
 mod grader;
@@ -47,24 +48,27 @@ const MAX_TREE_FILES: usize = 500;
 // ── Types (TS `ProjectMetadata`와 대칭) ─────────────────────────
 // DocGrade / DocEntry는 grader 모듈에서 re-use
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Serialize, Deserialize, Clone, Copy, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "../../src/types/generated/")]
 enum SotStatus {
     Resolved,
     ReferencedButEmpty,
     None,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, TS)]
 #[serde(rename_all = "lowercase")]
-enum ProjectQuality {
+#[ts(export, export_to = "../../src/types/generated/")]
+pub(crate) enum ProjectQuality {
     Rich,
     Partial,
     Sparse,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct ProjectMetadata {
     scanned_at: String,
     scanner_version: u32,
@@ -73,11 +77,13 @@ pub struct ProjectMetadata {
     agents_md: DocEntry,
     ai_docs: Vec<DocEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     sot_doc: Option<String>,
     sot_status: SotStatus,
     context_file_path: String,
     used_fallback: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
     file_count: Option<u64>,
     overall_quality: ProjectQuality,
     auto_generated_files: Vec<String>,
