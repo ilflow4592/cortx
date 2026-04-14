@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
 import { useTaskStore } from '../../stores/taskStore';
@@ -6,8 +6,10 @@ import { messageCache, sessionCache, loadingCache } from '../../utils/chatState'
 import { useProjectStore } from '../../stores/projectStore';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { ProjectFiles } from '../ProjectFiles';
-import { ChangesView } from '../ChangesView';
 import { PHASE_ORDER } from '../../constants/pipeline';
+
+// ChangesView는 Monaco editor 사용 → lazy로 분리해 main bundle에서 제거
+const ChangesView = lazy(() => import('../ChangesView').then((m) => ({ default: m.ChangesView })));
 import { DashboardTab } from './DashboardTab';
 import { WorktreeTab } from './WorktreeTab';
 import { ContextTab } from './ContextTab';
@@ -198,7 +200,9 @@ export function RightPanel({
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {upperTab === 'projects' && <ProjectFiles cwd={cwd} onOpenFile={onOpenFile} />}
           {upperTab === 'changes' && (
-            <ChangesView key={resetKey} cwd={cwd} branchName={branchName} onOpenFile={onOpenDiff} />
+            <Suspense fallback={<div style={{ padding: 16, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
+              <ChangesView key={resetKey} cwd={cwd} branchName={branchName} onOpenFile={onOpenDiff} />
+            </Suspense>
           )}
         </div>
       </div>

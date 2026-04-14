@@ -1,12 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, lazy, Suspense } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { ClaudeChat } from './claude/ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './context/ContextPack';
-import { CodeEditor } from './CodeEditor';
-import { DiffEditorView } from './DiffEditor';
 import { PauseDialog } from './PauseDialog';
 import { RightPanel } from './right-panel/RightPanel';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -16,6 +14,10 @@ import type { InterruptReason } from '../types/task';
 import { TaskHeader } from './main-panel/TaskHeader';
 import { DeleteTaskDialog } from './main-panel/DeleteTaskDialog';
 import { TaskTabBar, type MainTab, type TabDef } from './main-panel/TaskTabBar';
+
+// Monaco editor는 ~600KB라 lazy chunk로 분리 — 사용자가 editor 탭 열기 전까지 로드 안함
+const CodeEditor = lazy(() => import('./CodeEditor').then((m) => ({ default: m.CodeEditor })));
+const DiffEditorView = lazy(() => import('./DiffEditor').then((m) => ({ default: m.DiffEditorView })));
 
 // Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -161,26 +163,28 @@ export function MainPanel() {
               isVisible={activeTab === 'context'}
             />
           </div>
-          {activeTab === 'editor' &&
-            editorFile &&
-            (editorFile.original !== undefined ? (
-              <DiffEditorView
-                key={`diff-${editorFile.path}`}
-                filePath={editorFile.path}
-                original={editorFile.original}
-                modified={editorFile.content}
-                cwd={taskCwd}
-                onBack={closeEditor}
-              />
-            ) : (
-              <CodeEditor
-                key={editorFile.path}
-                filePath={editorFile.path}
-                content={editorFile.content}
-                cwd={taskCwd}
-                onBack={closeEditor}
-              />
-            ))}
+          {activeTab === 'editor' && editorFile && (
+            <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading editor...</div>}>
+              {editorFile.original !== undefined ? (
+                <DiffEditorView
+                  key={`diff-${editorFile.path}`}
+                  filePath={editorFile.path}
+                  original={editorFile.original}
+                  modified={editorFile.content}
+                  cwd={taskCwd}
+                  onBack={closeEditor}
+                />
+              ) : (
+                <CodeEditor
+                  key={editorFile.path}
+                  filePath={editorFile.path}
+                  content={editorFile.content}
+                  cwd={taskCwd}
+                  onBack={closeEditor}
+                />
+              )}
+            </Suspense>
+          )}
         </div>
         {showRightPanel && (
           <div style={{ display: 'flex', overflow: 'hidden', position: 'relative' }}>
