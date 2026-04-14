@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Dock } from './components/Dock';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { MainPanel } from './components/MainPanel';
@@ -12,6 +12,8 @@ import { ProjectSettings } from './components/ProjectSettings';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useModalStore } from './stores/modalStore';
+import { useLayoutStore } from './stores/layoutStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { CrashRecoveryDialog } from './components/CrashRecoveryDialog';
@@ -39,7 +41,6 @@ function getPopoutTaskId(): string | null {
 }
 
 export default function App() {
-  // Popout window: render a minimal task-only layout and bail out early
   const popoutTaskId = getPopoutTaskId();
   if (popoutTaskId) {
     return <TaskPopoutWindow taskId={popoutTaskId} />;
@@ -48,25 +49,8 @@ export default function App() {
 }
 
 function MainApp() {
-  const [showNewTask, setShowNewTask] = useState(false);
-  const [newTaskProjectId, setNewTaskProjectId] = useState<string | undefined>(undefined);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('cortx-onboarded'));
-  const [editProjectId, setEditProjectId] = useState<string | null>(null);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [sidebarWidth, setSidebarWidth] = useState(260);
-  const [showRightPanel, setShowRightPanel] = useState(true);
-  const [isResizing, setIsResizing] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showCrashRecovery, setShowCrashRecovery] = useState(false);
-  const [showCostDashboard, setShowCostDashboard] = useState(false);
-  const [showWorktreeCleanup, setShowWorktreeCleanup] = useState(false);
-  const [pipelineConfigEditor, setPipelineConfigEditor] = useState<{ path: string; name: string } | null>(null);
-  const [showMcpManager, setShowMcpManager] = useState(false);
-  const [showSlashBuilder, setShowSlashBuilder] = useState(false);
-  const [showUpdateChecker, setShowUpdateChecker] = useState(false);
+  const modal = useModalStore();
+  const layout = useLayoutStore();
 
   // Load persisted data from SQLite (auto-migrates from localStorage on first run)
   useEffect(() => {
@@ -86,7 +70,7 @@ function MainApp() {
             t.pipeline?.enabled &&
             Object.values(t.pipeline.phases).some((p) => p?.status === 'in_progress'),
         );
-        if (crashed) setShowCrashRecovery(true);
+        if (crashed) useModalStore.getState().open('crashRecovery');
       } catch (err) {
         console.error('[cortx] Failed to load SQLite data:', err);
       }
@@ -126,20 +110,17 @@ function MainApp() {
     let prevProjects = useProjectStore.getState().projects;
 
     const unsubTasks = useTaskStore.subscribe((s) => {
-      // Detect changed tasks
       for (const t of s.tasks) {
         const prev = prevTasks.find((p) => p.id === t.id);
         if (!prev || prev.updatedAt !== t.updatedAt) {
           scheduleTaskSave(t.id);
         }
       }
-      // Detect deleted tasks
       for (const p of prevTasks) {
         if (!s.tasks.find((t) => t.id === p.id)) {
           import('./services/db').then(({ deleteTask }) => deleteTask(p.id).catch(() => {}));
         }
       }
-      // Active task ID change
       if (s.activeTaskId !== prevActiveId) {
         prevActiveId = s.activeTaskId;
         import('./services/db').then(({ setActiveTaskId }) => setActiveTaskId(s.activeTaskId).catch(() => {}));
@@ -166,7 +147,6 @@ function MainApp() {
     return () => {
       unsubTasks();
       unsubProjects();
-      // Flush all pending saves on unmount
       pending.forEach((handle, id) => {
         clearTimeout(handle);
         flushTask(id);
@@ -190,54 +170,31 @@ function MainApp() {
     return () => clearInterval(i);
   }, []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — 모달 우선순위와 레이아웃 토글을 store 메서드로 위임
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Cmd+K / Ctrl+K → command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette((v) => !v);
+        useModalStore.getState().toggleCommandPalette();
         return;
       }
       if (e.metaKey && e.key === 'b' && !e.shiftKey) {
         e.preventDefault();
-        setShowSidebar((v) => !v);
+        useLayoutStore.getState().toggleSidebar();
+        return;
       }
       if (e.metaKey && e.shiftKey && e.key === 'B') {
         e.preventDefault();
-        setShowRightPanel((v) => !v);
+        useLayoutStore.getState().toggleRightPanel();
+        return;
       }
       if (e.key === 'Escape') {
-        if (editProjectId) {
-          setEditProjectId(null);
-          return;
-        }
-        if (showReport) {
-          setShowReport(false);
-          return;
-        }
-        if (showSettings) {
-          setShowSettings(false);
-          return;
-        }
-        if (showNewProject) {
-          setShowNewProject(false);
-          return;
-        }
-        if (showNewTask) {
-          setShowNewTask(false);
-          return;
-        }
-        if (showOnboarding) {
-          setShowOnboarding(false);
-          localStorage.setItem('cortx-onboarded', '1');
-          return;
-        }
+        useModalStore.getState().closeTopmost();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [editProjectId, showReport, showSettings, showNewProject, showNewTask, showOnboarding]);
+  }, []);
 
   // Global shortcuts (Tauri)
   useEffect(() => {
@@ -249,69 +206,64 @@ function MainApp() {
   // Background project scan — listen for per-project scan events
   useProjectScan();
 
-  // Sidebar resize
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsResizing(true);
-      const startX = e.clientX,
-        startW = sidebarWidth;
-      const onMove = (e: MouseEvent) => setSidebarWidth(Math.max(160, Math.min(400, startW + e.clientX - startX)));
-      const onUp = () => {
-        setIsResizing(false);
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    },
-    [sidebarWidth],
-  );
+  // Sidebar resize — layoutStore의 setSidebarWidth가 clamp를 처리하므로 순수 드래그 핸들러
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const { setIsResizing, setSidebarWidth, sidebarWidth } = useLayoutStore.getState();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => setSidebarWidth(startW + ev.clientX - startX);
+    const onUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
 
   return (
     <div
       className="app-layout"
       style={{
-        gridTemplateColumns: `64px ${showSidebar ? `${sidebarWidth}px` : '0px'} 1fr`,
+        gridTemplateColumns: `64px ${layout.showSidebar ? `${layout.sidebarWidth}px` : '0px'} 1fr`,
         transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       <div className="titlebar-region" data-tauri-drag-region />
       <Dock
-        onAddTask={() => setShowNewTask(true)}
-        onAddProject={() => setShowNewProject(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        onShowCostDashboard={() => setShowCostDashboard(true)}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        onEnsureSidebarOpen={() => setShowSidebar(true)}
+        onAddTask={() => modal.openNewTask()}
+        onAddProject={() => modal.open('newProject')}
+        onOpenSettings={() => modal.open('settings')}
+        onShowCostDashboard={() => modal.open('costDashboard')}
+        onToggleSidebar={layout.toggleSidebar}
+        onEnsureSidebarOpen={() => layout.setShowSidebar(true)}
       />
       <div
         style={{
           overflow: 'hidden',
-          width: showSidebar ? sidebarWidth : 0,
-          transition: isResizing ? 'none' : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          width: layout.showSidebar ? layout.sidebarWidth : 0,
+          transition: layout.isResizing ? 'none' : 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           flexShrink: 0,
           position: 'relative',
         }}
       >
-        <div style={{ width: sidebarWidth, minWidth: sidebarWidth, height: '100%' }}>
+        <div style={{ width: layout.sidebarWidth, minWidth: layout.sidebarWidth, height: '100%' }}>
           <ErrorBoundary label="Sidebar">
             <Sidebar
-              onShowReport={() => setShowReport(true)}
-              onAddTask={() => setShowNewTask(true)}
-              onEditProject={(id) => setEditProjectId(id)}
-              onAddTaskForProject={(id) => {
-                setNewTaskProjectId(id);
-                setShowNewTask(true);
-              }}
+              onShowReport={() => modal.open('report')}
+              onAddTask={() => modal.openNewTask()}
+              onEditProject={(id) => modal.openEditProject(id)}
+              onAddTaskForProject={(id) => modal.openNewTask(id)}
             />
           </ErrorBoundary>
         </div>
-        {showSidebar && (
+        {layout.showSidebar && (
           <div
             onMouseDown={handleResizeStart}
             style={{
@@ -325,74 +277,80 @@ function MainApp() {
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = '#6366f140')}
             onMouseLeave={(e) => {
-              if (!isResizing) e.currentTarget.style.background = 'transparent';
+              if (!layout.isResizing) e.currentTarget.style.background = 'transparent';
             }}
           />
         )}
       </div>
       <ErrorBoundary label="MainPanel">
-        <MainPanel showRightPanel={showRightPanel} onToggleRightPanel={() => setShowRightPanel((v) => !v)} />
+        <MainPanel showRightPanel={layout.showRightPanel} onToggleRightPanel={layout.toggleRightPanel} />
       </ErrorBoundary>
       <StatusBar
-        showSidebar={showSidebar}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        showRightPanel={showRightPanel}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
+        showSidebar={layout.showSidebar}
+        onToggleSidebar={layout.toggleSidebar}
+        showRightPanel={layout.showRightPanel}
+        onToggleRightPanel={layout.toggleRightPanel}
       />
       <CommandPalette
-        open={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onNewTask={() => setShowNewTask(true)}
-        onNewProject={() => setShowNewProject(true)}
-        onOpenSettings={() => setShowSettings(true)}
-        onToggleSidebar={() => setShowSidebar((v) => !v)}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
-        onShowReport={() => setShowReport(true)}
-        onShowWorktreeCleanup={() => setShowWorktreeCleanup(true)}
-        onEditPipelineConfig={(path, name) => setPipelineConfigEditor({ path, name })}
-        onShowMcpManager={() => setShowMcpManager(true)}
-        onShowSlashBuilder={() => setShowSlashBuilder(true)}
-        onCheckForUpdates={() => setShowUpdateChecker(true)}
+        open={modal.commandPalette}
+        onClose={() => modal.close('commandPalette')}
+        onNewTask={() => modal.openNewTask()}
+        onNewProject={() => modal.open('newProject')}
+        onOpenSettings={() => modal.open('settings')}
+        onToggleSidebar={layout.toggleSidebar}
+        onToggleRightPanel={layout.toggleRightPanel}
+        onShowReport={() => modal.open('report')}
+        onShowWorktreeCleanup={() => modal.open('worktreeCleanup')}
+        onEditPipelineConfig={(path, name) => modal.openPipelineEditor(path, name)}
+        onShowMcpManager={() => modal.open('mcpManager')}
+        onShowSlashBuilder={() => modal.open('slashBuilder')}
+        onCheckForUpdates={() => modal.open('updateChecker')}
       />
-      {showCrashRecovery && <CrashRecoveryDialog onClose={() => setShowCrashRecovery(false)} />}
-      {showCostDashboard && <CostDashboard onClose={() => setShowCostDashboard(false)} />}
-      {showWorktreeCleanup && <WorktreeCleanup onClose={() => setShowWorktreeCleanup(false)} />}
-      {pipelineConfigEditor && (
-        <PipelineConfigEditor
-          projectPath={pipelineConfigEditor.path}
-          projectName={pipelineConfigEditor.name}
-          onClose={() => setPipelineConfigEditor(null)}
-        />
-      )}
-      {showMcpManager && <McpServerManager onClose={() => setShowMcpManager(false)} />}
-      {showSlashBuilder && (() => {
-        const activeTask = useTaskStore.getState().tasks.find((t) => t.id === useTaskStore.getState().activeTaskId);
-        const project = activeTask?.projectId ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId) : null;
-        const cwd = activeTask?.worktreePath || project?.localPath || '';
-        return <SlashCommandBuilder projectCwd={cwd} onClose={() => setShowSlashBuilder(false)} />;
-      })()}
-      {showUpdateChecker && <UpdateChecker onClose={() => setShowUpdateChecker(false)} />}
-      {showNewTask && (
-        <NewTaskModal
-          onClose={() => {
-            setShowNewTask(false);
-            setNewTaskProjectId(undefined);
-          }}
-          defaultProjectId={newTaskProjectId}
-        />
-      )}
-      {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-      {showReport && <DailyReport onClose={() => setShowReport(false)} />}
-      {showOnboarding && (
-        <Onboarding
-          onComplete={() => {
-            setShowOnboarding(false);
-            localStorage.setItem('cortx-onboarded', '1');
-          }}
-        />
-      )}
-      {editProjectId && <ProjectSettings projectId={editProjectId} onClose={() => setEditProjectId(null)} />}
+      <ModalRenderer />
     </div>
   );
+}
+
+/** 조건부 모달 렌더링만 한 곳에 모은다 — App의 return JSX 폭주 방지 */
+function ModalRenderer() {
+  const modal = useModalStore();
+
+  return (
+    <>
+      {modal.crashRecovery && <CrashRecoveryDialog onClose={() => modal.close('crashRecovery')} />}
+      {modal.costDashboard && <CostDashboard onClose={() => modal.close('costDashboard')} />}
+      {modal.worktreeCleanup && <WorktreeCleanup onClose={() => modal.close('worktreeCleanup')} />}
+      {modal.pipelineConfigEditor && (
+        <PipelineConfigEditor
+          projectPath={modal.pipelineConfigEditor.path}
+          projectName={modal.pipelineConfigEditor.name}
+          onClose={modal.closePipelineEditor}
+        />
+      )}
+      {modal.mcpManager && <McpServerManager onClose={() => modal.close('mcpManager')} />}
+      {modal.slashBuilder && <SlashBuilderAdapter />}
+      {modal.updateChecker && <UpdateChecker onClose={() => modal.close('updateChecker')} />}
+      {modal.newTask.open && (
+        <NewTaskModal onClose={modal.closeNewTask} defaultProjectId={modal.newTask.projectId} />
+      )}
+      {modal.newProject && <NewProjectModal onClose={() => modal.close('newProject')} />}
+      {modal.settings && <SettingsModal onClose={() => modal.close('settings')} />}
+      {modal.report && <DailyReport onClose={() => modal.close('report')} />}
+      {modal.onboarding && <Onboarding onComplete={modal.completeOnboarding} />}
+      {modal.editProjectId && (
+        <ProjectSettings projectId={modal.editProjectId} onClose={modal.closeEditProject} />
+      )}
+    </>
+  );
+}
+
+/** SlashCommandBuilder는 현재 active task/project에서 cwd를 구하므로 별도 컴포넌트로 */
+function SlashBuilderAdapter() {
+  const close = () => useModalStore.getState().close('slashBuilder');
+  const activeTask = useTaskStore.getState().tasks.find((t) => t.id === useTaskStore.getState().activeTaskId);
+  const project = activeTask?.projectId
+    ? useProjectStore.getState().projects.find((p) => p.id === activeTask.projectId)
+    : null;
+  const cwd = activeTask?.worktreePath || project?.localPath || '';
+  return <SlashCommandBuilder projectCwd={cwd} onClose={close} />;
 }
