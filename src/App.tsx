@@ -6,11 +6,10 @@ import { StatusBar } from './components/StatusBar';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
-import { useContextPackStore } from './stores/contextPackStore';
 import { useModalStore } from './stores/modalStore';
 import { useLayoutStore } from './stores/layoutStore';
-import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from './services/db';
 import { useStorePersistence } from './hooks/useStorePersistence';
+import { useInitialLoad } from './hooks/useInitialLoad';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TaskPopoutWindow } from './components/TaskPopoutWindow';
 import { useProjectScan } from './hooks/useProjectScan';
@@ -76,34 +75,9 @@ function MainApp() {
   const modal = useModalStore();
   const layout = useLayoutStore();
 
-  // Load persisted data from SQLite (auto-migrates from localStorage on first run)
-  useEffect(() => {
-    (async () => {
-      try {
-        await migrateFromLocalStorageIfNeeded();
-        const projects = await loadAllProjects();
-        if (projects.length) useProjectStore.getState().loadProjects(projects);
-        const { tasks, activeTaskId } = await loadAllTasks();
-        if (tasks.length) useTaskStore.getState().loadTasks(tasks, activeTaskId);
-
-        // Detect crashed tasks: active + pipeline in_progress means prior run was interrupted
-        const crashed = tasks.some(
-          (t) =>
-            t.status === 'active' &&
-            t.pipeline?.enabled &&
-            Object.values(t.pipeline.phases).some((p) => p?.status === 'in_progress'),
-        );
-        if (crashed) useModalStore.getState().open('crashRecovery');
-      } catch (err) {
-        console.error('[cortx] Failed to load SQLite data:', err);
-      }
-    })();
-    useSettingsStore.getState().loadSettings();
-    useContextPackStore.getState().loadState();
-    useContextPackStore.getState().loadMcpServers();
-  }, []);
-
-  // Task / Project Zustand 변경을 SQLite로 영속화 (디바운스 + flush 보장)
+  // 1) 초기 SQLite 복원 + 부수 store 로드 + 크래시 감지
+  useInitialLoad();
+  // 2) Task / Project Zustand 변경을 SQLite로 영속화 (디바운스 + flush 보장)
   useStorePersistence();
 
   // Apply theme to document root
