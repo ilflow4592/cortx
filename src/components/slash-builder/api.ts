@@ -9,7 +9,8 @@
 export type Source = 'project' | 'user';
 
 // SlashCommand 타입은 Rust commands/claude.rs에서 ts-rs로 자동 생성
-export type { SlashCommand } from '../../types/generated/SlashCommand';
+import type { SlashCommand } from '../../types/generated/SlashCommand';
+export type { SlashCommand };
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');

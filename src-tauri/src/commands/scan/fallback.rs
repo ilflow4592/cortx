@@ -55,14 +55,13 @@ fn walk_tree(
 pub fn collect_language_histogram(root: &Path) -> Vec<(String, u64)> {
     use std::collections::HashMap;
     let mut counts: HashMap<String, u64> = HashMap::new();
-    count_exts(root, root, 0, 4, &mut counts);
+    count_exts(root, 0, 4, &mut counts);
     let mut vec: Vec<(String, u64)> = counts.into_iter().collect();
     vec.sort_by(|a, b| b.1.cmp(&a.1));
     vec.into_iter().take(5).collect()
 }
 
 fn count_exts(
-    root: &Path,
     dir: &Path,
     depth: usize,
     max_depth: usize,
@@ -82,7 +81,7 @@ fn count_exts(
             continue;
         }
         if path.is_dir() {
-            count_exts(root, &path, depth + 1, max_depth, counts);
+            count_exts(&path, depth + 1, max_depth, counts);
         } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             *counts.entry(ext.to_lowercase()).or_insert(0) += 1;
         }

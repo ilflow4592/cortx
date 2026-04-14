@@ -1,7 +1,11 @@
 import type { en } from './en';
 
+// `en`은 `as const`로 literal type이라, 다른 언어 문자열은 배정 불가.
+// key 구조만 유지하면서 값은 widen된 string으로 받는 타입.
+type Translations = { [K in keyof typeof en]?: string };
+
 /** Korean translations — missing keys fall back to English. */
-export const ko: Partial<typeof en> = {
+export const ko: Translations = {
   // Common
   'common.cancel': '취소',
   'common.save': '저장',

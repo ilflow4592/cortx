@@ -41,7 +41,7 @@ pub fn list_worktrees(repo_path: String) -> CommandResult {
 
 /// Get a summarized diff (--stat) between the current HEAD and its merge-base with main.
 #[tauri::command]
-pub fn git_diff(repo_path: String, branch_name: String) -> CommandResult {
+pub fn git_diff(repo_path: String, _branch_name: String) -> CommandResult {
     let base_result = Command::new("git")
         .args(["merge-base", "HEAD", "main"])
         .current_dir(&repo_path)

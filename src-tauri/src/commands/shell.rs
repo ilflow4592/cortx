@@ -138,8 +138,8 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
             };
             continue;
         }
-        if trimmed.starts_with("- ") {
-            let cmd = trimmed[2..].trim().to_string();
+        if let Some(rest) = trimmed.strip_prefix("- ") {
+            let cmd = rest.trim().to_string();
             match current_section {
                 "setup" => setup.push(cmd),
                 "archive" => archive.push(cmd),
@@ -148,6 +148,36 @@ fn parse_cortx_yaml(content: &str) -> Result<CortxConfig, String> {
         }
     }
     Ok(CortxConfig { setup, archive })
+}
+
+/// Extract text content between HTML tags (e.g., <title>...</title>).
+fn extract_meta(html: &str, start_tag: &str, end_tag: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    let start = lower.find(&start_tag.to_lowercase())? + start_tag.len();
+    let end = lower[start..].find(&end_tag.to_lowercase())? + start;
+    Some(html[start..end].trim().to_string())
+}
+
+/// Extract the `content` attribute from a <meta> tag matching the given property/name.
+fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    // Look for <meta property="og:title" content="..."> or <meta name="description" content="...">
+    let patterns = [
+        format!("property=\"{}\"", name),
+        format!("name=\"{}\"", name),
+    ];
+    for pattern in &patterns {
+        if let Some(pos) = lower.find(&pattern.to_lowercase()) {
+            let after = &html[pos..];
+            if let Some(content_start) = after.to_lowercase().find("content=\"") {
+                let start = content_start + 9;
+                if let Some(end) = after[start..].find('"') {
+                    return Some(after[start..start + end].to_string());
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -230,34 +260,4 @@ archive:
         let result = extract_meta_attr(html, "og:title");
         assert_eq!(result, None);
     }
-}
-
-/// Extract text content between HTML tags (e.g., <title>...</title>).
-fn extract_meta(html: &str, start_tag: &str, end_tag: &str) -> Option<String> {
-    let lower = html.to_lowercase();
-    let start = lower.find(&start_tag.to_lowercase())? + start_tag.len();
-    let end = lower[start..].find(&end_tag.to_lowercase())? + start;
-    Some(html[start..end].trim().to_string())
-}
-
-/// Extract the `content` attribute from a <meta> tag matching the given property/name.
-fn extract_meta_attr(html: &str, name: &str) -> Option<String> {
-    let lower = html.to_lowercase();
-    // Look for <meta property="og:title" content="..."> or <meta name="description" content="...">
-    let patterns = [
-        format!("property=\"{}\"", name),
-        format!("name=\"{}\"", name),
-    ];
-    for pattern in &patterns {
-        if let Some(pos) = lower.find(&pattern.to_lowercase()) {
-            let after = &html[pos..];
-            if let Some(content_start) = after.to_lowercase().find("content=\"") {
-                let start = content_start + 9;
-                if let Some(end) = after[start..].find('"') {
-                    return Some(after[start..start + end].to_string());
-                }
-            }
-        }
-    }
-    None
 }

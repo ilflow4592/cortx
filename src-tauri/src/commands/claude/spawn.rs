@@ -3,6 +3,8 @@
 use crate::pty::SharedPtyManager;
 
 /// Spawn a new Claude CLI process for the given task, passing prompt and context.
+// Tauri command 직접 호출 경로라 구조체 래퍼로 묶으면 JS 측 시그니처가 깨짐.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, context_summary: Option<String>, allow_all_tools: Option<bool>, session_id: Option<String>, model: Option<String>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;

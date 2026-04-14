@@ -113,6 +113,8 @@ impl PtyManager {
     ///
     /// `claude-data-{id}` · `claude-done-{id}` 이벤트는 동일하게 emit된다.
     /// `allow_all_tools`는 현재 미사용 (항상 bypassPermissions) — 기존 ABI 유지용.
+    // Tauri command가 직접 호출 — 구조체 래퍼 도입 시 JS 측 호출 시그니처 깨짐.
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, _allow_all_tools: bool, session_id: Option<&str>, model: Option<&str>, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 

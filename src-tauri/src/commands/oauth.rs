@@ -112,5 +112,5 @@ fn oauth_callback_listen(port: u16) -> OAuthCallbackResult {
 
 /// Percent-decoding for URL query parameter values.
 pub fn urlencoding_decode(s: &str) -> String {
-    urlencoding::decode(s).unwrap_or_else(|_| std::borrow::Cow::Borrowed(s)).into_owned()
+    urlencoding::decode(s).unwrap_or(std::borrow::Cow::Borrowed(s)).into_owned()
 }
