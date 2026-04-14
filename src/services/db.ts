@@ -5,17 +5,35 @@
  * and interrupts. The store layer (taskStore, projectStore) calls these functions
  * to persist state. Loads from localStorage on first run for migration.
  */
-import Database from '@tauri-apps/plugin-sql';
 import type { Task, ChatMessage, InterruptEntry } from '../types/task';
-import type { Project } from '../types/project';
+import type { Project, ProjectMetadata } from '../types/project';
 
-let db: Database | null = null;
+// `@tauri-apps/plugin-sql`의 Database 인스턴스 타입 — 정적 import 없이 typeof 추론.
+// CLAUDE.md 규칙: Tauri API는 반드시 동적 import. 프로젝트 품질 게이트도 이를 강제한다.
+type DbHandle = Awaited<ReturnType<typeof import('@tauri-apps/plugin-sql')['default']['load']>>;
 
-export async function getDb(): Promise<Database> {
+let db: DbHandle | null = null;
+
+export async function getDb(): Promise<DbHandle> {
   if (!db) {
-    db = await Database.load('sqlite:cortx.db');
+    const { default: SqlDatabase } = await import('@tauri-apps/plugin-sql');
+    db = await SqlDatabase.load('sqlite:cortx.db');
   }
   return db;
+}
+
+/**
+ * 안전한 JSON.parse — 실패 시 fallback 반환하고 콘솔에 경고.
+ * DB에 손상된 JSON이 있어도 loadAll* 전체가 throw되지 않도록 개별 row 단위로 보호한다.
+ */
+function safeJsonParse<T>(raw: string | null | undefined, fallback: T, context?: string): T {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (err) {
+    if (context) console.warn(`[db] JSON.parse failed (${context}):`, err);
+    return fallback;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -32,9 +50,12 @@ interface ProjectRow {
   slack_channels: string;
   color: string;
   created_at: string;
+  metadata: string | null;
 }
 
 function rowToProject(row: ProjectRow): Project {
+  const metadata = safeJsonParse<ProjectMetadata | undefined>(row.metadata, undefined, `project.metadata ${row.id}`);
+  const slackChannels = safeJsonParse<string[]>(row.slack_channels, [], `project.slackChannels ${row.id}`);
   return {
     id: row.id,
     name: row.name,
@@ -42,9 +63,10 @@ function rowToProject(row: ProjectRow): Project {
     githubOwner: row.github_owner,
     githubRepo: row.github_repo,
     baseBranch: row.base_branch,
-    slackChannels: JSON.parse(row.slack_channels || '[]'),
+    slackChannels: Array.isArray(slackChannels) ? slackChannels : [],
     color: row.color,
     createdAt: row.created_at,
+    metadata,
   };
 }
 
@@ -57,8 +79,8 @@ export async function loadAllProjects(): Promise<Project[]> {
 export async function upsertProject(p: Project): Promise<void> {
   const d = await getDb();
   await d.execute(
-    `INSERT INTO projects (id, name, local_path, github_owner, github_repo, base_branch, slack_channels, color, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO projects (id, name, local_path, github_owner, github_repo, base_branch, slack_channels, color, created_at, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        local_path = excluded.local_path,
@@ -66,7 +88,8 @@ export async function upsertProject(p: Project): Promise<void> {
        github_repo = excluded.github_repo,
        base_branch = excluded.base_branch,
        slack_channels = excluded.slack_channels,
-       color = excluded.color`,
+       color = excluded.color,
+       metadata = excluded.metadata`,
     [
       p.id,
       p.name,
@@ -77,6 +100,7 @@ export async function upsertProject(p: Project): Promise<void> {
       JSON.stringify(p.slackChannels || []),
       p.color,
       p.createdAt,
+      p.metadata ? JSON.stringify(p.metadata) : null,
     ],
   );
 }
@@ -121,8 +145,8 @@ function rowToTask(row: TaskRow, chatHistory: ChatMessage[], interrupts: Interru
     elapsedSeconds: row.elapsed_seconds,
     chatHistory,
     interrupts,
-    modelOverride: row.model_override ? JSON.parse(row.model_override) : undefined,
-    pipeline: row.pipeline ? JSON.parse(row.pipeline) : undefined,
+    modelOverride: safeJsonParse<Task['modelOverride']>(row.model_override, undefined, `task.modelOverride ${row.id}`),
+    pipeline: safeJsonParse<Task['pipeline']>(row.pipeline, undefined, `task.pipeline ${row.id}`),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -190,57 +214,72 @@ export async function loadAllTasks(): Promise<{ tasks: Task[]; activeTaskId: str
   return { tasks, activeTaskId };
 }
 
+/**
+ * 태스크 upsert — 태스크 레코드 + chat_messages + interrupts를 **단일 트랜잭션**으로 처리한다.
+ * DELETE 후 INSERT 사이에 크래시/동시 쓰기가 끼어들어 채팅 히스토리가 유실되는 경우를 방지.
+ */
 export async function upsertTask(t: Task): Promise<void> {
   const d = await getDb();
-  await d.execute(
-    `INSERT INTO tasks (id, title, status, layer, project_id, branch_name, worktree_path, repo_path, memo, elapsed_seconds, model_override, pipeline, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-     ON CONFLICT(id) DO UPDATE SET
-       title = excluded.title,
-       status = excluded.status,
-       layer = excluded.layer,
-       project_id = excluded.project_id,
-       branch_name = excluded.branch_name,
-       worktree_path = excluded.worktree_path,
-       repo_path = excluded.repo_path,
-       memo = excluded.memo,
-       elapsed_seconds = excluded.elapsed_seconds,
-       model_override = excluded.model_override,
-       pipeline = excluded.pipeline,
-       updated_at = excluded.updated_at`,
-    [
-      t.id,
-      t.title,
-      t.status,
-      t.layer,
-      t.projectId || null,
-      t.branchName,
-      t.worktreePath,
-      t.repoPath,
-      t.memo,
-      t.elapsedSeconds,
-      t.modelOverride ? JSON.stringify(t.modelOverride) : null,
-      t.pipeline ? JSON.stringify(t.pipeline) : null,
-      t.createdAt,
-      t.updatedAt,
-    ],
-  );
-
-  // Replace chat messages and interrupts (simple approach — delete + insert)
-  await d.execute('DELETE FROM chat_messages WHERE task_id = $1', [t.id]);
-  for (const m of t.chatHistory || []) {
+  try {
+    await d.execute('BEGIN');
     await d.execute(
-      'INSERT INTO chat_messages (id, task_id, role, content, model, timestamp) VALUES ($1, $2, $3, $4, $5, $6)',
-      [m.id, t.id, m.role, m.content, m.model || null, m.timestamp],
+      `INSERT INTO tasks (id, title, status, layer, project_id, branch_name, worktree_path, repo_path, memo, elapsed_seconds, model_override, pipeline, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         status = excluded.status,
+         layer = excluded.layer,
+         project_id = excluded.project_id,
+         branch_name = excluded.branch_name,
+         worktree_path = excluded.worktree_path,
+         repo_path = excluded.repo_path,
+         memo = excluded.memo,
+         elapsed_seconds = excluded.elapsed_seconds,
+         model_override = excluded.model_override,
+         pipeline = excluded.pipeline,
+         updated_at = excluded.updated_at`,
+      [
+        t.id,
+        t.title,
+        t.status,
+        t.layer,
+        t.projectId || null,
+        t.branchName,
+        t.worktreePath,
+        t.repoPath,
+        t.memo,
+        t.elapsedSeconds,
+        t.modelOverride ? JSON.stringify(t.modelOverride) : null,
+        t.pipeline ? JSON.stringify(t.pipeline) : null,
+        t.createdAt,
+        t.updatedAt,
+      ],
     );
-  }
 
-  await d.execute('DELETE FROM interrupts WHERE task_id = $1', [t.id]);
-  for (const i of t.interrupts || []) {
-    await d.execute(
-      'INSERT INTO interrupts (id, task_id, paused_at, resumed_at, reason, memo, duration_seconds) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [i.id, t.id, i.pausedAt, i.resumedAt, i.reason, i.memo, i.durationSeconds],
-    );
+    // Replace chat messages and interrupts — inside transaction to avoid loss on crash
+    await d.execute('DELETE FROM chat_messages WHERE task_id = $1', [t.id]);
+    for (const m of t.chatHistory || []) {
+      await d.execute(
+        'INSERT INTO chat_messages (id, task_id, role, content, model, timestamp) VALUES ($1, $2, $3, $4, $5, $6)',
+        [m.id, t.id, m.role, m.content, m.model || null, m.timestamp],
+      );
+    }
+
+    await d.execute('DELETE FROM interrupts WHERE task_id = $1', [t.id]);
+    for (const i of t.interrupts || []) {
+      await d.execute(
+        'INSERT INTO interrupts (id, task_id, paused_at, resumed_at, reason, memo, duration_seconds) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [i.id, t.id, i.pausedAt, i.resumedAt, i.reason, i.memo, i.durationSeconds],
+      );
+    }
+    await d.execute('COMMIT');
+  } catch (err) {
+    try {
+      await d.execute('ROLLBACK');
+    } catch {
+      /* rollback 실패는 무시 — 원본 에러가 중요 */
+    }
+    throw err;
   }
 }
 
@@ -383,7 +422,6 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<void> {
     }
 
     localStorage.setItem(MIGRATION_KEY, '1');
-    console.log('[cortx] Migrated localStorage data to SQLite');
   } catch (err) {
     console.error('[cortx] Migration from localStorage failed:', err);
   }

@@ -1,7 +1,64 @@
-import { X, CheckSquare, Square } from 'lucide-react';
+import { useState } from 'react';
+import { X, CheckSquare, Square, Loader2 } from 'lucide-react';
 import type { Task } from '../../types/task';
 import type { Project } from '../../types/project';
 import { TaskRow } from './TaskRow';
+import { useIsScanning } from '../../stores/scanStatusStore';
+
+function ScanningIndicator() {
+  const [showTip, setShowTip] = useState(false);
+  return (
+    <span
+      onMouseEnter={(e) => {
+        e.stopPropagation();
+        setShowTip(true);
+      }}
+      onMouseLeave={() => setShowTip(false)}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        position: 'relative',
+        marginLeft: 4,
+        color: '#818cf8',
+      }}
+    >
+      <Loader2
+        size={12}
+        strokeWidth={2.5}
+        style={{
+          // 인라인 애니메이션 — CSS 클래스 누락 시에도 보장
+          animation: 'spin 1s linear infinite',
+        }}
+      />
+      {showTip && (
+        <span
+          role="tooltip"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            marginTop: 6,
+            padding: '6px 10px',
+            background: '#0c0c10',
+            border: '1px solid #27272a',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'var(--fg-muted)',
+            whiteSpace: 'nowrap',
+            zIndex: 100,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            pointerEvents: 'none',
+          }}
+        >
+          프로젝트 컨텍스트가 로딩중입니다.
+        </span>
+      )}
+    </span>
+  );
+}
 
 function ProjBtn({
   icon,
@@ -83,6 +140,7 @@ export function ProjectGroup({
   onDeleteProject: (id: string, name: string) => void;
 }) {
   const allSelected = tasks.length > 0 && tasks.every((t) => selectedTasks.has(t.id));
+  const isScanning = useIsScanning(project.id);
 
   const handleProjectSelectToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -151,6 +209,7 @@ export function ProjectGroup({
           >
             {project.name}
           </span>
+          {isScanning && <ScanningIndicator />}
           <span style={{ fontSize: 13, color: 'var(--fg-subtle)' }}>{tasks.length}</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 8, flexShrink: 0 }}>

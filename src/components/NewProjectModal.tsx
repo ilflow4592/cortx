@@ -2,8 +2,18 @@ import { useState, type ReactNode } from 'react';
 import { FolderOpen, Globe } from 'lucide-react';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
-import { open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { triggerProjectScan } from '../hooks/useProjectScan';
+
+// Tauri API는 동적 import만 허용 (CLAUDE.md 규칙 + quality gate 훅).
+// 호출 지점마다 반복하지 않도록 래퍼 둘만 정의.
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+async function openDialog(opts: { directory?: boolean; multiple?: boolean; title?: string }) {
+  const mod = await import('@tauri-apps/plugin-dialog');
+  return mod.open(opts);
+}
 
 type Step = 'choose' | 'open' | 'clone';
 
@@ -25,7 +35,7 @@ export function NewProjectModal({ onClose }: { onClose: () => void }) {
 function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClose: () => void }) {
   const handleOpen = async () => {
     try {
-      const selected = await open({ directory: true, multiple: false, title: 'Select project folder' });
+      const selected = await openDialog({ directory: true, multiple: false, title: 'Select project folder' });
       if (selected && typeof selected === 'string') {
         // Check if it's a git repo
         const result = await invoke<{ success: boolean; output: string }>('list_worktrees', { repoPath: selected });
@@ -66,7 +76,8 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
                 repo = match[2].replace(/\.git$/, '');
               }
             }
-            addProject(name, localPath, owner, repo);
+            const projectId = addProject(name, localPath, owner, repo);
+            void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
             if (owner && repo) {
               const sources = useContextPackStore.getState().sources;
               if (!sources.some((s) => s.type === 'github' && s.owner === owner && s.repo === repo)) {
@@ -76,12 +87,14 @@ function ChooseStep({ onSelect, onClose }: { onSelect: (s: Step) => void; onClos
             onClose();
           })
           .catch(() => {
-            addProject(name, localPath, '', '');
+            const projectId = addProject(name, localPath, '', '');
+            void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
             onClose();
           });
       })
       .catch(() => {
-        addProject(name, localPath, '', '');
+        const projectId = addProject(name, localPath, '', '');
+        void triggerProjectScan({ projectId, projectName: name, projectPath: localPath });
         onClose();
       });
   };
@@ -161,7 +174,7 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
 
   const handleBrowse = async () => {
     try {
-      const selected = await open({ directory: true, multiple: false, title: 'Select project folder' });
+      const selected = await openDialog({ directory: true, multiple: false, title: 'Select project folder' });
       if (selected && typeof selected === 'string') {
         setLocalPath(selected);
         if (!name) {
@@ -177,7 +190,9 @@ function OpenStep({ onClose, onBack }: { onClose: () => void; onBack: () => void
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!localPath) return;
-    addProject(name || localPath.split('/').pop() || 'project', localPath, '', '');
+    const finalName = name || localPath.split('/').pop() || 'project';
+    const projectId = addProject(finalName, localPath, '', '');
+    void triggerProjectScan({ projectId, projectName: finalName, projectPath: localPath });
     onClose();
   };
 
@@ -260,7 +275,7 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
 
   const handleBrowse = async () => {
     try {
-      const selected = await open({ directory: true, multiple: false, title: 'Select clone location' });
+      const selected = await openDialog({ directory: true, multiple: false, title: 'Select clone location' });
       if (selected && typeof selected === 'string') setCloneLocation(selected);
     } catch {
       /* cancelled */
@@ -289,7 +304,9 @@ function CloneStep({ onClose, onBack }: { onClose: () => void; onBack: () => voi
 
       setStatus('Setting up project...');
 
-      addProject(repoName || 'project', clonePath, githubOwner, githubRepo);
+      const finalName = repoName || 'project';
+      const projectId = addProject(finalName, clonePath, githubOwner, githubRepo);
+      void triggerProjectScan({ projectId, projectName: finalName, projectPath: clonePath });
 
       if (githubOwner && githubRepo) {
         const sources = useContextPackStore.getState().sources;

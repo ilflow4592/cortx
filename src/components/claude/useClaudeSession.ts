@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import type { ContextItem } from '../../types/contextPack';
@@ -10,6 +8,18 @@ import { isClaudeActiveInTerminal } from '../../utils/terminalState';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
+
+// Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
+// 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
+type UnlistenFn = () => void;
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+async function listen<T>(event: string, handler: (ev: { payload: T }) => void): Promise<UnlistenFn> {
+  const mod = await import('@tauri-apps/api/event');
+  return mod.listen<T>(event, handler);
+}
 
 const EMPTY_ARR: never[] = [];
 
@@ -115,15 +125,21 @@ export function useClaudeSession(
   const messagesRef = useRef<Message[]>([]);
 
   useEffect(() => {
+    // unmount 후 setState 호출 방지 — cwd 변경/탭 전환 시 경주 조건 차단
+    let cancelled = false;
     invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd || null })
-      .then((cmds) =>
+      .then((cmds) => {
+        if (cancelled) return;
         setSlashCommands(
           cmds.map((cmd) =>
             CORTX_DESCRIPTIONS[cmd.name] ? { ...cmd, description: CORTX_DESCRIPTIONS[cmd.name] } : cmd,
           ),
-        ),
-      )
+        );
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [cwd]);
 
   useEffect(() => {
@@ -741,6 +757,20 @@ export function useClaudeSession(
         }
 
         contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
+
+        // Pre-inject project-context.md into system prompt so Claude can skip codebase re-discovery.
+        // cortx 스캐너가 생성한 파일로, 이미 규칙 문서·기술 스택·SOT가 요약되어 있음.
+        if (isPipeline && cwd) {
+          const ctxFile = `${cwd}/.cortx/project-context.md`;
+          try {
+            const { exists } = await import('@tauri-apps/plugin-fs');
+            if (await exists(ctxFile)) {
+              contextFiles.push(ctxFile);
+            }
+          } catch {
+            /* skip — fs 플러그인 로드 실패 or 파일 미존재 */
+          }
+        }
 
         // Show loaded context items before Claude starts
         if (isPipeline && contextItems.length > 0) {

@@ -40,7 +40,10 @@
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(cp ~/Dev/TOMS-server/.claude/skills/pr-review-fu/SKILL.md ~/Dev/cortx/.claude/commands/pipeline/pr-review-fu.md)",
       "Bash(cp ~/Dev/TOMS-server/.github/workflows/pr-review-fu.yml ~/Dev/cortx/.github/workflows/pr-review-fu.yml)",
-      "Bash(cp ~/Dev/cortx/.claude/commands/pipeline/pr-review-fu.md ~/.claude/commands/pipeline/pr-review-fu.md)"
+      "Bash(cp ~/Dev/cortx/.claude/commands/pipeline/pr-review-fu.md ~/.claude/commands/pipeline/pr-review-fu.md)",
+      "Bash(wc -l /Users/lt-macbookpro-0010/Dev/cortx/src/stores/*.ts /Users/lt-macbookpro-0010/Dev/cortx/src/services/*.ts)",
+      "Bash(wc -l /Users/lt-macbookpro-0010/Dev/cortx/src/components/*.tsx)",
+      "Bash(wc:*)"
     ],
     "deny": [
       "Bash(git push:*)",

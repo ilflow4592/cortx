@@ -30,6 +30,12 @@ pub fn run() {
             sql: include_str!("../migrations/003_telemetry.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
+        tauri_plugin_sql::Migration {
+            version: 4,
+            description: "add project scan metadata",
+            sql: include_str!("../migrations/004_project_metadata.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -96,6 +102,8 @@ pub fn run() {
             commands::claude::pty_write,
             commands::claude::pty_resize,
             commands::claude::pty_close,
+            commands::scan::scan_project,
+            commands::scan::remove_auto_generated,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

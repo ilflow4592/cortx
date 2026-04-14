@@ -1464,6 +1464,10 @@ body {
   }
 }
 
+.cortx-scan-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* ── Error ── */
 .error-box {
   padding: 10px 14px;
@@ -1480,7 +1484,9 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  /* 전체 컨테이너가 스크롤 — header 영역(MCP 목록·Services·Pin 등)이 길어져도 보이도록 */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .ctx-header {
   padding: 16px 20px;
@@ -1686,8 +1692,8 @@ body {
   font-weight: 600;
 }
 .ctx-items {
-  flex: 1;
-  overflow-y: auto;
+  /* 부모(.ctx-pack)가 스크롤을 담당하므로 자체 overflow는 제거 — 이중 스크롤 방지 */
+  flex: 1 0 auto;
   padding: 12px 20px;
 }
 .ctx-empty {

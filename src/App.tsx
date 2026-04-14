@@ -22,6 +22,7 @@ import { McpServerManager } from './components/McpServerManager';
 import { SlashCommandBuilder } from './components/SlashCommandBuilder';
 import { UpdateChecker } from './components/UpdateChecker';
 import { TaskPopoutWindow } from './components/TaskPopoutWindow';
+import { useProjectScan } from './hooks/useProjectScan';
 
 // Detect if this window is a task popout (URL query string has ?mode=popout&task=<id>)
 function getPopoutTaskId(): string | null {
@@ -147,6 +148,7 @@ function MainApp() {
     });
 
     const unsubProjects = useProjectStore.subscribe((s) => {
+      // prevProjects를 갱신하지 않으면 매 store 변경마다 전체 프로젝트가 중복 upsert됨 (I/O 폭주)
       for (const p of s.projects) {
         const prev = prevProjects.find((x) => x.id === p.id);
         if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
@@ -243,6 +245,9 @@ function MainApp() {
       .then(({ registerShortcuts }) => registerShortcuts().catch(() => {}))
       .catch(() => {});
   }, []);
+
+  // Background project scan — listen for per-project scan events
+  useProjectScan();
 
   // Sidebar resize
   const handleResizeStart = useCallback(

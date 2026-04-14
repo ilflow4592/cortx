@@ -75,6 +75,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       slackChannels: Array.isArray(p.slackChannels) ? p.slackChannels : [],
       color: p.color || '#818cf8',
       createdAt: p.createdAt || new Date().toISOString(),
+      metadata: p.metadata,
     }));
     set({ projects: migrated });
   },
