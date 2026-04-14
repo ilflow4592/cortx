@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { FolderOpen, Globe } from 'lucide-react';
 import { createProject, cloneAndCreateProject, parseGitHubUrl, deriveProjectName } from '../services/projectCreation';
+import { ModalBackdrop } from './common/ModalBackdrop';
 
 // 폴더 선택 다이얼로그만 UI 로컬 관심사 — Tauri plugin-dialog 동적 로드
 async function openDialog(opts: { directory?: boolean; multiple?: boolean; title?: string }) {
@@ -14,13 +15,11 @@ export function NewProjectModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('choose');
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: step === 'choose' ? 400 : 500 }} onClick={(e) => e.stopPropagation()}>
-        {step === 'choose' && <ChooseStep onSelect={setStep} onClose={onClose} />}
-        {step === 'open' && <OpenStep onClose={onClose} onBack={() => setStep('choose')} />}
-        {step === 'clone' && <CloneStep onClose={onClose} onBack={() => setStep('choose')} />}
-      </div>
-    </div>
+    <ModalBackdrop onClose={onClose} dialogStyle={{ width: step === 'choose' ? 400 : 500 }} ariaLabel="Add project">
+      {step === 'choose' && <ChooseStep onSelect={setStep} onClose={onClose} />}
+      {step === 'open' && <OpenStep onClose={onClose} onBack={() => setStep('choose')} />}
+      {step === 'clone' && <CloneStep onClose={onClose} onBack={() => setStep('choose')} />}
+    </ModalBackdrop>
   );
 }
 

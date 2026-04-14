@@ -1,6 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { formatTime } from '../utils/time';
+import { ModalBackdrop } from './common/ModalBackdrop';
 
 export function DailyReport({ onClose }: { onClose: () => void }) {
   const tasks = useTaskStore((s) => s.tasks);
@@ -40,120 +41,118 @@ export function DailyReport({ onClose }: { onClose: () => void }) {
     totalFocus + totalInterruptTime > 0 ? Math.round((totalFocus / (totalFocus + totalInterruptTime)) * 100) : 0;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ width: 500 }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BarChart3 size={20} strokeWidth={1.5} /> Daily Report
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            ×
-          </button>
+    <ModalBackdrop onClose={onClose} dialogStyle={{ width: 500 }} ariaLabel="Daily report">
+      <div className="modal-header">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BarChart3 size={20} strokeWidth={1.5} /> Daily Report
+        </h2>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="modal-body" style={{ padding: 0 }}>
+        {/* Summary cards */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: 1,
+            background: 'var(--border-subtle)',
+            borderBottom: '1px solid var(--border-subtle)',
+          }}
+        >
+          <StatCard label="Focus Time" value={formatTime(totalFocus)} color="#818cf8" />
+          <StatCard
+            label="Interrupts"
+            value={`${todayInterrupts.length} (${formatTime(totalInterruptTime)})`}
+            color="#eab308"
+          />
+          <StatCard
+            label="Focus Ratio"
+            value={`${focusRatio}%`}
+            color={focusRatio >= 70 ? '#34d399' : focusRatio >= 40 ? '#eab308' : '#ef4444'}
+          />
         </div>
-        <div className="modal-body" style={{ padding: 0 }}>
-          {/* Summary cards */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
-              gap: 1,
-              background: 'var(--border-subtle)',
-              borderBottom: '1px solid var(--border-subtle)',
-            }}
-          >
-            <StatCard label="Focus Time" value={formatTime(totalFocus)} color="#818cf8" />
-            <StatCard
-              label="Interrupts"
-              value={`${todayInterrupts.length} (${formatTime(totalInterruptTime)})`}
-              color="#eab308"
-            />
-            <StatCard
-              label="Focus Ratio"
-              value={`${focusRatio}%`}
-              color={focusRatio >= 70 ? '#34d399' : focusRatio >= 40 ? '#eab308' : '#ef4444'}
-            />
+
+        <div style={{ padding: 20 }}>
+          {/* Task breakdown */}
+          <div className="rp-section">Tasks ({todayTasks.length})</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <MiniStat label="Done" value={doneTasks.length} color="#34d399" />
+            <MiniStat label="Active" value={activeTasks.length} color="#818cf8" />
+            <MiniStat label="Paused" value={pausedTasks.length} color="#eab308" />
           </div>
 
-          <div style={{ padding: 20 }}>
-            {/* Task breakdown */}
-            <div className="rp-section">Tasks ({todayTasks.length})</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <MiniStat label="Done" value={doneTasks.length} color="#34d399" />
-              <MiniStat label="Active" value={activeTasks.length} color="#818cf8" />
-              <MiniStat label="Paused" value={pausedTasks.length} color="#eab308" />
-            </div>
-
-            {doneTasks.length > 0 && (
-              <>
-                <div className="rp-section">✅ Completed</div>
-                {doneTasks.map((t) => (
-                  <div
-                    key={t.id}
-                    style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
-                  >
-                    <span style={{ color: 'var(--fg-muted)' }}>{t.title}</span>
-                    <span style={{ color: 'var(--fg-faint)', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-                      {formatTime(t.elapsedSeconds)}
-                    </span>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {/* Interrupt breakdown */}
-            {todayInterrupts.length > 0 && (
-              <>
-                <div className="rp-section" style={{ marginTop: 16 }}>
-                  Interrupt Breakdown
-                </div>
-                {Object.entries(reasonCounts).map(([reason, data]) => (
-                  <div
-                    key={reason}
-                    style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
-                  >
-                    <span style={{ color: 'var(--fg-muted)' }}>{reasonLabels[reason] || reason}</span>
-                    <span style={{ color: '#eab308', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-                      {data.count}× · {formatTime(data.time)}
-                    </span>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {/* Focus bar */}
-            <div style={{ marginTop: 16 }}>
-              <div className="rp-section">Focus vs Interrupts</div>
-              <div
-                style={{
-                  height: 8,
-                  borderRadius: 4,
-                  background: 'var(--bg-chip)',
-                  overflow: 'hidden',
-                  display: 'flex',
-                }}
-              >
+          {doneTasks.length > 0 && (
+            <>
+              <div className="rp-section">✅ Completed</div>
+              {doneTasks.map((t) => (
                 <div
-                  style={{ width: `${focusRatio}%`, background: '#6366f1', borderRadius: 4, transition: 'width 0.3s' }}
-                />
-                <div style={{ flex: 1, background: '#eab30830' }} />
+                  key={t.id}
+                  style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
+                >
+                  <span style={{ color: 'var(--fg-muted)' }}>{t.title}</span>
+                  <span style={{ color: 'var(--fg-faint)', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                    {formatTime(t.elapsedSeconds)}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Interrupt breakdown */}
+          {todayInterrupts.length > 0 && (
+            <>
+              <div className="rp-section" style={{ marginTop: 16 }}>
+                Interrupt Breakdown
               </div>
+              {Object.entries(reasonCounts).map(([reason, data]) => (
+                <div
+                  key={reason}
+                  style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}
+                >
+                  <span style={{ color: 'var(--fg-muted)' }}>{reasonLabels[reason] || reason}</span>
+                  <span style={{ color: '#eab308', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                    {data.count}× · {formatTime(data.time)}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Focus bar */}
+          <div style={{ marginTop: 16 }}>
+            <div className="rp-section">Focus vs Interrupts</div>
+            <div
+              style={{
+                height: 8,
+                borderRadius: 4,
+                background: 'var(--bg-chip)',
+                overflow: 'hidden',
+                display: 'flex',
+              }}
+            >
               <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 10,
-                  color: 'var(--fg-faint)',
-                  marginTop: 4,
-                }}
-              >
-                <span>Focus {focusRatio}%</span>
-                <span>Interrupts {100 - focusRatio}%</span>
-              </div>
+                style={{ width: `${focusRatio}%`, background: '#6366f1', borderRadius: 4, transition: 'width 0.3s' }}
+              />
+              <div style={{ flex: 1, background: '#eab30830' }} />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 10,
+                color: 'var(--fg-faint)',
+                marginTop: 4,
+              }}
+            >
+              <span>Focus {focusRatio}%</span>
+              <span>Interrupts {100 - focusRatio}%</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </ModalBackdrop>
   );
 }
 

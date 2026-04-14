@@ -6,6 +6,7 @@ import { slugify } from './new-task-modal/types';
 import { listBranches, pullBaseBranch, createWorktree, readCortxConfig, runSetupScripts } from './new-task-modal/api';
 import { TaskFormFields } from './new-task-modal/TaskFormFields';
 import { CreateWorktreeProgress } from './new-task-modal/CreateWorktreeProgress';
+import { ModalBackdrop } from './common/ModalBackdrop';
 
 export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => void; defaultProjectId?: string }) {
   const addTask = useTaskStore((s) => s.addTask);
@@ -124,43 +125,41 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>New Task</h2>
-          <button className="modal-close" onClick={onClose}>
-            ×
+    <ModalBackdrop onClose={onClose} ariaLabel="New Task">
+      <div className="modal-header">
+        <h2>New Task</h2>
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <form className="modal-body" onSubmit={handleSubmit}>
+        <TaskFormFields
+          title={title}
+          setTitle={setTitle}
+          customBranch={customBranch}
+          setCustomBranch={setCustomBranch}
+          projectId={projectId}
+          setProjectId={setProjectId}
+          layer={layer}
+          setLayer={setLayer}
+          projects={projects}
+          selectedProject={selectedProject}
+          branches={branches}
+          showBranchPicker={showBranchPicker}
+          setShowBranchPicker={setShowBranchPicker}
+        />
+
+        <CreateWorktreeProgress creating={creating} status={status} error={error} />
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={creating}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={!title.trim() || creating}>
+            {creating ? 'Creating...' : 'Create Task'}
           </button>
         </div>
-        <form className="modal-body" onSubmit={handleSubmit}>
-          <TaskFormFields
-            title={title}
-            setTitle={setTitle}
-            customBranch={customBranch}
-            setCustomBranch={setCustomBranch}
-            projectId={projectId}
-            setProjectId={setProjectId}
-            layer={layer}
-            setLayer={setLayer}
-            projects={projects}
-            selectedProject={selectedProject}
-            branches={branches}
-            showBranchPicker={showBranchPicker}
-            setShowBranchPicker={setShowBranchPicker}
-          />
-
-          <CreateWorktreeProgress creating={creating} status={status} error={error} />
-
-          <div className="modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={creating}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={!title.trim() || creating}>
-              {creating ? 'Creating...' : 'Create Task'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBackdrop>
   );
 }
