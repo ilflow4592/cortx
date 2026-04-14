@@ -1,48 +1,7 @@
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
-use tauri::Manager;
-use crate::pty::SharedPtyManager;
+//! Slash command management — ~/.claude/commands/ (user) + .claude/commands/ (project) 스캔,
+//! 개별 .md 파일 read/write/delete. 경로 탐색 검증은 `resolve_command_path`에서 수행.
 
-/// A slash command entry for the autocomplete menu in the chat UI.
-#[derive(Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/types/generated/")]
-pub struct SlashCommand {
-    pub name: String,
-    pub description: String,
-    /// Origin of the command: "builtin", "user" (~/.claude/commands/), or "project" (.claude/commands/).
-    pub source: String,
-}
-
-/// Spawn a new Claude CLI process for the given task, passing prompt and context.
-#[tauri::command]
-pub fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, context_summary: Option<String>, allow_all_tools: Option<bool>, session_id: Option<String>, model: Option<String>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), context_summary.as_deref().unwrap_or(""), allow_all_tools.unwrap_or(false), session_id.as_deref(), model.as_deref(), &app)
-}
-
-/// Send SIGTERM to stop a running Claude CLI process.
-#[tauri::command]
-pub fn claude_stop(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.stop_claude(&id)
-}
-
-#[tauri::command]
-pub fn claude_stop_task(task_id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.stop_claude_by_prefix(&format!("claude-{}", task_id));
-    Ok(())
-}
-
-/// Send a follow-up message to an existing Claude CLI session via its PTY.
-#[tauri::command]
-pub fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    if !mgr.has_session(&id) {
-        return Err("Claude session not running. Try reconnecting.".to_string());
-    }
-    mgr.write(&id, &format!("{}\n", message))
-}
+use super::SlashCommand;
 
 /// List all available slash commands: built-in Claude commands + user/project custom commands.
 /// Scans ~/.claude/commands/ and <project>/.claude/commands/ recursively for .md files.
@@ -190,63 +149,4 @@ pub fn delete_slash_command(name: String, source: String, project_cwd: Option<St
         return Err(format!("File not found: {}", path.display()));
     }
     std::fs::remove_file(&path).map_err(|e| format!("Delete failed: {}", e))
-}
-
-/// Open a new webview window showing a single task in popout mode.
-/// Query params: ?task=<taskId>&mode=popout
-#[tauri::command]
-pub fn open_task_window(task_id: String, task_title: String, app: tauri::AppHandle) -> Result<(), String> {
-    use tauri::WebviewWindowBuilder;
-
-    // Unique label per task so reopening focuses instead of duplicating
-    let label = format!("task-{}", task_id.replace(|c: char| !c.is_alphanumeric(), "-"));
-
-    // If a window with this label already exists, just focus it
-    if let Some(existing) = app.get_webview_window(&label) {
-        existing.set_focus().map_err(|e| e.to_string())?;
-        return Ok(());
-    }
-
-    let url = format!("index.html?task={}&mode=popout", task_id);
-    WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
-        .title(format!("Cortx — {}", task_title))
-        .inner_size(1100.0, 750.0)
-        .min_inner_size(700.0, 500.0)
-        .decorations(true)
-        .resizable(true)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-// ── PTY commands ──
-
-/// Spawn an interactive terminal shell (zsh) for the given task ID.
-#[tauri::command]
-pub fn pty_spawn(id: String, cwd: String, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.spawn(&id, &cwd, &app)
-}
-
-/// Write keystrokes/data to a terminal PTY session.
-#[tauri::command]
-pub fn pty_write(id: String, data: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.write(&id, &data)
-}
-
-/// Resize a terminal PTY to match the frontend terminal panel dimensions.
-#[tauri::command]
-pub fn pty_resize(id: String, rows: u16, cols: u16, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.resize(&id, rows, cols)
-}
-
-/// Close a terminal PTY session, releasing its resources.
-#[tauri::command]
-pub fn pty_close(id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
-    let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.close(&id);
-    Ok(())
 }
