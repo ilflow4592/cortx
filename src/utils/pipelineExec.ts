@@ -3,14 +3,22 @@
  * /pipeline:dev-task chat input (ClaudeChat). Both entry points call runPipeline()
  * which handles claude_spawn, streaming, messageCache, and pipeline state.
  */
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useContextPackStore } from '../stores/contextPackStore';
 import { messageCache, sessionCache, loadingCache } from './chatState';
 import { recordEvent } from '../services/telemetry';
 import type { PipelinePhase, PipelinePhaseEntry } from '../types/task';
+
+// Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+async function listen<T>(event: string, handler: (ev: { payload: T }) => void): Promise<() => void> {
+  const mod = await import('@tauri-apps/api/event');
+  return mod.listen<T>(event, handler);
+}
 
 /** Shell command helper (exported for reuse in useClaudeSession) */
 export async function runShell(command: string): Promise<{ success: boolean; output: string }> {
@@ -76,6 +84,8 @@ export async function fetchPinUrl(url: string): Promise<string | null> {
 interface PipelineCallbacks {
   onRunning?: () => void;
   onAsking?: () => void;
+  /** 파이프라인이 끝났는데 마지막 assistant 메시지가 질문이 아닌 경우 호출. Asking 뱃지 제거 용도. */
+  onNotAsking?: () => void;
   onDone?: () => void;
 }
 
@@ -458,6 +468,8 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
   if (lastAssistant && isQuestion(lastAssistant.content)) {
     callbacks?.onAsking?.();
+  } else {
+    callbacks?.onNotAsking?.();
   }
 
   loadingCache.set(taskId, false);
@@ -481,6 +493,8 @@ function isQuestion(text: string): boolean {
   )
     return true;
   const tail = t.slice(-200);
+  // dev-task.md의 표준 질문 포맷: **Q1.** {질문}?
+  if (/\*\*Q\d+\.\*\*/.test(tail)) return true;
   if (/(?:Q\d+[.:)]|질문\s*\d+\s*[:.)]).+[?\uff1f]/.test(tail)) return true;
   return false;
 }

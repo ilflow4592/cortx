@@ -6,7 +6,6 @@
  * 관련 페이지의 본문 콘텐츠(블록)까지 가져온다.
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import type { ContextItem, ContextSourceConfig } from '../../types/contextPack';
 
 /**
@@ -116,35 +115,28 @@ export async function collectNotion(
     }
   }
 
-  // AI 관련성 필터링 — 본문을 가져오기 전에 불필요한 결과를 제거 (API 호출 최소화)
+  // 키워드 기반 관련성 필터 + 병렬 본문 fetch
+  // (이전: Claude Haiku subprocess로 필터링 — 30~60초 소요, 제거됨)
   if (taskTitle && items.length > 2) {
-    // Claude Haiku를 사용하여 빠르고 저렴하게 필터링
-    // 프롬프트를 base64로 인코딩하여 shell injection 방지
-    const callAI = async (prompt: string): Promise<string> => {
-      try {
-        const tmpFile = `/tmp/cortx-notion-filter-${Date.now()}.txt`;
-        const b64 = btoa(unescape(encodeURIComponent(prompt)));
-        await invoke<{ success: boolean }>('run_shell_command', {
-          cwd: '/',
-          command: `echo '${b64}' | base64 -d > '${tmpFile}'`,
-        });
-        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd: '/',
-          command: `cat '${tmpFile}' | claude -p - --model claude-haiku-4-5-20251001 2>/dev/null; rm -f '${tmpFile}'`,
-        });
-        return result.success ? result.output.trim() : '';
-      } catch {
-        return '';
-      }
-    };
+    const titleTokens = taskTitle
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 1);
+    const scored = items.map((item) => ({
+      item,
+      score: titleTokens.filter((tok) => item.title.toLowerCase().includes(tok)).length,
+    }));
+    const relevant = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+    const filtered = (relevant.length > 0 ? relevant.map((s) => s.item) : items).slice(0, 5);
 
-    const filtered = await filterNotionByRelevance(items, taskTitle, callAI);
-    // Fetch fullText only for filtered items
-    for (const item of filtered) {
-      if (!item.metadata?.fullText && item.metadata?.notionId) {
-        item.metadata.fullText = await fetchNotionPageContent(item.metadata.notionId, headers);
-      }
-    }
+    // 본문 fetch를 병렬화 (이전: for...of await 직렬)
+    await Promise.allSettled(
+      filtered.map(async (item) => {
+        if (!item.metadata?.fullText && item.metadata?.notionId) {
+          item.metadata.fullText = await fetchNotionPageContent(item.metadata.notionId as string, headers);
+        }
+      }),
+    );
     return filtered;
   }
 
@@ -219,23 +211,24 @@ async function fetchNotionRelations(pageId: string, headers: Record<string, stri
       }
     }
 
-    // Fetch linked pages (1-level deep, max 5 total)
-    for (const rel of relationIds.slice(0, 5)) {
-      try {
-        // Get linked page title
+    // Fetch linked pages in parallel (1-level deep, max 5 total)
+    const linkedResults = await Promise.allSettled(
+      relationIds.slice(0, 5).map(async (rel) => {
         const linkedResp = await fetch(`https://api.notion.com/v1/pages/${rel.id}`, { headers });
-        if (!linkedResp.ok) continue;
+        if (!linkedResp.ok) return null;
         const linkedPage = await linkedResp.json();
         const linkedTitle = extractNotionTitle(linkedPage);
-
-        // Get linked page content (blocks)
         const linkedContent = await fetchNotionBlocks(rel.id, headers);
-        if (linkedTitle || linkedContent) {
-          parts.push(`\n--- ${rel.label}: ${linkedTitle || 'Untitled'} ---`);
-          if (linkedContent) parts.push(linkedContent);
-        }
-      } catch {
-        /* skip */
+        return { label: rel.label, title: linkedTitle, content: linkedContent };
+      }),
+    );
+
+    for (const result of linkedResults) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      const { label, title, content } = result.value;
+      if (title || content) {
+        parts.push(`\n--- ${label}: ${title || 'Untitled'} ---`);
+        if (content) parts.push(content);
       }
     }
 

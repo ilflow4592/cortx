@@ -14,6 +14,13 @@ export function usePipelineRunner() {
 
   const runPipelineForTask = (taskId: string, command: string) => {
     setRunningPipelines((prev) => new Set(prev).add(taskId));
+    // 새 실행 시작 시 이전 Asking 상태 초기화 — 지난 실행의 Asking이 남아있으면 오탐 발생
+    setAskingTasks((prev) => {
+      if (!prev.has(taskId)) return prev;
+      const n = new Set(prev);
+      n.delete(taskId);
+      return n;
+    });
 
     runPipeline(taskId, command, {
       onAsking: () => {
@@ -26,6 +33,14 @@ export function usePipelineRunner() {
         } catch {
           /* ignore */
         }
+      },
+      onNotAsking: () => {
+        setAskingTasks((prev) => {
+          if (!prev.has(taskId)) return prev;
+          const n = new Set(prev);
+          n.delete(taskId);
+          return n;
+        });
       },
       onDone: () => {
         setRunningPipelines((prev) => {
