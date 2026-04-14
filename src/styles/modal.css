@@ -212,8 +212,6 @@
   font-weight: 600;
   border: none;
   cursor: pointer;
-}
-.source-toggle {
   transition:
     background 200ms ease,
     color 200ms ease;

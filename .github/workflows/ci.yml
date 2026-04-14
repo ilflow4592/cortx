@@ -27,6 +27,9 @@ jobs:
       - name: i18n drift check
         run: npm run i18n:check
 
+      - name: Stylelint
+        run: npm run stylelint
+
       - name: TypeScript + Vite build
         run: npm run build
 
