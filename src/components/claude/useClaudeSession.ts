@@ -3,13 +3,13 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import type { ContextItem } from '../../types/contextPack';
 import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
-import { PHASE_KEYS, PHASE_ORDER } from '../../constants/pipeline';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
 import { handleBuiltinCommand } from './builtinCommands';
 import { parsePipelineMarkers, applyPipelineMarkerUpdates } from './pipelineMarkers';
 import { sendNotification } from '../../utils/notification';
+import { ClaudeEventProcessor } from './claudeEventProcessor';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -381,145 +381,21 @@ export function useClaudeSession(
 
     const reqId = `claude-${taskId}-${Date.now()}`;
     currentReqIdRef.current = reqId;
-    let response = '';
 
     try {
-      // Track current message ID — each new assistant turn gets a new ID
-      let currentMsgId = '';
-      let turnCounter = 0;
       const activityId = `${reqId}-activity`;
+      const processor = new ClaudeEventProcessor({
+        taskId,
+        reqId,
+        activityId,
+        setMessages,
+        setError,
+        claudeSessionIdRef,
+        processMarkers: processPipelineMarkers,
+      });
 
       const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
-        const line = event.payload;
-
-        // Try to parse stream-json
-        try {
-          const evt = JSON.parse(line);
-
-          // Capture session_id from init event for conversation continuity
-          if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
-            claudeSessionIdRef.current = evt.session_id;
-            sessionCache.set(taskId, evt.session_id);
-          }
-
-          if (evt.type === 'assistant' && evt.message?.content) {
-            // Check for text content
-            const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
-              .filter((b: { type: string }) => b.type === 'text')
-              .map((b: { text?: string }) => b.text || '');
-
-            // Check for tool_use content
-            const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>).filter(
-              (b: { type: string }) => b.type === 'tool_use',
-            );
-
-            if (textBlocks.length > 0) {
-              const newText = textBlocks.join('');
-              // Only start a new turn if there's no current message ID (first text or after tool use)
-              if (!currentMsgId) {
-                turnCounter++;
-                currentMsgId = `${reqId}-turn-${turnCounter}`;
-                response = processPipelineMarkers(newText).trimStart();
-              } else {
-                response = processPipelineMarkers(response + newText).trimStart();
-              }
-              const msgId = currentMsgId;
-              setMessages((prev) => {
-                const existing = prev.find((m) => m.id === msgId);
-                if (existing) {
-                  return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
-                }
-                const filtered = prev.filter((m) => m.id !== activityId);
-                return [...filtered, { id: msgId, role: 'assistant', content: response }];
-              });
-            }
-
-            if (toolBlocks.length > 0) {
-              // Reset current message so next text block starts a new turn
-              currentMsgId = '';
-              const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
-              setMessages((prev) => {
-                const filtered = prev.filter((m) => m.id !== activityId);
-                return [
-                  ...filtered,
-                  { id: activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel },
-                ];
-              });
-            }
-          } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
-            // Append to current turn's message
-            response = processPipelineMarkers(response + evt.delta.text).trimStart();
-            if (!currentMsgId) {
-              turnCounter++;
-              currentMsgId = `${reqId}-turn-${turnCounter}`;
-            }
-            const msgId = currentMsgId;
-            setMessages((prev) => {
-              const existing = prev.find((m) => m.id === msgId);
-              if (existing) {
-                return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
-              }
-              return [...prev.filter((m) => m.id !== activityId), { id: msgId, role: 'assistant', content: response }];
-            });
-          } else if (evt.type === 'error') {
-            // Error from claude CLI (stderr or spawn failure)
-            const errMsg = evt.content || 'Unknown error from Claude CLI';
-            setError(errMsg);
-          } else if (evt.type === 'result') {
-            // Final result — only add if it differs from current response (avoid duplicates)
-            if (evt.result) {
-              const resultText = processPipelineMarkers(evt.result).trim();
-              if (resultText && resultText !== response.trim()) {
-                turnCounter++;
-                const resultId = `${reqId}-result`;
-                response = resultText;
-                setMessages((prev) => {
-                  const filtered = prev.filter((m) => m.id !== activityId);
-                  return [...filtered, { id: resultId, role: 'assistant', content: response }];
-                });
-              }
-            }
-            // Track token usage per active pipeline phase
-            if (evt.usage) {
-              const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-              if (task?.pipeline?.enabled) {
-                const inTok = evt.usage.input_tokens || 0;
-                const outTok = evt.usage.output_tokens || 0;
-                const cost = evt.total_cost_usd || 0;
-                // Find current active phase
-                const activePhase = PHASE_ORDER.find(
-                  (p) => PHASE_KEYS.has(p) && task.pipeline!.phases[p]?.status === 'in_progress',
-                );
-                if (activePhase) {
-                  const phases = { ...task.pipeline!.phases };
-                  const entry = { ...phases[activePhase] };
-                  entry.inputTokens = (entry.inputTokens || 0) + inTok;
-                  entry.outputTokens = (entry.outputTokens || 0) + outTok;
-                  entry.costUsd = (entry.costUsd || 0) + cost;
-                  phases[activePhase] = entry;
-                  useTaskStore.getState().updateTask(taskId, {
-                    pipeline: { ...task.pipeline!, phases },
-                  });
-                }
-              }
-            }
-          }
-        } catch {
-          // Not JSON — treat as plain text (fallback), append to current message
-          response = processPipelineMarkers(response + line + '\n');
-          if (!currentMsgId) {
-            turnCounter++;
-            currentMsgId = `${reqId}-turn-${turnCounter}`;
-          }
-          const msgId = currentMsgId;
-          setMessages((prev) => {
-            const existing = prev.find((m) => m.id === msgId);
-            if (existing) {
-              return prev.map((m) => (m.id === msgId ? { ...m, content: response } : m));
-            }
-            return [...prev, { id: msgId, role: 'assistant', content: response }];
-          });
-        }
+        processor.process(event.payload);
       });
       unlistenRefs.current.push(unData);
 
@@ -688,7 +564,7 @@ export function useClaudeSession(
 
       await donePromise;
 
-      if (!response.trim()) {
+      if (!processor.hasContent()) {
         setError('No response from Claude. Make sure `claude` CLI is installed and authenticated.');
       }
     } catch (err) {
