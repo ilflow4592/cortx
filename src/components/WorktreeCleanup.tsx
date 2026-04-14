@@ -8,67 +8,17 @@
  * remove_worktree Tauri commands.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { Trash2, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
-import type { Task } from '../types/task';
+import { type Category, type WorktreeEntry, STALE_THRESHOLD_DAYS } from './worktree-cleanup/types';
+import { parseWorktrees, classifyWorktree } from './worktree-cleanup/parsing';
+import { listWorktrees, removeWorktree } from './worktree-cleanup/api';
+import { CategorySection } from './worktree-cleanup/CategorySection';
+import { RefreshButton, CloseButton } from './worktree-cleanup/buttons';
 
 interface Props {
   onClose: () => void;
-}
-
-type Category = 'orphan' | 'stale' | 'active';
-
-interface WorktreeEntry {
-  projectId: string;
-  projectName: string;
-  worktreePath: string;
-  branch: string;
-  taskId?: string;
-  taskTitle?: string;
-  taskStatus?: string;
-  updatedAt?: string;
-  category: Category;
-  ageInDays: number;
-  selected: boolean;
-}
-
-const STALE_THRESHOLD_DAYS = 30;
-
-function parseWorktrees(output: string): { path: string; branch: string }[] {
-  const entries: { path: string; branch: string }[] = [];
-  let currentPath = '';
-  let currentBranch = '';
-  for (const line of output.split('\n')) {
-    if (line.startsWith('worktree ')) {
-      if (currentPath) {
-        entries.push({ path: currentPath, branch: currentBranch });
-      }
-      currentPath = line.slice(9).trim();
-      currentBranch = '';
-    } else if (line.startsWith('branch ')) {
-      currentBranch = line.slice(7).trim().replace(/^refs\/heads\//, '');
-    }
-  }
-  if (currentPath) {
-    entries.push({ path: currentPath, branch: currentBranch });
-  }
-  return entries;
-}
-
-function classifyWorktree(task: Task | undefined): { category: Category; ageInDays: number } {
-  if (!task) {
-    return { category: 'orphan', ageInDays: Infinity };
-  }
-  const now = Date.now();
-  const updated = new Date(task.updatedAt).getTime();
-  const ageInDays = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
-
-  if (task.status === 'done') {
-    return { category: 'stale', ageInDays };
-  }
-  return { category: 'active', ageInDays };
 }
 
 export function WorktreeCleanup({ onClose }: Props) {
@@ -87,15 +37,12 @@ export function WorktreeCleanup({ onClose }: Props) {
       for (const project of projects) {
         if (!project.localPath) continue;
         try {
-          const result = await invoke<{ success: boolean; output: string; error: string }>('list_worktrees', {
-            repoPath: project.localPath,
-          });
+          const result = await listWorktrees(project.localPath);
           if (!result.success) continue;
           const worktrees = parseWorktrees(result.output);
           for (const wt of worktrees) {
-            // Skip the main repo worktree (same as project root)
+            // 메인 repo worktree 자체와 .worktrees/ 외부는 스킵
             if (wt.path === project.localPath) continue;
-            // Only worktrees under .worktrees/
             if (!wt.path.includes('.worktrees')) continue;
 
             const task = tasks.find(
@@ -113,7 +60,7 @@ export function WorktreeCleanup({ onClose }: Props) {
               updatedAt: task?.updatedAt,
               category,
               ageInDays,
-              // Pre-select orphan + stale for bulk cleanup
+              // orphan + stale은 기본 선택 (bulk cleanup 편의)
               selected: category !== 'active',
             });
           }
@@ -165,14 +112,10 @@ export function WorktreeCleanup({ onClose }: Props) {
       const project = projects.find((p) => p.id === entry.projectId);
       if (!project) continue;
       try {
-        const result = await invoke<{ success: boolean; error: string }>('remove_worktree', {
-          repoPath: project.localPath,
-          worktreePath: entry.worktreePath,
-        });
+        const result = await removeWorktree(project.localPath, entry.worktreePath);
         if (!result.success) {
           failed.push(`${entry.worktreePath}: ${result.error}`);
         } else if (entry.taskId) {
-          // Clear worktreePath from the task record
           useTaskStore.getState().updateTask(entry.taskId, { worktreePath: '' });
         }
       } catch (err) {
@@ -183,7 +126,6 @@ export function WorktreeCleanup({ onClose }: Props) {
     if (failed.length > 0) {
       setError(`일부 삭제 실패:\n${failed.join('\n')}`);
     }
-    // Refresh the list
     await scan();
   };
 
@@ -350,192 +292,5 @@ export function WorktreeCleanup({ onClose }: Props) {
         )}
       </div>
     </div>
-  );
-}
-
-function CategorySection({
-  title,
-  description,
-  color,
-  icon,
-  entries,
-  onToggle,
-  onToggleAll,
-}: {
-  title: string;
-  description: string;
-  color: string;
-  icon: React.ReactNode;
-  entries: WorktreeEntry[];
-  onToggle: (e: WorktreeEntry) => void;
-  onToggleAll: () => void;
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <div style={{ marginBottom: 18 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '6px 10px',
-          marginBottom: 6,
-        }}
-      >
-        {icon}
-        <span style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {title}
-        </span>
-        <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>({entries.length})</span>
-        <span style={{ fontSize: 10, color: 'var(--fg-faint)', flex: 1 }}> · {description}</span>
-        <button
-          onClick={onToggleAll}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--fg-subtle)',
-            fontSize: 10,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            padding: '2px 8px',
-            borderRadius: 4,
-          }}
-        >
-          Toggle all
-        </button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {entries.map((entry) => (
-          <EntryRow key={entry.worktreePath} entry={entry} accent={color} onToggle={() => onToggle(entry)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EntryRow({
-  entry,
-  accent,
-  onToggle,
-}: {
-  entry: WorktreeEntry;
-  accent: string;
-  onToggle: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      onClick={onToggle}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '8px 12px',
-        background: hovered ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
-        border: `1px solid ${entry.selected ? `${accent}40` : 'var(--bg-surface-hover)'}`,
-        borderRadius: 6,
-        cursor: 'pointer',
-        transition: 'all 120ms ease',
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={entry.selected}
-        onChange={() => {}}
-        style={{ cursor: 'pointer', accentColor: accent }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--fg-secondary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {entry.taskTitle || <span style={{ color: 'var(--fg-subtle)', fontStyle: 'italic' }}>(no task)</span>}
-        </div>
-        <div
-          style={{
-            fontSize: 10,
-            color: 'var(--fg-faint)',
-            fontFamily: "'JetBrains Mono', monospace",
-            marginTop: 2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {entry.projectName} · {entry.branch || '(no branch)'}
-        </div>
-      </div>
-      {entry.ageInDays !== Infinity && (
-        <div
-          style={{
-            fontSize: 10,
-            color: 'var(--fg-faint)',
-            fontFamily: "'JetBrains Mono', monospace",
-            flexShrink: 0,
-          }}
-        >
-          {entry.ageInDays}d
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RefreshButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered && !disabled ? 'var(--accent-bg)' : 'none',
-        border: `1px solid ${hovered && !disabled ? 'var(--accent-border)' : 'transparent'}`,
-        color: disabled ? 'var(--fg-dim)' : hovered ? 'var(--accent-bright)' : 'var(--fg-subtle)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 6,
-        borderRadius: 5,
-        transition: 'all 120ms ease',
-      }}
-      title="Rescan"
-    >
-      <RefreshCw size={14} strokeWidth={1.5} className={disabled ? 'spinner' : ''} />
-    </button>
-  );
-}
-
-function CloseButton({ onClose }: { onClose: () => void }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClose}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
-        border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : 'var(--fg-faint)',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 6,
-        borderRadius: 5,
-        transition: 'all 120ms ease',
-      }}
-    >
-      <X size={16} strokeWidth={1.5} />
-    </button>
   );
 }
