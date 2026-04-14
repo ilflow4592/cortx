@@ -4,6 +4,7 @@ import type { Task } from '../../types/task';
 import type { Project } from '../../types/project';
 import { TaskRow } from './TaskRow';
 import { useIsScanning } from '../../stores/scanStatusStore';
+import { useModalStore } from '../../stores/modalStore';
 
 function ScanningIndicator() {
   const [showTip, setShowTip] = useState(false);
@@ -120,8 +121,6 @@ export function ProjectGroup({
   onSelectTask,
   onDeleteTask,
   onToggleSelect,
-  onEditProject,
-  onAddTaskForProject,
   onDeleteProject,
 }: {
   project: Project;
@@ -135,10 +134,9 @@ export function ProjectGroup({
   onSelectTask: (id: string) => void;
   onDeleteTask: (task: Task) => void;
   onToggleSelect: (id: string) => void;
-  onEditProject?: (id: string) => void;
-  onAddTaskForProject?: (projectId: string) => void;
   onDeleteProject: (id: string, name: string) => void;
 }) {
+  const modal = useModalStore();
   const allSelected = tasks.length > 0 && tasks.every((t) => selectedTasks.has(t.id));
   const isScanning = useIsScanning(project.id);
 
@@ -228,10 +226,8 @@ export function ProjectGroup({
             title={isCollapsed ? 'Expand' : 'Collapse'}
             onClick={onToggleCollapse}
           />
-          {onAddTaskForProject && (
-            <ProjBtn icon="+" title="Add task" onClick={() => onAddTaskForProject(project.id)} />
-          )}
-          {onEditProject && <ProjBtn icon="⚙" title="Settings" onClick={() => onEditProject(project.id)} />}
+          <ProjBtn icon="+" title="Add task" onClick={() => modal.openNewTask(project.id)} />
+          <ProjBtn icon="⚙" title="Settings" onClick={() => modal.openEditProject(project.id)} />
           <ProjBtn
             icon={<X size={12} strokeWidth={1.5} />}
             title="Delete"

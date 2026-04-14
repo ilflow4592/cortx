@@ -1,8 +1,14 @@
 import { useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { FileText, X, Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextPackStore } from '../stores/contextPackStore';
+import { useLayoutStore } from '../stores/layoutStore';
+
+// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 import { ClaudeChat } from './claude/ClaudeChat';
 import { TerminalView } from './TerminalView';
 import { ContextPack } from './context/ContextPack';
@@ -18,13 +24,9 @@ import type { InterruptReason } from '../types/task';
 
 type Tab = 'claude' | 'terminal' | 'context' | 'editor';
 
-export function MainPanel({
-  showRightPanel = true,
-  onToggleRightPanel,
-}: {
-  showRightPanel?: boolean;
-  onToggleRightPanel?: () => void;
-}) {
+export function MainPanel() {
+  const showRightPanel = useLayoutStore((s) => s.showRightPanel);
+  const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
   const [activeTab, setActiveTab] = useState<Tab>('claude');
   const [showPause, setShowPause] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -222,19 +224,17 @@ export function MainPanel({
           >
             <Trash2 size={14} strokeWidth={1.5} />
           </button>
-          {onToggleRightPanel && (
-            <button
-              className="mh-btn"
-              style={{ background: 'none', color: 'var(--fg-faint)', border: '1px solid var(--border-muted)', padding: '4px 8px' }}
-              onClick={onToggleRightPanel}
-              title="Toggle right panel ⌘⇧B"
-            >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M15 3v18" />
-              </svg>
-            </button>
-          )}
+          <button
+            className="mh-btn"
+            style={{ background: 'none', color: 'var(--fg-faint)', border: '1px solid var(--border-muted)', padding: '4px 8px' }}
+            onClick={toggleRightPanel}
+            title="Toggle right panel ⌘⇧B"
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M15 3v18" />
+            </svg>
+          </button>
         </div>
       </div>
 

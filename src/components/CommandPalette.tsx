@@ -4,7 +4,6 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
-import { invoke } from '@tauri-apps/api/core';
 import {
   CheckCircle2,
   Circle,
@@ -30,7 +29,15 @@ import {
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useModalStore } from '../stores/modalStore';
+import { useLayoutStore } from '../stores/layoutStore';
 import { runPipeline } from '../utils/pipelineExec';
+
+// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
 import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
 import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
@@ -39,34 +46,12 @@ import { useT } from '../i18n';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onNewTask: () => void;
-  onNewProject: () => void;
-  onOpenSettings: () => void;
-  onToggleSidebar: () => void;
-  onToggleRightPanel: () => void;
-  onShowReport: () => void;
-  onShowWorktreeCleanup: () => void;
-  onEditPipelineConfig: (projectPath: string, projectName: string) => void;
-  onShowMcpManager: () => void;
-  onShowSlashBuilder: () => void;
-  onCheckForUpdates: () => void;
 }
 
-export function CommandPalette({
-  open,
-  onClose,
-  onNewTask,
-  onNewProject,
-  onOpenSettings,
-  onToggleSidebar,
-  onToggleRightPanel,
-  onShowReport,
-  onShowWorktreeCleanup,
-  onEditPipelineConfig,
-  onShowMcpManager,
-  onShowSlashBuilder,
-  onCheckForUpdates,
-}: Props) {
+export function CommandPalette({ open, onClose }: Props) {
+  const modal = useModalStore();
+  const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
+  const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
   const [search, setSearch] = useState('');
   const [ftsHits, setFtsHits] = useState<SearchHit[]>([]);
   const t = useT();
@@ -295,14 +280,14 @@ export function CommandPalette({
                       icon={<Plus size={14} color="#818cf8" strokeWidth={1.5} />}
                       label={t('action.newTask')}
                       hint="⌘N"
-                      onSelect={() => run(onNewTask)}
+                      onSelect={() => run(() => modal.openNewTask())}
                     />
                   )}
                   {showAction('New Project') && (
                     <PaletteItem
                       icon={<FolderOpen size={14} color="#818cf8" strokeWidth={1.5} />}
                       label={t('action.newProject')}
-                      onSelect={() => run(onNewProject)}
+                      onSelect={() => run(() => modal.open('newProject'))}
                     />
                   )}
                   {showAction('Open Settings') && (
@@ -310,42 +295,42 @@ export function CommandPalette({
                       icon={<SettingsIcon size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label={t('action.openSettings')}
                       hint="⌘,"
-                      onSelect={() => run(onOpenSettings)}
+                      onSelect={() => run(() => modal.open('settings'))}
                     />
                   )}
                   {showAction('Daily Report') && (
                     <PaletteItem
                       icon={<FileText size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label={t('action.dailyReport')}
-                      onSelect={() => run(onShowReport)}
+                      onSelect={() => run(() => modal.open('report'))}
                     />
                   )}
                   {showAction('Worktree Cleanup') && (
                     <PaletteItem
                       icon={<Trash2 size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label="Worktree Cleanup"
-                      onSelect={() => run(onShowWorktreeCleanup)}
+                      onSelect={() => run(() => modal.open('worktreeCleanup'))}
                     />
                   )}
                   {showAction('Manage MCP Servers') && (
                     <PaletteItem
                       icon={<Server size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Manage MCP Servers"
-                      onSelect={() => run(onShowMcpManager)}
+                      onSelect={() => run(() => modal.open('mcpManager'))}
                     />
                   )}
                   {showAction('Slash Command Builder') && (
                     <PaletteItem
                       icon={<Slash size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Slash Command Builder"
-                      onSelect={() => run(onShowSlashBuilder)}
+                      onSelect={() => run(() => modal.open('slashBuilder'))}
                     />
                   )}
                   {showAction('Check for Updates') && (
                     <PaletteItem
                       icon={<ArrowUp size={14} color="var(--accent)" strokeWidth={1.5} />}
                       label="Check for Updates"
-                      onSelect={() => run(onCheckForUpdates)}
+                      onSelect={() => run(() => modal.open('updateChecker'))}
                     />
                   )}
                   {activeTask && showAction('Edit Pipeline Config') && (
@@ -361,7 +346,7 @@ export function CommandPalette({
                             alert('Current task has no project with a local path');
                             return;
                           }
-                          onEditPipelineConfig(project.localPath, project.name);
+                          modal.openPipelineEditor(project.localPath, project.name);
                         })
                       }
                     />
@@ -414,7 +399,7 @@ export function CommandPalette({
                       icon={<PanelLeftClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label={t('action.toggleSidebar')}
                       hint="⌘B"
-                      onSelect={() => run(onToggleSidebar)}
+                      onSelect={() => run(toggleSidebar)}
                     />
                   )}
                   {showAction('Toggle Right Panel') && (
@@ -422,7 +407,7 @@ export function CommandPalette({
                       icon={<PanelRightClose size={14} color="var(--fg-muted)" strokeWidth={1.5} />}
                       label={t('action.toggleRightPanel')}
                       hint="⌘⇧B"
-                      onSelect={() => run(onToggleRightPanel)}
+                      onSelect={() => run(toggleRightPanel)}
                     />
                   )}
                 </Command.Group>

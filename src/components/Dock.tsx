@@ -1,27 +1,18 @@
 import { Folder, DollarSign } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useModalStore } from '../stores/modalStore';
+import { useLayoutStore } from '../stores/layoutStore';
 
-interface DockProps {
-  onAddTask: () => void;
-  onAddProject: () => void;
-  onOpenSettings: () => void;
-  onShowCostDashboard: () => void;
-  onToggleSidebar?: () => void;
-  onEnsureSidebarOpen?: () => void;
-}
-
-export function Dock({
-  onAddTask,
-  onAddProject,
-  onOpenSettings,
-  onShowCostDashboard,
-  onToggleSidebar,
-  onEnsureSidebarOpen,
-}: DockProps) {
+export function Dock() {
   const tasks = useTaskStore((s) => s.tasks);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
   const projects = useProjectStore((s) => s.projects);
+  const modal = useModalStore();
+  const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
+  const setShowSidebar = useLayoutStore((s) => s.setShowSidebar);
+
+  const ensureSidebarOpen = () => setShowSidebar(true);
 
   const taskClass = (status: string) => {
     switch (status) {
@@ -36,14 +27,12 @@ export function Dock({
 
   return (
     <div className="dock">
-      {onToggleSidebar && (
-        <button className="dock-icon" onClick={onToggleSidebar} title="Toggle sidebar ⌘B">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M9 3v18" />
-          </svg>
-        </button>
-      )}
+      <button className="dock-icon" onClick={toggleSidebar} title="Toggle sidebar ⌘B">
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M9 3v18" />
+        </svg>
+      </button>
       <div className="dock-sep" />
 
       {/* Project icons */}
@@ -56,7 +45,7 @@ export function Dock({
           onClick={() => {
             const task = tasks.find((t) => t.projectId === proj.id && t.status !== 'done');
             if (task) setActiveTask(task.id);
-            onEnsureSidebarOpen?.();
+            ensureSidebarOpen();
           }}
         >
           <span
@@ -79,7 +68,7 @@ export function Dock({
       ))}
 
       {/* Add project */}
-      <button className="dock-icon" onClick={onAddProject} title="New Project">
+      <button className="dock-icon" onClick={() => modal.open('newProject')} title="New Project">
         <Folder size={18} strokeWidth={1.5} />
       </button>
 
@@ -95,7 +84,7 @@ export function Dock({
             className={taskClass(task.status)}
             onClick={() => {
               setActiveTask(task.id);
-              onEnsureSidebarOpen?.();
+              ensureSidebarOpen();
             }}
             title={task.title}
           >
@@ -104,14 +93,14 @@ export function Dock({
           </button>
         ))}
 
-      <button className="dock-add" onClick={onAddTask} title="New Task">
+      <button className="dock-add" onClick={() => modal.openNewTask()} title="New Task">
         +
       </button>
       <div className="dock-bottom">
-        <button className="dock-icon" onClick={onShowCostDashboard} title="Cost Dashboard">
+        <button className="dock-icon" onClick={() => modal.open('costDashboard')} title="Cost Dashboard">
           <DollarSign size={16} strokeWidth={1.5} />
         </button>
-        <button className="dock-icon" onClick={onOpenSettings} title="Settings">
+        <button className="dock-icon" onClick={() => modal.open('settings')} title="Settings">
           ⚙
         </button>
       </div>

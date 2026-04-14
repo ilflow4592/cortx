@@ -1,24 +1,22 @@
 import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { BarChart3, CheckCircle2, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useModalStore } from '../../stores/modalStore';
 import { formatTime } from '../../utils/time';
 import { ProjectGroup } from './ProjectGroup';
 import { TaskRow } from './TaskRow';
 import { usePipelineRunner } from './usePipelineRunner';
 import type { Task } from '../../types/task';
 
-export function Sidebar({
-  onShowReport,
-  onEditProject,
-  onAddTaskForProject,
-}: {
-  onShowReport?: () => void;
-  onAddTask?: () => void;
-  onEditProject?: (id: string) => void;
-  onAddTaskForProject?: (projectId: string) => void;
-}) {
+// Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const mod = await import('@tauri-apps/api/core');
+  return mod.invoke<T>(cmd, args);
+}
+
+export function Sidebar() {
+  const modal = useModalStore();
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const setActiveTask = useTaskStore((s) => s.setActiveTask);
@@ -213,8 +211,6 @@ export function Sidebar({
             onSelectTask={setActiveTask}
             onDeleteTask={handleDeleteTask}
             onToggleSelect={toggleSelect}
-            onEditProject={onEditProject}
-            onAddTaskForProject={onAddTaskForProject}
             onDeleteProject={handleDeleteProject}
           />
         ))}
@@ -471,9 +467,8 @@ export function Sidebar({
       <div style={{ borderTop: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
         <div className="sb-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Today</span>
-          {onShowReport && (
-            <button
-              onClick={onShowReport}
+          <button
+              onClick={() => modal.open('report')}
               className="icon-btn-subtle"
               style={{
                 background: 'none',
@@ -491,7 +486,6 @@ export function Sidebar({
             >
               <BarChart3 size={14} strokeWidth={1.5} /> Report
             </button>
-          )}
         </div>
         <div className="sb-summary">
           <span>Focus</span>

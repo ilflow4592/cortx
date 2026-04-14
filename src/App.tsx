@@ -236,14 +236,7 @@ function MainApp() {
       }}
     >
       <div className="titlebar-region" data-tauri-drag-region />
-      <Dock
-        onAddTask={() => modal.openNewTask()}
-        onAddProject={() => modal.open('newProject')}
-        onOpenSettings={() => modal.open('settings')}
-        onShowCostDashboard={() => modal.open('costDashboard')}
-        onToggleSidebar={layout.toggleSidebar}
-        onEnsureSidebarOpen={() => layout.setShowSidebar(true)}
-      />
+      <Dock />
       <div
         style={{
           overflow: 'hidden',
@@ -255,12 +248,7 @@ function MainApp() {
       >
         <div style={{ width: layout.sidebarWidth, minWidth: layout.sidebarWidth, height: '100%' }}>
           <ErrorBoundary label="Sidebar">
-            <Sidebar
-              onShowReport={() => modal.open('report')}
-              onAddTask={() => modal.openNewTask()}
-              onEditProject={(id) => modal.openEditProject(id)}
-              onAddTaskForProject={(id) => modal.openNewTask(id)}
-            />
+            <Sidebar />
           </ErrorBoundary>
         </div>
         {layout.showSidebar && (
@@ -283,29 +271,10 @@ function MainApp() {
         )}
       </div>
       <ErrorBoundary label="MainPanel">
-        <MainPanel showRightPanel={layout.showRightPanel} onToggleRightPanel={layout.toggleRightPanel} />
+        <MainPanel />
       </ErrorBoundary>
-      <StatusBar
-        showSidebar={layout.showSidebar}
-        onToggleSidebar={layout.toggleSidebar}
-        showRightPanel={layout.showRightPanel}
-        onToggleRightPanel={layout.toggleRightPanel}
-      />
-      <CommandPalette
-        open={modal.commandPalette}
-        onClose={() => modal.close('commandPalette')}
-        onNewTask={() => modal.openNewTask()}
-        onNewProject={() => modal.open('newProject')}
-        onOpenSettings={() => modal.open('settings')}
-        onToggleSidebar={layout.toggleSidebar}
-        onToggleRightPanel={layout.toggleRightPanel}
-        onShowReport={() => modal.open('report')}
-        onShowWorktreeCleanup={() => modal.open('worktreeCleanup')}
-        onEditPipelineConfig={(path, name) => modal.openPipelineEditor(path, name)}
-        onShowMcpManager={() => modal.open('mcpManager')}
-        onShowSlashBuilder={() => modal.open('slashBuilder')}
-        onCheckForUpdates={() => modal.open('updateChecker')}
-      />
+      <StatusBar />
+      <CommandPalette open={modal.commandPalette} onClose={() => modal.close('commandPalette')} />
       <ModalRenderer />
     </div>
   );
