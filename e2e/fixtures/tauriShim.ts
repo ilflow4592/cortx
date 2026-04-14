@@ -31,25 +31,45 @@ const defaultInvokeHandler: InvokeHandler = (cmd) => {
   }
 };
 
-export async function installTauriShim(page: Page, invokeHandler: InvokeHandler = defaultInvokeHandler) {
+export interface ShimOptions {
+  /** true(기본): localStorage 에 cortx-onboarded 를 미리 세팅해 온보딩 오버레이 차단 */
+  skipOnboarding?: boolean;
+}
+
+export async function installTauriShim(
+  page: Page,
+  invokeHandler: InvokeHandler = defaultInvokeHandler,
+  options: ShimOptions = {},
+) {
   const serialized = invokeHandler.toString();
-  await page.addInitScript((handlerSrc: string) => {
-    const handler = new Function(`return (${handlerSrc});`)();
-    const internals = {
-      invoke: (cmd: string, args?: Record<string, unknown>) => {
+  const skipOnboarding = options.skipOnboarding ?? true;
+  await page.addInitScript(
+    ({ handlerSrc, skipOnboarding }: { handlerSrc: string; skipOnboarding: boolean }) => {
+      const handler = new Function(`return (${handlerSrc});`)();
+      const internals = {
+        invoke: (cmd: string, args?: Record<string, unknown>) => {
+          try {
+            return Promise.resolve(handler(cmd, args));
+          } catch (e) {
+            return Promise.reject(e);
+          }
+        },
+        transformCallback: <T>(cb: (arg: T) => unknown) => {
+          const id = Math.floor(Math.random() * 1e9);
+          (window as unknown as Record<string, unknown>)[`_tauri_cb_${id}`] = cb;
+          return id;
+        },
+        metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
+      };
+      Object.defineProperty(window, '__TAURI_INTERNALS__', { value: internals, writable: false });
+      if (skipOnboarding) {
         try {
-          return Promise.resolve(handler(cmd, args));
-        } catch (e) {
-          return Promise.reject(e);
+          window.localStorage.setItem('cortx-onboarded', '1');
+        } catch {
+          /* storage 차단 환경 — 무시 */
         }
-      },
-      transformCallback: <T>(cb: (arg: T) => unknown) => {
-        const id = Math.floor(Math.random() * 1e9);
-        (window as unknown as Record<string, unknown>)[`_tauri_cb_${id}`] = cb;
-        return id;
-      },
-      metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
-    };
-    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: internals, writable: false });
-  }, serialized);
+      }
+    },
+    { handlerSrc: serialized, skipOnboarding },
+  );
 }
