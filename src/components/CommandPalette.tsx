@@ -42,6 +42,8 @@ import { messageCache, sessionCache, loadingCache } from '../utils/chatState';
 import { searchAll, type SearchHit } from '../services/db';
 import { exportTaskAsJson, exportTaskAsMarkdown, importTasksFromJson } from '../services/taskExport';
 import { useT } from '../i18n';
+import { matchesAtBoundary, matchesLabelOrKeywords } from './command-palette/search';
+import { PaletteItem } from './command-palette/PaletteItem';
 
 interface Props {
   open: boolean;
@@ -85,34 +87,9 @@ export function CommandPalette({ open, onClose }: Props) {
     return () => clearTimeout(handle);
   }, [search]);
 
-  // Manual filtering since shouldFilter={false}
+  // 경계 인식 매칭 — 로직은 command-palette/search.ts로 추출됨
   const searchLower = search.trim().toLowerCase();
-  /**
-   * Boundary-aware match: the query must appear at the start of a word
-   * boundary in the text. Boundaries are: start-of-string, whitespace,
-   * and punctuation like `-_/()[].:,`.
-   *
-   * This gives intuitive behavior:
-   * - "ex" matches "Export" (at start) ✓
-   * - "ex" does NOT match "context" (inside word) ✓
-   * - "/" matches "Run Pipeline (/pipeline:dev-task)" (after "(") ✓
-   * - "/pipe" matches "/pipeline:dev-task" ✓
-   * - "run" matches "Run Pipeline" ✓
-   * - "run" does NOT match "prune" ✓
-   */
-  const matchesSearch = (text: string) => {
-    if (!searchLower) return true;
-    const lower = text.toLowerCase();
-    const boundaryRe = /[\s\-_/()[\].,:]/;
-    let idx = 0;
-    while ((idx = lower.indexOf(searchLower, idx)) !== -1) {
-      if (idx === 0 || boundaryRe.test(lower[idx - 1])) {
-        return true;
-      }
-      idx++;
-    }
-    return false;
-  };
+  const matchesSearch = (text: string) => matchesAtBoundary(text, search);
 
   const filteredTasks = useMemo(() => {
     if (!searchLower) return tasks;
@@ -155,10 +132,8 @@ export function CommandPalette({ open, onClose }: Props) {
     [],
   );
   const showAction = (label: string) => {
-    if (!searchLower) return true;
     const item = actionItems.find((a) => a.label === label);
-    if (matchesSearch(label)) return true;
-    return item?.keywords?.some((k) => matchesSearch(k)) ?? false;
+    return matchesLabelOrKeywords(search, label, item?.keywords || []);
   };
 
   // Esc to close
@@ -416,11 +391,8 @@ export function CommandPalette({ open, onClose }: Props) {
               // Current Task actions — shown both when browsing and when searching (filtered)
               const currentTaskItems: React.ReactNode[] = [];
               if (activeTask) {
-                const matchCurrent = (label: string, keywords: string[] = []) => {
-                  if (!searchLower) return true;
-                  if (matchesSearch(label)) return true;
-                  return keywords.some((k) => matchesSearch(k));
-                };
+                const matchCurrent = (label: string, keywords: string[] = []) =>
+                  matchesLabelOrKeywords(search, label, keywords);
 
                 if (matchCurrent('Run Pipeline (/pipeline:dev-task)', ['run', 'pipeline', 'dev-task', 'start'])) {
                   currentTaskItems.push(
@@ -657,59 +629,3 @@ export function CommandPalette({ open, onClose }: Props) {
   );
 }
 
-function PaletteItem({
-  icon,
-  label,
-  hint,
-  keywords,
-  onSelect,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  hint?: string;
-  keywords?: string[];
-  onSelect: () => void;
-}) {
-  return (
-    <Command.Item
-      value={[label, ...(keywords || [])].filter(Boolean).join(' ')}
-      onSelect={onSelect}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 12px',
-        borderRadius: 6,
-        cursor: 'pointer',
-        fontSize: 13,
-        color: 'var(--fg-secondary)',
-      }}
-    >
-      <span
-        style={{
-          width: 16,
-          height: 16,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {hint && (
-        <span
-          style={{
-            fontSize: 10,
-            color: 'var(--fg-faint)',
-            fontFamily: "'JetBrains Mono', monospace",
-            flexShrink: 0,
-          }}
-        >
-          {hint}
-        </span>
-      )}
-    </Command.Item>
-  );
-}
