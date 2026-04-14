@@ -33,6 +33,9 @@ jobs:
       - name: TypeScript + Vite build
         run: npm run build
 
+      - name: Bundle size budget
+        run: npm run size
+
       - name: Vitest with coverage
         run: npm run test:coverage
 

@@ -17,6 +17,7 @@
     "format:check": "prettier --check src/",
     "i18n:check": "node scripts/check-i18n.mjs",
     "stylelint": "stylelint \"src/**/*.css\"",
+    "size": "node scripts/check-bundle-size.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "prepare": "husky"

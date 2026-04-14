@@ -1,0 +1,18 @@
+{
+  "index": 60000,
+  "xterm": 95000,
+  "cmdk": 65000,
+  "lib": 40000,
+  "tauri": 10000,
+  "monaco": 8000,
+  "contextPackStore": 10000,
+  "CommandPalette": 10000,
+  "SlashCommandBuilder": 8000,
+  "McpServerManager": 6000,
+  "AIProviderSettings": 6000,
+  "pipelineExec": 6000,
+  "lucide": 5000,
+  "ProjectSettings": 5000,
+  "WorktreeCleanup": 5000,
+  "__total__": 350000
+}
