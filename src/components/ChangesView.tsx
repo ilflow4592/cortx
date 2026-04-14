@@ -1,43 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, RotateCw, Undo2, Trash2 } from 'lucide-react';
-
-const EXT_LANG: Record<string, string> = {
-  java: 'java',
-  ts: 'typescript',
-  tsx: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  json: 'json',
-  md: 'markdown',
-  yml: 'yaml',
-  yaml: 'yaml',
-  xml: 'xml',
-  html: 'html',
-  css: 'css',
-  sql: 'sql',
-  sh: 'shell',
-  py: 'python',
-  kt: 'kotlin',
-  gradle: 'groovy',
-  properties: 'ini',
-  toml: 'ini',
-};
-function getLanguageFromPath(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase() || '';
-  return EXT_LANG[ext] || 'plaintext';
-}
-
-interface ChangedFile {
-  path: string;
-  status: string; // M, A, D, R, ?
-}
-
-interface DiffHunk {
-  header: string;
-  lines: { type: 'add' | 'del' | 'ctx'; num: number; content: string }[];
-}
+import type { ChangedFile, DiffHunk } from './changes-view/types';
+import { getLanguageFromPath } from './changes-view/lang';
+import { parseDiff } from './changes-view/parse';
+import { runShell, fetchChangedFiles, fetchFileDiff } from './changes-view/api';
 
 export function ChangesView({
   cwd,
@@ -58,36 +25,20 @@ export function ChangesView({
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const run = useCallback(
-    async (command: string): Promise<string> => {
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', { cwd, command });
-      return result.success ? result.output : '';
-    },
-    [cwd],
-  );
+  const run = useCallback((command: string) => runShell(cwd, command), [cwd]);
 
   const loadChanges = useCallback(
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
-        const branchDiff = await run(
-          `git diff --name-status origin/develop...HEAD 2>/dev/null || git diff --name-status HEAD~5 2>/dev/null`,
-        );
-        const staged = await run(`git diff --cached --name-status 2>/dev/null`);
-        const unstaged = await run(`git diff --name-status 2>/dev/null`);
-
-        const fileMap = new Map<string, string>();
-        for (const line of [...branchDiff.split('\n'), ...unstaged.split('\n'), ...staged.split('\n')]) {
-          const match = line.match(/^([MADR?]+)\t(.+)/);
-          if (match) fileMap.set(match[2], match[1]);
-        }
-        setChangedFiles([...fileMap.entries()].map(([path, status]) => ({ path, status })));
+        const files = await fetchChangedFiles(cwd);
+        setChangedFiles(files);
       } catch {
         /* skip */
       }
       setLoading(false);
     },
-    [run],
+    [cwd],
   );
 
   useEffect(() => {
@@ -133,12 +84,7 @@ export function ChangesView({
     setViewMode(mode);
 
     if (mode === 'diff') {
-      const escaped = file.replace(/'/g, "'\\''");
-      // Try multiple diff strategies: branch diff → staged → unstaged → HEAD~1
-      let diff = await run(`git diff origin/develop...HEAD -- '${escaped}' 2>/dev/null`);
-      if (!diff.trim()) diff = await run(`git diff --cached -- '${escaped}' 2>/dev/null`);
-      if (!diff.trim()) diff = await run(`git diff -- '${escaped}' 2>/dev/null`);
-      if (!diff.trim()) diff = await run(`git diff HEAD~1 -- '${escaped}' 2>/dev/null`);
+      const diff = await fetchFileDiff(cwd, file);
       setDiffHunks(parseDiff(diff));
       setFileContent(null);
     } else {
@@ -506,28 +452,3 @@ export function ChangesView({
   );
 }
 
-function parseDiff(output: string): DiffHunk[] {
-  const hunks: DiffHunk[] = [];
-  let current: DiffHunk | null = null;
-  let lineNum = 0;
-
-  for (const line of output.split('\n')) {
-    if (line.startsWith('@@')) {
-      const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)/);
-      lineNum = match ? parseInt(match[1]) - 1 : 0;
-      current = { header: line, lines: [] };
-      hunks.push(current);
-    } else if (current) {
-      if (line.startsWith('+')) {
-        lineNum++;
-        current.lines.push({ type: 'add', num: lineNum, content: line.slice(1) });
-      } else if (line.startsWith('-')) {
-        current.lines.push({ type: 'del', num: 0, content: line.slice(1) });
-      } else if (line.startsWith(' ') || line === '') {
-        lineNum++;
-        current.lines.push({ type: 'ctx', num: lineNum, content: line.slice(1) || '' });
-      }
-    }
-  }
-  return hunks;
-}
