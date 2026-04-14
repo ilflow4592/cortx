@@ -1,5 +1,4 @@
 import { useState, lazy, Suspense } from 'react';
-import { ExternalLink, Braces, Code2, FolderOpen, TerminalSquare } from 'lucide-react';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -19,9 +18,9 @@ import { WorktreeTab } from './WorktreeTab';
 import { ContextTab } from './ContextTab';
 import { HistoryTab } from './HistoryTab';
 import { usePipelineConfig } from '../../hooks/usePipelineConfig';
-
-type UpperTab = 'projects' | 'changes';
-type LowerTab = 'dashboard' | 'worktree' | 'context' | 'history';
+import { UpperTabBar, type UpperTab } from './UpperTabBar';
+import { LowerTabBar, type LowerTab } from './LowerTabBar';
+import { ResizeHandle } from './ResizeHandle';
 
 export function RightPanel({
   cwd,
@@ -92,115 +91,14 @@ export function RightPanel({
           flexShrink: 0,
         }}
       >
-        <div className="rp-tabs">
-          {upperTabs.map((t) => (
-            <button
-              key={t.key}
-              className={`rp-tab ${upperTab === t.key ? 'active' : ''}`}
-              onClick={() => setUpperTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-          <div style={{ marginLeft: 'auto', position: 'relative', alignSelf: 'center' }}>
-            <button
-              onClick={() => setShowOpenMenu(!showOpenMenu)}
-              onBlur={() => setTimeout(() => setShowOpenMenu(false), 150)}
-              className="icon-btn-subtle"
-              style={{
-                background: 'none',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 5,
-                color: 'var(--fg-subtle)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '2px 8px',
-                fontSize: 10,
-                fontFamily: 'inherit',
-              }}
-            >
-              <ExternalLink size={11} strokeWidth={1.5} />
-              Open via
-            </button>
-            {showOpenMenu && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowOpenMenu(false)} />
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '100%',
-                    marginTop: 4,
-                    background: 'var(--bg-chip)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 8,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                    padding: 4,
-                    zIndex: 50,
-                    width: 180,
-                  }}
-                >
-                  {[
-                    {
-                      label: 'IntelliJ IDEA',
-                      icon: <Braces size={14} color="var(--accent)" strokeWidth={1.5} />,
-                      cmd: `open -a "IntelliJ IDEA" "${cwd}"`,
-                    },
-                    {
-                      label: 'VS Code',
-                      icon: <Code2 size={14} color="var(--accent)" strokeWidth={1.5} />,
-                      cmd: `open -a "Visual Studio Code" --args "${cwd}"`,
-                    },
-                    {
-                      label: 'Finder',
-                      icon: <FolderOpen size={14} color="var(--accent)" strokeWidth={1.5} />,
-                      cmd: `open "${cwd}"`,
-                    },
-                    {
-                      label: 'Terminal',
-                      icon: <TerminalSquare size={14} color="var(--accent)" strokeWidth={1.5} />,
-                      cmd: `open -a Terminal "${cwd}"`,
-                    },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        invoke('run_shell_command', { cwd: '/', command: item.cmd }).catch(() => {});
-                        setShowOpenMenu(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        width: '100%',
-                        padding: '8px 12px',
-                        background: 'none',
-                        border: 'none',
-                        borderRadius: 5,
-                        color: 'var(--fg-secondary)',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        fontFamily: 'inherit',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--accent-bg)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'none';
-                      }}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <UpperTabBar
+          tabs={upperTabs}
+          active={upperTab}
+          onChange={setUpperTab}
+          cwd={cwd}
+          showOpenMenu={showOpenMenu}
+          onToggleOpenMenu={setShowOpenMenu}
+        />
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {upperTab === 'projects' && <ProjectFiles cwd={cwd} onOpenFile={onOpenFile} />}
           {upperTab === 'changes' && (
@@ -211,28 +109,7 @@ export function RightPanel({
         </div>
       </div>
 
-      {/* Drag handle */}
-      <div
-        style={{ height: 4, cursor: 'row-resize', background: 'var(--border-strong)', flexShrink: 0 }}
-        onMouseDown={(e) => {
-          const startY = e.clientY;
-          const panel = e.currentTarget.parentElement;
-          if (!panel) return;
-          const startHeight = panel.clientHeight;
-          const startRatio = splitRatio;
-          const onMove = (ev: MouseEvent) => {
-            const delta = ev.clientY - startY;
-            const newRatio = Math.max(0.15, Math.min(0.85, startRatio + delta / startHeight));
-            setSplitRatio(newRatio);
-          };
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-          };
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        }}
-      />
+      <ResizeHandle splitRatio={splitRatio} onChange={setSplitRatio} />
 
       {/* Lower section: Dashboard / Worktree / Context / History */}
       <div
@@ -244,22 +121,7 @@ export function RightPanel({
           flexShrink: 0,
         }}
       >
-        <div className="rp-tabs">
-          {lowerTabs.map((t) => (
-            <button
-              key={t.key}
-              className={`rp-tab ${lowerTab === t.key ? 'active' : ''}`}
-              onClick={() => setLowerTab(t.key)}
-            >
-              {t.label}
-              {t.badge && t.badge > 0 && (
-                <span className="cp-new" style={{ marginLeft: 4 }}>
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <LowerTabBar tabs={lowerTabs} active={lowerTab} onChange={setLowerTab} />
         <div className="rp-content">
           {lowerTab === 'dashboard' && (
             <DashboardTab

@@ -3,20 +3,20 @@
  * and offers download-and-install with progress.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Download, RefreshCw, X, AlertCircle, ArrowUp } from 'lucide-react';
-import Markdown from 'react-markdown';
-import { checkForUpdates, downloadAndInstall, relaunchApp, type UpdateInfo } from '../services/updater';
+import { CheckCircle2, RefreshCw, X, AlertCircle, ArrowUp } from 'lucide-react';
+import { checkForUpdates, downloadAndInstall, relaunchApp, type UpdateInfo } from './update-checker/api';
+import type { Phase, DownloadProgressState } from './update-checker/types';
+import { UpdateAvailable } from './update-checker/UpdateAvailable';
+import { DownloadProgress } from './update-checker/DownloadProgress';
 
 interface Props {
   onClose: () => void;
 }
 
-type Phase = 'idle' | 'checking' | 'available' | 'up-to-date' | 'downloading' | 'installed' | 'error';
-
 export function UpdateChecker({ onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('checking');
   const [info, setInfo] = useState<UpdateInfo | null>(null);
-  const [progress, setProgress] = useState<{ downloaded: number; total?: number } | null>(null);
+  const [progress, setProgress] = useState<DownloadProgressState | null>(null);
   const [error, setError] = useState('');
 
   const runCheck = useCallback(async () => {
@@ -70,9 +70,6 @@ export function UpdateChecker({ onClose }: Props) {
       setError(String(err));
     }
   };
-
-  const progressPct =
-    progress && progress.total ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100)) : 0;
 
   return (
     <div
@@ -154,112 +151,9 @@ export function UpdateChecker({ onClose }: Props) {
             </div>
           )}
 
-          {phase === 'available' && info && (
-            <>
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 4 }}>New version available</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: 'var(--fg-subtle)',
-                      fontFamily: "'JetBrains Mono', monospace",
-                      textDecoration: 'line-through',
-                    }}
-                  >
-                    v{info.currentVersion}
-                  </span>
-                  <ArrowUp size={12} color="#34d399" />
-                  <span
-                    style={{
-                      fontSize: 15,
-                      color: '#34d399',
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontWeight: 600,
-                    }}
-                  >
-                    v{info.latestVersion}
-                  </span>
-                </div>
-                {info.releaseDate && (
-                  <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 4 }}>Released: {info.releaseDate}</div>
-                )}
-              </div>
-              {info.releaseNotes && (
-                <div
-                  style={{
-                    padding: 12,
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--bg-surface-hover)',
-                    borderRadius: 6,
-                    marginBottom: 14,
-                    fontSize: 11,
-                    color: 'var(--fg-secondary)',
-                    maxHeight: 240,
-                    overflowY: 'auto',
-                  }}
-                >
-                  <Markdown>{info.releaseNotes}</Markdown>
-                </div>
-              )}
-              <button
-                onClick={runInstall}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  background: 'rgba(52,211,153,0.15)',
-                  border: '1px solid rgba(52,211,153,0.4)',
-                  color: '#34d399',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
-                <Download size={13} strokeWidth={1.5} /> Download & Install
-              </button>
-            </>
-          )}
+          {phase === 'available' && info && <UpdateAvailable info={info} onInstall={runInstall} />}
 
-          {phase === 'downloading' && (
-            <div style={{ padding: '16px 0' }}>
-              <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 12, textAlign: 'center' }}>
-                Downloading update...
-              </div>
-              <div
-                style={{
-                  height: 6,
-                  background: 'var(--bg-surface-hover)',
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  marginBottom: 8,
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    width: progress?.total ? `${progressPct}%` : '40%',
-                    background: 'var(--accent)',
-                    transition: 'width 120ms ease',
-                  }}
-                />
-              </div>
-              {progress?.total ? (
-                <div style={{ fontSize: 10, color: 'var(--fg-faint)', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {(progress.downloaded / 1024 / 1024).toFixed(1)}MB / {(progress.total / 1024 / 1024).toFixed(1)}MB ({progressPct}%)
-                </div>
-              ) : (
-                <div style={{ fontSize: 10, color: 'var(--fg-faint)', textAlign: 'center' }}>
-                  {(progress?.downloaded || 0 / 1024 / 1024).toFixed(1)}MB downloaded
-                </div>
-              )}
-            </div>
-          )}
+          {phase === 'downloading' && <DownloadProgress progress={progress} />}
 
           {phase === 'installed' && (
             <div
