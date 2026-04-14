@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Paperclip } from 'lucide-react';
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(cmd, args);
-}
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useMcpStore } from '../../stores/mcpStore';
-import { useTaskStore } from '../../stores/taskStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
 import { McpStatusBar } from './McpStatusBar';
 import { PinDialog } from './PinDialog';
@@ -21,14 +14,20 @@ import { ActionsBar, type ModelOption } from './ActionsBar';
 import { SourceFilterBar } from './SourceFilterBar';
 import { ItemsList } from './ItemsList';
 import { LinkPreviewCard, type LinkPreview } from './LinkPreviewCard';
+import { DropOverlay } from './DropOverlay';
+import { ProjectSourceBadge } from './ProjectSourceBadge';
+import { useContextPackData } from './useContextPackData';
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<T>(cmd, args);
+}
 
 const MODEL_OPTIONS: ModelOption[] = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
   { value: 'claude-sonnet-4-6', label: 'Sonnet' },
   { value: 'claude-opus-4-6', label: 'Opus' },
 ];
-
-// ServiceType은 레지스트리 키 + 'other'. 새 MCP 추가는 src/config/searchResources.ts에서만.
 
 function sourceIcon(t: string) {
   if (t === 'github') return <GitHubIcon size={14} color="var(--fg-muted)" />;
@@ -46,56 +45,48 @@ export function ContextPack({
   onSwitchTab?: (tab: string) => void;
   isVisible?: boolean;
 }) {
-  // || []는 셀렉터 *외부*에서 — 내부에서 할당하면 매 getSnapshot마다 새 ref로
-  // "result of getSnapshot should be cached" 무한 루프 경고.
-  const isCollecting = useContextPackStore((s) => s.collecting[taskId]) || false;
-  const collectProgress = useContextPackStore((s) => s.collectProgresses[taskId]) || [];
-  const sources = useContextPackStore((s) => s.sources);
-  const taskItemsRaw = useContextPackStore((s) => s.items[taskId]);
-  const taskDeltaRaw = useContextPackStore((s) => s.deltaItems[taskId]);
-  const lastCollectedAt = useContextPackStore((s) => s.lastCollectedAt[taskId]);
-  const taskItems = taskItemsRaw || [];
-  const taskDelta = taskDeltaRaw || [];
-  const task = useTaskStore((s) => s.tasks.find((t) => t.id === taskId));
-  const projects = useProjectStore((s) => s.projects);
-  const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
-  // Context Pack uses the actual project root, not the worktree path
-  // MCP settings, .mcp.json, and ~/.claude.json projects keys are all project-root based
-  const projectCwd = project?.localPath || task?.repoPath || '';
+  const {
+    isCollecting,
+    collectProgress,
+    sources,
+    taskItems,
+    taskDelta,
+    lastCollectedAt,
+    storedKeywords,
+    mcpServers,
+    task,
+    project,
+    projectCwd,
+    sortedItems,
+    newCount,
+  } = useContextPackData(taskId);
+
   const [showPin, setShowPin] = useState(false);
   const [showKeywords, setShowKeywords] = useState(true);
   const [keywordDraft, setKeywordDraft] = useState('');
-  const storedKeywords = useContextPackStore((s) => s.keywords[taskId]) || [];
   const [collectModel, setCollectModel] = useState('claude-haiku-4-5-20251001');
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const isDragging = useFileDropHandler(taskId);
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-
-  const mcpServers = useMcpStore((s) => s.servers);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [searchResources, setSearchResources] = useState<Set<string>>(new Set(['github']));
 
+  const isDragging = useFileDropHandler(taskId);
   useMcpFileWatcher(projectCwd);
 
+  // 탭 진입·프로젝트 변경 시 MCP 새로 로드 + 기존 진행률 초기화
   useEffect(() => {
-    // Clear this task's progress on mount
     const store = useContextPackStore.getState();
     useContextPackStore.setState({ collectProgresses: { ...store.collectProgresses, [taskId]: [] } });
-    // Reload MCP servers for this project's context (project/local configs differ per project)
-    if (projectCwd) {
-      useMcpStore.getState().load(projectCwd);
-    }
+    if (projectCwd) useMcpStore.getState().load(projectCwd);
   }, [taskId, projectCwd]);
 
-  // Reload MCP servers when tab becomes visible (e.g. returning from Terminal after /mcp config)
+  // 터미널에서 /mcp 실행 후 돌아왔을 때 갱신
   useEffect(() => {
-    if (isVisible && projectCwd) {
-      useMcpStore.getState().load(projectCwd);
-    }
+    if (isVisible && projectCwd) useMcpStore.getState().load(projectCwd);
   }, [isVisible, projectCwd]);
 
-  // Auto-enable search resources when mcpServers change — mcpServers는 외부
-  // store 변경을 통해 들어오므로 effect 내 setState가 적절한 동기화 지점
+  // MCP 서버 상태가 바뀌면 ready 상태인 리소스를 자동 선택
   useEffect(() => {
     const readyServices = new Set<string>(
       mcpServers.filter((s) => s.status === 'ready' && s.serviceType !== 'other').map((s) => s.serviceType),
@@ -104,13 +95,7 @@ export function ContextPack({
     if (readyServices.size > 0) setSearchResources(readyServices);
   }, [mcpServers]);
 
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const sourceOrder: Record<string, number> = { github: 0, notion: 1, slack: 2, obsidian: 3, pin: 4 };
-  const sortedItems = [...taskItems].sort(
-    (a, b) => (sourceOrder[a.sourceType] ?? 9) - (sourceOrder[b.sourceType] ?? 9),
-  );
   const filtered = sourceFilter ? sortedItems.filter((i) => i.sourceType === sourceFilter) : sortedItems;
-  const newCount = taskItems.filter((i) => i.isNew).length;
 
   const handleCollect = () => {
     const store = useContextPackStore.getState();
@@ -119,7 +104,6 @@ export function ContextPack({
       const autoKeywords = [task?.branchName].filter(Boolean) as string[];
       store.setKeywords(taskId, autoKeywords);
     }
-
     const finalSources = buildCollectSources({
       searchResources,
       mcpServers,
@@ -127,7 +111,6 @@ export function ContextPack({
       projectOwner: project?.githubOwner,
       projectRepo: project?.githubRepo,
     });
-
     store.collectAll(taskId, task?.branchName || '', project?.slackChannels, task?.title, finalSources, collectModel);
   };
 
@@ -135,9 +118,7 @@ export function ContextPack({
     const kw = keywordDraft.trim();
     if (!kw) return;
     const current = useContextPackStore.getState().keywords[taskId] || [];
-    if (!current.includes(kw)) {
-      useContextPackStore.getState().setKeywords(taskId, [...current, kw]);
-    }
+    if (!current.includes(kw)) useContextPackStore.getState().setKeywords(taskId, [...current, kw]);
     setKeywordDraft('');
   };
 
@@ -165,39 +146,12 @@ export function ContextPack({
     setLoadingPreview(false);
   };
 
-  const lastCol = lastCollectedAt;
   const collectDisabled = storedKeywords.length === 0 && taskItems.length === 0;
 
   return (
     <div className="ctx-pack" style={{ position: 'relative' }}>
-      {/* Drop overlay */}
-      {isDragging && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 10,
-            background: 'var(--accent-bg)',
-            border: '2px dashed var(--accent)',
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div style={{ textAlign: 'center', color: 'var(--accent-bright)' }}>
-            <div style={{ marginBottom: 8 }}>
-              <Paperclip size={32} strokeWidth={1.5} />
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Drop files or URLs here</div>
-            <div style={{ fontSize: 11, color: 'var(--fg-subtle)', marginTop: 4 }}>
-              They'll be pinned to this task's context
-            </div>
-          </div>
-        </div>
-      )}
+      <DropOverlay visible={isDragging} />
       <div className="ctx-header">
-        {/* Delta banner */}
         {taskDelta.length > 0 && (
           <div className="ctx-delta-banner">
             <span style={{ fontWeight: 600 }}>⚡ {taskDelta.length} updates</span>
@@ -205,28 +159,7 @@ export function ContextPack({
           </div>
         )}
 
-        {/* Source info */}
-        {project && (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--fg-subtle)',
-              marginBottom: 10,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: 3, background: project.color }} />
-            {project.githubOwner && project.githubRepo ? (
-              <span>
-                {project.githubOwner}/{project.githubRepo}
-              </span>
-            ) : (
-              <span>{project.name}</span>
-            )}
-          </div>
-        )}
+        <ProjectSourceBadge project={project} />
 
         <McpStatusBar sources={sources} projectCwd={projectCwd} taskId={taskId} onSwitchTab={onSwitchTab} />
 
@@ -264,7 +197,9 @@ export function ContextPack({
 
         {showPin && <PinDialog taskId={taskId} onClose={() => setShowPin(false)} />}
 
-        {lastCol && <div className="ctx-collected-at">Last collected: {new Date(lastCol).toLocaleTimeString()}</div>}
+        {lastCollectedAt && (
+          <div className="ctx-collected-at">Last collected: {new Date(lastCollectedAt).toLocaleTimeString()}</div>
+        )}
       </div>
 
       <SourceFilterBar
