@@ -120,3 +120,28 @@ fn extract_gradle_java_version(content: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_gradle_java_version_parses_source_compatibility() {
+        let content = r#"sourceCompatibility = "17"
+targetCompatibility = "17""#;
+        assert_eq!(extract_gradle_java_version(content), Some("17".to_string()));
+    }
+
+    #[test]
+    fn extract_gradle_java_version_parses_jvm_target() {
+        let content = r#"kotlin {
+    jvmTarget = "21"
+}"#;
+        assert_eq!(extract_gradle_java_version(content), Some("21".to_string()));
+    }
+
+    #[test]
+    fn extract_gradle_java_version_returns_none_when_missing() {
+        assert_eq!(extract_gradle_java_version("plugins {}"), None);
+    }
+}

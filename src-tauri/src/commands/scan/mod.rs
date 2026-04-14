@@ -55,7 +55,7 @@ enum SotStatus {
     None,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 enum ProjectQuality {
     Rich,

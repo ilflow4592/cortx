@@ -10,7 +10,7 @@ use std::path::Path;
 
 use super::{ProjectQuality, AUTO_GEN_MARKER};
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum DocGrade {
     Rich,
@@ -227,5 +227,86 @@ pub fn quality_label(q: ProjectQuality) -> &'static str {
         ProjectQuality::Rich => "rich",
         ProjectQuality::Partial => "partial",
         ProjectQuality::Sparse => "sparse",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_first_h1_returns_first_h1_line() {
+        let content = "# Title\n\nbody\n# Other";
+        assert_eq!(extract_first_h1(content), Some("Title".to_string()));
+    }
+
+    #[test]
+    fn extract_first_h1_returns_none_when_absent() {
+        assert_eq!(extract_first_h1("no headings here"), None);
+    }
+
+    #[test]
+    fn extract_section_finds_named_block_until_next_h2() {
+        let content = "# T\n## Rules\n- A\n- B\n## Other\nignored";
+        let result = extract_section(content, &["rules"]);
+        assert_eq!(result, Some("- A\n- B".to_string()));
+    }
+
+    #[test]
+    fn extract_section_returns_none_for_missing_heading() {
+        assert_eq!(extract_section("## Foo\nbody", &["bar"]), None);
+    }
+
+    #[test]
+    fn extract_section_is_case_insensitive() {
+        let content = "## SCAN QUALITY\nrich";
+        assert_eq!(extract_section(content, &["scan quality"]), Some("rich".to_string()));
+    }
+
+    #[test]
+    fn extract_sot_path_finds_sot_marker() {
+        let content = "Stuff\nSOT: .ai/docs/architecture.md\nrest";
+        assert_eq!(extract_sot_path(content), Some(".ai/docs/architecture.md".to_string()));
+    }
+
+    #[test]
+    fn extract_sot_path_strips_backticks_and_quotes() {
+        assert_eq!(
+            extract_sot_path("SOT: `.ai/docs/foo.md`"),
+            Some(".ai/docs/foo.md".to_string()),
+        );
+    }
+
+    #[test]
+    fn extract_sot_path_returns_none_when_no_dot() {
+        // 경로처럼 보이지 않으면 (확장자 없음) None
+        assert_eq!(extract_sot_path("SOT: undefined"), None);
+    }
+
+    #[test]
+    fn extract_sot_path_returns_none_when_marker_absent() {
+        assert_eq!(extract_sot_path("nothing about source of truth"), None);
+    }
+
+    #[test]
+    fn overall_quality_picks_richest() {
+        let rich = DocEntry {
+            path: "x".into(),
+            grade: DocGrade::Rich,
+            size_bytes: 1000,
+            first_h1: None,
+        };
+        let partial = DocEntry { grade: DocGrade::Partial, ..rich.clone() };
+        let missing = DocEntry { grade: DocGrade::Missing, ..rich.clone() };
+        assert_eq!(overall_quality(&rich, &missing, &[]), ProjectQuality::Rich);
+        assert_eq!(overall_quality(&missing, &partial, &[]), ProjectQuality::Partial);
+        assert_eq!(overall_quality(&missing, &missing, &[]), ProjectQuality::Sparse);
+    }
+
+    #[test]
+    fn grade_and_quality_labels_round_trip() {
+        assert_eq!(grade_label(DocGrade::Rich), "rich");
+        assert_eq!(grade_label(DocGrade::Missing), "missing");
+        assert_eq!(quality_label(ProjectQuality::Sparse), "sparse");
     }
 }
