@@ -100,10 +100,15 @@ impl PtyManager {
     }
 
     /// Spawn a Claude CLI process for the given task.
-    /// Writes the prompt to a secure temp file, builds the CLI command with flags
-    /// (model, permission mode, resume, context), and streams JSON output via
-    /// `claude-data-{id}` events. Emits `claude-done-{id}` when the process exits.
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, allow_all_tools: bool, session_id: Option<&str>, model: Option<&str>, app: &AppHandle) -> Result<(), String> {
+    ///
+    /// 3단 책임을 서브컴포넌트로 분리:
+    /// 1. `SecureTempFile` — 프롬프트/컨텍스트를 0o600 임시 파일로 기록, drop 시 자동 정리
+    /// 2. `ClaudeCommand` 빌더 — 플래그 조합 (모델, fallback, resume, system prompt, add-dir)
+    /// 3. `spawn_and_stream` — 자식 프로세스 실행 + stdout 라인 스트리밍 + stderr 비동기 수거
+    ///
+    /// `claude-data-{id}` · `claude-done-{id}` 이벤트는 동일하게 emit된다.
+    /// `allow_all_tools`는 현재 미사용 (항상 bypassPermissions) — 기존 ABI 유지용.
+    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, _allow_all_tools: bool, session_id: Option<&str>, model: Option<&str>, app: &AppHandle) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -112,7 +117,6 @@ impl PtyManager {
         let msg_owned = message.to_string();
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
-        let allow_tools = allow_all_tools;
         let session_id_owned = session_id.map(|s| s.to_string());
         let model_owned = model.unwrap_or("claude-opus-4-6").to_string();
 
@@ -120,227 +124,33 @@ impl PtyManager {
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
 
         thread::spawn(move || {
-            // Write message to temp file (avoids shell escape issues with long prompts)
-            // Uses tempfile for secure random paths + 0o600 permissions
-            let msg_file = tempfile::Builder::new()
-                .prefix("cortx-msg-")
-                .suffix(".md")
-                .tempfile()
-                .map_err(|e| format!("Failed to create temp file: {}", e));
-            // write_secure_temp 실패 시 keep()된 파일을 즉시 제거해 /tmp leak 방지.
-            let msg_path = match msg_file {
-                Ok(f) => {
-                    let p = f.path().to_string_lossy().to_string();
-                    f.keep().ok(); // persist so claude CLI can read it
-                    if let Err(e) = write_secure_temp(&p, &msg_owned) {
-                        log::warn!("[pty] write_secure_temp msg failed: {} — cleanup + fallback", e);
-                        let _ = std::fs::remove_file(&p);
-                        let fallback = format!("/tmp/cortx-msg-{}.md", event_id);
-                        if write_secure_temp(&fallback, &msg_owned).is_err() {
-                            let _ = std::fs::remove_file(&fallback);
-                        }
-                        fallback
-                    } else {
-                        p
-                    }
-                }
-                Err(_) => {
-                    let fallback = format!("/tmp/cortx-msg-{}.md", event_id);
-                    if write_secure_temp(&fallback, &msg_owned).is_err() {
-                        let _ = std::fs::remove_file(&fallback);
-                    }
-                    fallback
-                }
-            };
-
-            // Write context summary to temp file if present
-            let has_summary = !summary_owned.is_empty();
-            let tmp_path = if has_summary {
-                let ctx_file = tempfile::Builder::new()
-                    .prefix("cortx-ctx-")
-                    .suffix(".md")
-                    .tempfile();
-                match ctx_file {
-                    Ok(f) => {
-                        let p = f.path().to_string_lossy().to_string();
-                        f.keep().ok();
-                        if let Err(e) = write_secure_temp(&p, &summary_owned) {
-                            log::warn!("[pty] write_secure_temp ctx failed: {} — cleanup + fallback", e);
-                            let _ = std::fs::remove_file(&p);
-                            let fallback = format!("/tmp/cortx-ctx-{}.md", event_id);
-                            if write_secure_temp(&fallback, &summary_owned).is_err() {
-                                let _ = std::fs::remove_file(&fallback);
-                            }
-                            fallback
-                        } else {
-                            p
-                        }
-                    }
-                    Err(_) => {
-                        let fallback = format!("/tmp/cortx-ctx-{}.md", event_id);
-                        if write_secure_temp(&fallback, &summary_owned).is_err() {
-                            let _ = std::fs::remove_file(&fallback);
-                        }
-                        fallback
-                    }
-                }
+            let msg_file = SecureTempFile::create("cortx-msg-", &event_id, &msg_owned);
+            // 컨텍스트 요약은 있을 때만 기록 — 파일 생성 자체를 건너뜀
+            let _ctx_file_guard = if !summary_owned.is_empty() {
+                Some(SecureTempFile::create("cortx-ctx-", &event_id, &summary_owned))
             } else {
-                String::new()
+                None
             };
 
-            // Build claude command — read message from temp file via stdin, stream JSON output
-            let mut cmd_parts = vec![
-                format!("cat {} |", shell_escape(&msg_path)),
-                "claude".to_string(),
-                "-p".to_string(),
-                "-".to_string(),
-                "--output-format".to_string(),
-                "stream-json".to_string(),
-                "--verbose".to_string(),
-                "--model".to_string(),
-                model_owned.clone(),
-                "--max-turns".to_string(),
-                "30".to_string(),
-            ];
+            let system_prompt = build_system_prompt(&summary_owned, &files_owned);
+            let add_dirs = derive_add_dirs(&files_owned);
 
-            // Add fallback model (only if using Opus, fallback to Sonnet)
-            if model_owned.contains("opus") {
-                cmd_parts.extend([
-                    "--fallback-model".to_string(),
-                    "claude-sonnet-4-6".to_string(),
-                ]);
+            let full_cmd = ClaudeCommand::new(msg_file.path(), &model_owned)
+                .with_session(session_id_owned.as_deref())
+                .with_system_prompt(&system_prompt)
+                .with_add_dirs(&add_dirs)
+                .build();
+
+            if let Err(e) = spawn_and_stream(&cwd_owned, &full_cmd, &event_id, &app_handle, pid_holder) {
+                let escaped = e.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+                let _ = app_handle.emit(
+                    &format!("claude-data-{}", event_id),
+                    format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped),
+                );
             }
 
-            // Always bypass permissions — Cortx app runs non-interactively
-            cmd_parts.extend([
-                "--permission-mode".to_string(),
-                "bypassPermissions".to_string(),
-            ]);
-
-            // Resume existing conversation if session_id is provided
-            if let Some(ref sid) = session_id_owned {
-                cmd_parts.extend([
-                    "--resume".to_string(),
-                    sid.clone(),
-                ]);
-            }
-
-            // Build system prompt from context summary + file list
-            let mut system_parts: Vec<String> = vec![];
-
-            if has_summary {
-                system_parts.push(format!(
-                    "The following is the user's collected context for this task (from GitHub, Slack, Notion, and pinned items). Use it to understand the task background:\n\n{}",
-                    summary_owned
-                ));
-            }
-
-            if !files_owned.is_empty() {
-                system_parts.push(format!(
-                    "The user has pinned the following local files as relevant context. Read and understand them before responding:\n{}",
-                    files_owned.iter().map(|f| format!("- {}", f)).collect::<Vec<_>>().join("\n")
-                ));
-            }
-
-            if !system_parts.is_empty() {
-                cmd_parts.push("--append-system-prompt".to_string());
-                cmd_parts.push(shell_escape(&system_parts.join("\n\n---\n\n")));
-            }
-
-            // Add directories containing the files so Claude can access them
-            if !files_owned.is_empty() {
-                let mut dirs: Vec<String> = files_owned.iter()
-                    .filter_map(|f| {
-                        let p = std::path::Path::new(f);
-                        p.parent().map(|d| d.to_string_lossy().to_string())
-                    })
-                    .collect();
-                dirs.sort();
-                dirs.dedup();
-                for dir in &dirs {
-                    cmd_parts.push("--add-dir".to_string());
-                    cmd_parts.push(shell_escape(dir));
-                }
-            }
-
-            let full_cmd = cmd_parts.join(" ");
-            #[cfg(unix)]
-            let child = std::process::Command::new("zsh")
-                .args(["-l", "-c", &full_cmd])
-                .current_dir(&cwd_owned)
-                .env("TERM", "dumb")
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn();
-            #[cfg(windows)]
-            let child = std::process::Command::new("cmd")
-                .args(["/C", &full_cmd])
-                .current_dir(&cwd_owned)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn();
-
-            match child {
-                Ok(mut proc) => {
-                    // Store PID for stop support
-                    if let Ok(mut pid_lock) = pid_holder.lock() {
-                        *pid_lock = Some(proc.id());
-                    }
-
-                    // Read stderr in a separate thread so it doesn't block stdout streaming
-                    let stderr_handle = proc.stderr.take().map(|stderr| {
-                        std::thread::spawn(move || {
-                            use std::io::Read;
-                            let mut buf = String::new();
-                            let mut reader = std::io::BufReader::new(stderr);
-                            let _ = reader.read_to_string(&mut buf);
-                            buf
-                        })
-                    });
-
-                    // Stream stdout line by line
-                    if let Some(stdout) = proc.stdout.take() {
-                        use std::io::BufRead;
-                        let reader = std::io::BufReader::new(stdout);
-                        for line in reader.lines() {
-                            match line {
-                                Ok(l) => {
-                                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), l);
-                                }
-                                Err(_) => break,
-                            }
-                        }
-                    }
-                    let _ = proc.wait();
-
-                    // If stderr has content, emit it as an error event
-                    if let Some(handle) = stderr_handle {
-                        if let Ok(stderr_output) = handle.join() {
-                            let trimmed = stderr_output.trim();
-                            if !trimmed.is_empty() {
-                                let escaped = trimmed.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
-                                let _ = app_handle.emit(&format!("claude-data-{}", event_id), format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped));
-                            }
-                        }
-                    }
-
-                    // Clean up temp files
-                    let _ = std::fs::remove_file(&msg_path);
-                    if has_summary {
-                        let _ = std::fs::remove_file(&tmp_path);
-                    }
-
-                    let _ = app_handle.emit(&format!("claude-done-{}", event_id), ());
-                }
-                Err(e) => {
-                    let _ = std::fs::remove_file(&msg_path);
-                    if has_summary {
-                        let _ = std::fs::remove_file(&tmp_path);
-                    }
-                    let _ = app_handle.emit(&format!("claude-data-{}", event_id), format!("{{\"type\":\"error\",\"content\":\"{}\" }}", e));
-                    let _ = app_handle.emit(&format!("claude-done-{}", event_id), ());
-                }
-            }
+            let _ = app_handle.emit(&format!("claude-done-{}", event_id), ());
+            // msg_file / _ctx_file_guard는 스코프 이탈 시 Drop으로 파일 삭제
         });
 
         Ok(())
@@ -456,3 +266,209 @@ fn write_secure_temp(path: &str, content: &str) -> std::io::Result<()> {
 
 /// Thread-safe handle to the PTY manager, shared across Tauri command handlers.
 pub type SharedPtyManager = Arc<Mutex<PtyManager>>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Claude CLI 실행 보조 — spawn_claude를 분해한 빌더/헬퍼
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 0o600 권한 임시 파일의 RAII 래퍼.
+///
+/// tempfile 크레이트로 unique 경로 생성을 시도하고, 실패 시 `/tmp/{prefix}{event_id}.md`
+/// fallback 경로를 사용한다. Drop 시 파일을 제거해 panic 경로나 early return에서도
+/// 새어나가지 않는다.
+struct SecureTempFile {
+    path: String,
+}
+
+impl SecureTempFile {
+    fn create(prefix: &str, event_id: &str, content: &str) -> Self {
+        // 1) tempfile 크레이트가 unique suffix를 붙여 생성 시도
+        if let Ok(f) = tempfile::Builder::new().prefix(prefix).suffix(".md").tempfile() {
+            let path = f.path().to_string_lossy().to_string();
+            f.keep().ok(); // claude CLI가 열 수 있도록 파일 유지 (Drop은 remove로 대체)
+            match write_secure_temp(&path, content) {
+                Ok(()) => return Self { path },
+                Err(e) => {
+                    log::warn!("[pty] write_secure_temp {} failed: {} — /tmp fallback 시도", prefix, e);
+                    let _ = std::fs::remove_file(&path);
+                }
+            }
+        }
+        // 2) /tmp fallback — 고정 경로지만 event_id 수준의 unique성 보장
+        let path = format!("/tmp/{}{}.md", prefix, event_id);
+        if let Err(e) = write_secure_temp(&path, content) {
+            log::warn!("[pty] fallback write {} failed: {}", prefix, e);
+            let _ = std::fs::remove_file(&path);
+        }
+        Self { path }
+    }
+
+    fn path(&self) -> &str {
+        &self.path
+    }
+}
+
+impl Drop for SecureTempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+/// Claude CLI 커맨드 파츠 빌더. 각 with_* 는 설정이 유효할 때만 인자를 추가한다.
+struct ClaudeCommand {
+    parts: Vec<String>,
+}
+
+impl ClaudeCommand {
+    fn new(msg_path: &str, model: &str) -> Self {
+        let mut parts: Vec<String> = vec![
+            format!("cat {} |", shell_escape(msg_path)),
+            "claude".into(),
+            "-p".into(),
+            "-".into(),
+            "--output-format".into(),
+            "stream-json".into(),
+            "--verbose".into(),
+            "--model".into(),
+            model.into(),
+            "--max-turns".into(),
+            "30".into(),
+            // Cortx는 비대화형 실행 — 항상 우회
+            "--permission-mode".into(),
+            "bypassPermissions".into(),
+        ];
+        // Opus 사용 시 rate limit/장애 대비 Sonnet으로 자동 fallback
+        if model.contains("opus") {
+            parts.extend(["--fallback-model".into(), "claude-sonnet-4-6".into()]);
+        }
+        Self { parts }
+    }
+
+    fn with_session(mut self, session_id: Option<&str>) -> Self {
+        if let Some(sid) = session_id {
+            self.parts.extend(["--resume".into(), sid.to_string()]);
+        }
+        self
+    }
+
+    fn with_system_prompt(mut self, prompt: &str) -> Self {
+        if !prompt.is_empty() {
+            self.parts.push("--append-system-prompt".into());
+            self.parts.push(shell_escape(prompt));
+        }
+        self
+    }
+
+    fn with_add_dirs(mut self, dirs: &[String]) -> Self {
+        for dir in dirs {
+            self.parts.push("--add-dir".into());
+            self.parts.push(shell_escape(dir));
+        }
+        self
+    }
+
+    fn build(self) -> String {
+        self.parts.join(" ")
+    }
+}
+
+/// Context summary + pinned file list를 Claude 시스템 프롬프트 블록으로 결합
+fn build_system_prompt(summary: &str, files: &[String]) -> String {
+    let mut parts: Vec<String> = vec![];
+    if !summary.is_empty() {
+        parts.push(format!(
+            "The following is the user's collected context for this task (from GitHub, Slack, Notion, and pinned items). Use it to understand the task background:\n\n{}",
+            summary
+        ));
+    }
+    if !files.is_empty() {
+        parts.push(format!(
+            "The user has pinned the following local files as relevant context. Read and understand them before responding:\n{}",
+            files.iter().map(|f| format!("- {}", f)).collect::<Vec<_>>().join("\n")
+        ));
+    }
+    parts.join("\n\n---\n\n")
+}
+
+/// pinned 파일들의 부모 디렉토리를 중복 없이 정렬된 목록으로 추출 (--add-dir 값)
+fn derive_add_dirs(files: &[String]) -> Vec<String> {
+    let mut dirs: Vec<String> = files
+        .iter()
+        .filter_map(|f| std::path::Path::new(f).parent().map(|d| d.to_string_lossy().to_string()))
+        .collect();
+    dirs.sort();
+    dirs.dedup();
+    dirs
+}
+
+/// Claude CLI 자식 프로세스를 실행하고 stdout을 라인 단위로 스트리밍.
+/// stderr는 별도 스레드로 수거해 프로세스 종료 시 에러 이벤트로 방출.
+fn spawn_and_stream(
+    cwd: &str,
+    cmd: &str,
+    event_id: &str,
+    app: &AppHandle,
+    pid_holder: Arc<Mutex<Option<u32>>>,
+) -> Result<(), String> {
+    #[cfg(unix)]
+    let child = std::process::Command::new("zsh")
+        .args(["-l", "-c", cmd])
+        .current_dir(cwd)
+        .env("TERM", "dumb")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
+    #[cfg(windows)]
+    let child = std::process::Command::new("cmd")
+        .args(["/C", cmd])
+        .current_dir(cwd)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
+
+    let mut proc = child.map_err(|e| e.to_string())?;
+
+    if let Ok(mut pid_lock) = pid_holder.lock() {
+        *pid_lock = Some(proc.id());
+    }
+
+    // stderr를 별도 스레드로 수거 — stdout 스트리밍을 블로킹하지 않도록
+    let stderr_handle = proc.stderr.take().map(|stderr| {
+        std::thread::spawn(move || {
+            use std::io::Read;
+            let mut buf = String::new();
+            let mut reader = std::io::BufReader::new(stderr);
+            let _ = reader.read_to_string(&mut buf);
+            buf
+        })
+    });
+
+    if let Some(stdout) = proc.stdout.take() {
+        use std::io::BufRead;
+        let reader = std::io::BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(l) => {
+                    let _ = app.emit(&format!("claude-data-{}", event_id), l);
+                }
+                Err(_) => break,
+            }
+        }
+    }
+    let _ = proc.wait();
+
+    if let Some(handle) = stderr_handle {
+        if let Ok(stderr_output) = handle.join() {
+            let trimmed = stderr_output.trim();
+            if !trimmed.is_empty() {
+                let escaped = trimmed.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+                let _ = app.emit(
+                    &format!("claude-data-{}", event_id),
+                    format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped),
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
