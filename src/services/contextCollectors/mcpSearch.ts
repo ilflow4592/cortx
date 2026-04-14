@@ -8,8 +8,9 @@
  * Notion/Slack: Claude CLI -> MCP 서버 -> JSON 파싱 (토큰 소모 있음)
  */
 
-import type { ContextItem, ContextSourceType } from '../../types/contextPack';
+import type { ContextItem } from '../../types/contextPack';
 import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
+import { parseClaudeOutput, parseTokenUsage, toContextItems } from './mcpSearch/parse';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -132,50 +133,24 @@ async function collectViaClaudeCli(
     const stderr = result.error || '';
 
     // 토큰 사용량 추정 (정확한 값이 없으면 ~4chars/token으로 추정)
-    let tokenUsage: { input: number; output: number } | undefined;
     const inputTokens = Math.ceil(prompt.length / 4);
     const outputTokens = Math.ceil(output.length / 4);
-    tokenUsage = { input: inputTokens, output: outputTokens };
+    let tokenUsage: { input: number; output: number } | undefined = {
+      input: inputTokens,
+      output: outputTokens,
+    };
 
     // stderr에서 실제 사용량을 파싱할 수 있으면 추정값을 덮어씀
-    const usageMatch = stderr.match(/input[:\s]+(\d+).*output[:\s]+(\d+)/i);
-    if (usageMatch) {
-      tokenUsage = { input: parseInt(usageMatch[1]), output: parseInt(usageMatch[2]) };
-    }
-    const jsonMatch = output.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    const actualUsage = parseTokenUsage(stderr);
+    if (actualUsage) tokenUsage = actualUsage;
+
+    const parsed = parseClaudeOutput(output);
+    if (!parsed) {
       console.warn('[cortx:mcp:' + serviceType + '] no JSON array found in output');
       return { items: [], tokenUsage };
     }
 
-    let parsed: Array<Record<string, string>>;
-    try {
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      // Fallback: extract title/url manually
-      const titles = [...output.matchAll(/"title"\s*:\s*"([^"]*?)"/g)].map((m) => m[1]);
-      const urls = [...output.matchAll(/"url"\s*:\s*"([^"]*?)"/g)].map((m) => m[1]);
-      parsed = titles.map((t, i) => ({ title: t, url: urls[i] || '' }));
-    }
-    if (!Array.isArray(parsed)) return { items: [], tokenUsage };
-
-    const knownSourceTypes: Record<string, ContextSourceType> = { notion: 'notion', slack: 'slack', obsidian: 'obsidian' };
-
-    const items = parsed.map((item, i) => ({
-      id: `mcp-${serviceType}-${item.id || i}`,
-      sourceType: knownSourceTypes[serviceType] || ('pin' as ContextSourceType),
-      title: item.parent ? `↳ ${item.title}` : item.title || 'Untitled',
-      url: item.url || '',
-      summary: item.parent ? `${item.parent}` : item.summary || '',
-      timestamp: item.lastEdited || item.timestamp || new Date().toISOString(),
-      isNew: false,
-      category: 'auto' as const,
-      metadata: {
-        source: 'mcp',
-        ...(item.parent ? { parent: item.parent } : {}),
-        ...(item.channel ? { channel: item.channel } : {}),
-      },
-    }));
+    const items = toContextItems(parsed, serviceType);
     return { items, tokenUsage };
   } catch (err) {
     console.warn(`[cortx] MCP search failed for ${serviceType}:`, err);
