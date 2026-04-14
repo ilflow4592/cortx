@@ -3,23 +3,24 @@
  * files for both project-local and global scopes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import { Plus, Trash2, X, Save, RotateCw, AlertCircle, Slash, FileCode } from 'lucide-react';
+import { Plus, Save, RotateCw, AlertCircle, Slash, FileCode } from 'lucide-react';
+import {
+  listSlashCommands,
+  readSlashCommand,
+  writeSlashCommand,
+  deleteSlashCommand,
+  type SlashCommand,
+  type Source,
+} from './slash-builder/api';
+import { CategoryList } from './slash-builder/CommandList';
+import { CreateForm } from './slash-builder/CreateForm';
+import { HoverIconButton, CloseButton } from './slash-builder/buttons';
 
 interface Props {
   projectCwd: string;
   onClose: () => void;
 }
-
-interface SlashCommand {
-  name: string;
-  description: string;
-  /** "builtin" | "user" | "project" */
-  source: string;
-}
-
-type Source = 'project' | 'user';
 
 const NEW_TEMPLATE = `# {{title}}
 
@@ -54,8 +55,8 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
     setLoading(true);
     setError('');
     try {
-      const list = await invoke<SlashCommand[]>('list_slash_commands', { projectCwd: projectCwd || null });
-      // Filter out builtins — those are handled by Claude CLI itself, not editable
+      const list = await listSlashCommands(projectCwd);
+      // builtin 커맨드는 Claude CLI가 직접 처리 — 편집 불가
       const editable = list.filter((c) => c.source !== 'builtin');
       setCommands(editable);
     } catch (err) {
@@ -77,11 +78,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
     }
     (async () => {
       try {
-        const text = await invoke<string>('read_slash_command', {
-          name: selected.name,
-          source: selected.source,
-          projectCwd: selected.source === 'project' ? projectCwd : null,
-        });
+        const text = await readSlashCommand(selected.name, selected.source, projectCwd);
         setContent(text);
         setOriginal(text);
       } catch (err) {
@@ -90,7 +87,23 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
     })();
   }, [selected, projectCwd]);
 
-  // ESC handler
+  const handleSave = async () => {
+    if (!selected) return;
+    const current = editorRef.current?.getValue() || content;
+    setSaving(true);
+    setError('');
+    try {
+      await writeSlashCommand(selected.name, selected.source as Source, current, projectCwd);
+      setOriginal(current);
+      setContent(current);
+      await load();
+    } catch (err) {
+      setError(`Save failed: ${err}`);
+    }
+    setSaving(false);
+  };
+
+  // ESC + Cmd+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -135,36 +148,11 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
     monaco.editor.setTheme('cortx-dark');
   };
 
-  const handleSave = async () => {
-    if (!selected) return;
-    const current = editorRef.current?.getValue() || content;
-    setSaving(true);
-    setError('');
-    try {
-      await invoke('write_slash_command', {
-        name: selected.name,
-        source: selected.source,
-        content: current,
-        projectCwd: selected.source === 'project' ? projectCwd : null,
-      });
-      setOriginal(current);
-      setContent(current);
-      await load();
-    } catch (err) {
-      setError(`Save failed: ${err}`);
-    }
-    setSaving(false);
-  };
-
   const handleDelete = async (cmd: SlashCommand) => {
     setSaving(true);
     setError('');
     try {
-      await invoke('delete_slash_command', {
-        name: cmd.name,
-        source: cmd.source,
-        projectCwd: cmd.source === 'project' ? projectCwd : null,
-      });
+      await deleteSlashCommand(cmd.name, cmd.source, projectCwd);
       if (selected?.name === cmd.name) {
         setSelected(null);
       }
@@ -191,12 +179,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
     setError('');
     try {
       const initialContent = NEW_TEMPLATE.replace('{{title}}', name);
-      await invoke('write_slash_command', {
-        name,
-        source: newSource,
-        content: initialContent,
-        projectCwd: newSource === 'project' ? projectCwd : null,
-      });
+      await writeSlashCommand(name, newSource, initialContent, projectCwd);
       await load();
       setSelected({ name, source: newSource, description: '' });
       setCreating(false);
@@ -255,7 +238,9 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
           <Slash size={16} color="var(--accent)" strokeWidth={1.5} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)' }}>Slash Command Builder</div>
-            <div style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div
+              style={{ fontSize: 10, color: 'var(--fg-faint)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}
+            >
               {projectCommands.length} project · {userCommands.length} global
             </div>
           </div>
@@ -505,7 +490,9 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
               padding: 18,
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>Delete command?</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>
+              Delete command?
+            </div>
             <div
               style={{
                 fontSize: 11,
@@ -552,379 +539,5 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-function CategoryList({
-  title,
-  description,
-  commands,
-  selected,
-  onSelect,
-  onDelete,
-  disabled,
-}: {
-  title: string;
-  description: string;
-  commands: SlashCommand[];
-  selected: SlashCommand | null;
-  onSelect: (cmd: SlashCommand) => void;
-  onDelete: (cmd: SlashCommand) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div
-        style={{
-          fontSize: 9,
-          fontWeight: 600,
-          color: 'var(--fg-subtle)',
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          padding: '6px 8px 2px',
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          fontSize: 9,
-          color: 'var(--fg-dim)',
-          padding: '0 8px 6px',
-          fontFamily: "'JetBrains Mono', monospace",
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {description}
-      </div>
-      {commands.length === 0 && (
-        <div style={{ fontSize: 10, color: 'var(--fg-dim)', padding: '4px 8px', fontStyle: 'italic' }}>No commands</div>
-      )}
-      {commands.map((cmd) => (
-        <CommandRow
-          key={`${cmd.source}-${cmd.name}`}
-          cmd={cmd}
-          isSelected={selected?.name === cmd.name && selected?.source === cmd.source}
-          onSelect={() => onSelect(cmd)}
-          onDelete={() => onDelete(cmd)}
-          disabled={disabled}
-        />
-      ))}
-    </div>
-  );
-}
-
-function CommandRow({
-  cmd,
-  isSelected,
-  onSelect,
-  onDelete,
-  disabled,
-}: {
-  cmd: SlashCommand;
-  isSelected: boolean;
-  onSelect: () => void;
-  onDelete: () => void;
-  disabled: boolean;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '6px 8px',
-        borderRadius: 5,
-        background: isSelected ? 'var(--accent-bg)' : hovered ? 'var(--bg-surface-hover)' : 'transparent',
-        border: `1px solid ${isSelected ? 'var(--accent-border)' : 'transparent'}`,
-        cursor: 'pointer',
-        transition: 'all 120ms ease',
-      }}
-    >
-      <button
-        onClick={onSelect}
-        disabled={disabled}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: 'none',
-          border: 'none',
-          color: isSelected ? 'var(--fg-primary)' : 'var(--fg-secondary)',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 11,
-          textAlign: 'left',
-          padding: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        /{cmd.name}
-      </button>
-      {(hovered || isSelected) && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          disabled={disabled}
-          title="Delete"
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--fg-faint)',
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            padding: 2,
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <Trash2 size={11} strokeWidth={1.5} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function CreateForm({
-  name,
-  setName,
-  source,
-  setSource,
-  projectCwd,
-  onCreate,
-  onCancel,
-  saving,
-}: {
-  name: string;
-  setName: (n: string) => void;
-  source: Source;
-  setSource: (s: Source) => void;
-  projectCwd: string;
-  onCreate: () => void;
-  onCancel: () => void;
-  saving: boolean;
-}) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        padding: 30,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          width: 360,
-          padding: 22,
-          background: 'var(--bg-surface-hover)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 10,
-        }}
-      >
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#818cf8', marginBottom: 14 }}>New Slash Command</div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: 10,
-              color: 'var(--fg-subtle)',
-              marginBottom: 4,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-            }}
-          >
-            Name
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="my-command or group:my-command"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onCreate();
-            }}
-            autoFocus
-            style={{
-              width: '100%',
-              padding: '6px 10px',
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 5,
-              color: 'var(--fg-primary)',
-              fontSize: 12,
-              fontFamily: "'JetBrains Mono', monospace",
-              outline: 'none',
-            }}
-          />
-          <div style={{ fontSize: 9, color: 'var(--fg-faint)', marginTop: 4 }}>
-            Use <code style={{ color: 'var(--fg-subtle)' }}>:</code> for subgroups (pipeline:dev-task)
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <label
-            style={{
-              display: 'block',
-              fontSize: 10,
-              color: 'var(--fg-subtle)',
-              marginBottom: 4,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-            }}
-          >
-            Scope
-          </label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => setSource('project')}
-              disabled={!projectCwd}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                borderRadius: 5,
-                fontSize: 11,
-                background: source === 'project' ? 'var(--accent-bg)' : 'none',
-                border: `1px solid ${source === 'project' ? 'var(--accent-border)' : 'var(--border-strong)'}`,
-                color: !projectCwd ? 'var(--fg-dim)' : source === 'project' ? 'var(--accent-bright)' : 'var(--fg-subtle)',
-                cursor: projectCwd ? 'pointer' : 'not-allowed',
-                fontFamily: 'inherit',
-              }}
-            >
-              Project
-            </button>
-            <button
-              onClick={() => setSource('user')}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                borderRadius: 5,
-                fontSize: 11,
-                background: source === 'user' ? 'rgba(129,140,248,0.15)' : 'none',
-                border: `1px solid ${source === 'user' ? 'rgba(129,140,248,0.4)' : 'var(--border-strong)'}`,
-                color: source === 'user' ? '#818cf8' : 'var(--fg-subtle)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              Global (~/.claude)
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onCancel}
-            disabled={saving}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 5,
-              fontSize: 11,
-              background: 'none',
-              border: '1px solid var(--fg-dim)',
-              color: 'var(--fg-muted)',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onCreate}
-            disabled={!name.trim() || saving}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 5,
-              fontSize: 11,
-              fontWeight: 500,
-              background: name.trim() ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
-              border: `1px solid ${name.trim() ? 'var(--accent-border)' : 'var(--border-muted)'}`,
-              color: name.trim() ? 'var(--accent-bright)' : 'var(--fg-faint)',
-              cursor: name.trim() && !saving ? 'pointer' : 'not-allowed',
-              fontFamily: 'inherit',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <Plus size={11} strokeWidth={2} />
-            {saving ? 'Creating...' : 'Create'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HoverIconButton({
-  onClick,
-  disabled,
-  hoverColor,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  hoverColor: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: !disabled && hovered ? `${hoverColor}15` : 'none',
-        border: `1px solid ${!disabled && hovered ? `${hoverColor}40` : 'transparent'}`,
-        color: disabled ? 'var(--fg-dim)' : hovered ? hoverColor : 'var(--fg-subtle)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 6,
-        borderRadius: 5,
-        transition: 'all 120ms ease',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function CloseButton({ onClose }: { onClose: () => void }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClose}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: hovered ? 'rgba(239,68,68,0.1)' : 'none',
-        border: `1px solid ${hovered ? 'rgba(239,68,68,0.25)' : 'transparent'}`,
-        color: hovered ? '#ef4444' : 'var(--fg-faint)',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 6,
-        borderRadius: 5,
-        transition: 'all 120ms ease',
-      }}
-    >
-      <X size={16} strokeWidth={1.5} />
-    </button>
   );
 }
