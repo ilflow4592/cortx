@@ -19,13 +19,19 @@ export function KeywordsInput({
 }: KeywordsInputProps) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div
+      <button
+        type="button"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           cursor: 'pointer',
           marginBottom: showKeywords ? 8 : 0,
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          fontFamily: 'inherit',
         }}
         onClick={() => setShowKeywords(!showKeywords)}
       >
@@ -41,7 +47,7 @@ export function KeywordsInput({
           Search Keywords ({storedKeywords.length})
         </span>
         <span style={{ fontSize: 10, color: 'var(--fg-faint)' }}>{showKeywords ? '▾' : '▸'}</span>
-      </div>
+      </button>
 
       {showKeywords && (
         <div>

@@ -22,14 +22,8 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
-    // a11y는 점진 개선 — 기존 에러 134건을 warn으로 내려 빌드 막지 않고 신규만 차단.
-    // 리팩터 완료 후 error로 승격 목표.
-    rules: {
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/label-has-associated-control': 'warn',
-      'jsx-a11y/no-autofocus': 'warn',
-    },
+    // a11y 규칙 복구 — 134건 전수 수정 완료 (ModalBackdrop 추출, button 전환,
+    // role/tabIndex/keyboard 추가, useRef focus 패턴). 신규 코드 차단 목적.
   },
   {
     files: ['tests/**/*.{ts,tsx}'],

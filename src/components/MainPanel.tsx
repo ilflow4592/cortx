@@ -141,9 +141,21 @@ export function MainPanel() {
       {task.status === 'active' && taskDeltaCount > 0 && (
         <div className="delta-banner">
           <span className="delta-banner-text">⚡ {taskDeltaCount} updates while you were away</span>
-          <span className="delta-banner-link" onClick={() => selectTab('context')}>
+          <button
+            type="button"
+            className="delta-banner-link"
+            onClick={() => selectTab('context')}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              font: 'inherit',
+              color: 'inherit',
+            }}
+          >
             View changes →
-          </span>
+          </button>
         </div>
       )}
 
@@ -214,6 +226,22 @@ export function MainPanel() {
         {showRightPanel && (
           <div style={{ display: 'flex', overflow: 'hidden', position: 'relative' }}>
             <div
+              role="slider"
+              aria-label="Resize right panel"
+              aria-orientation="vertical"
+              aria-valuenow={rightPanelWidth}
+              aria-valuemin={250}
+              aria-valuemax={700}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  setRightPanelWidth(Math.min(700, rightPanelWidth + 20));
+                } else if (e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  setRightPanelWidth(Math.max(250, rightPanelWidth - 20));
+                }
+              }}
               onMouseDown={(e) => {
                 const startX = e.clientX;
                 const startWidth = rightPanelWidth;

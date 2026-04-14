@@ -138,11 +138,20 @@ export function ChatInput({
           {filteredCommands.map((cmd, i) => (
             <div
               key={cmd.name}
+              role="option"
+              aria-selected={i === slashIndex}
+              tabIndex={-1}
               className={`slash-item ${i === slashIndex ? 'slash-item-active' : ''}`}
               onMouseEnter={() => setSlashIndex(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
                 selectSlashCommand(cmd);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  selectSlashCommand(cmd);
+                }
               }}
             >
               <div className="slash-item-name">

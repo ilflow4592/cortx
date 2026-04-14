@@ -90,7 +90,20 @@ export function ActionsBar({
         </button>
         {showModelMenu && (
           <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowModelMenu(false)} />
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setShowModelMenu(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'default',
+              }}
+            />
             <div
               style={{
                 position: 'absolute',

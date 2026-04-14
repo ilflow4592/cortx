@@ -22,13 +22,24 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
       <div className="cp-body">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {item.url ? (
-            <span
+            <button
+              type="button"
               className="cp-name"
-              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--fg-dim)' }}
+              style={{
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textDecorationColor: 'var(--fg-dim)',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: 'inherit',
+                font: 'inherit',
+                textAlign: 'left',
+              }}
               onClick={() => onPreview(item.url)}
             >
               {item.title}
-            </span>
+            </button>
           ) : (
             <span className="cp-name">{item.title}</span>
           )}

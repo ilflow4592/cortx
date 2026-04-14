@@ -8,6 +8,7 @@ export function SidebarHeader() {
   return (
     <div
       className="sb-header"
+      role="presentation"
       onMouseDown={async (e) => {
         if (e.buttons === 1 && (e.target as HTMLElement).tagName !== 'BUTTON') {
           try {

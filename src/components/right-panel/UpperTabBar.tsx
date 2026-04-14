@@ -49,7 +49,20 @@ export function UpperTabBar({ tabs, active, onChange, cwd, showOpenMenu, onToggl
         </button>
         {showOpenMenu && (
           <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => onToggleOpenMenu(false)} />
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => onToggleOpenMenu(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 49,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'default',
+              }}
+            />
             <div
               style={{
                 position: 'absolute',

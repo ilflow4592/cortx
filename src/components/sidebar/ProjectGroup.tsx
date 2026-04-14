@@ -10,12 +10,21 @@ function ScanningIndicator() {
   const [showTip, setShowTip] = useState(false);
   return (
     <span
+      role="button"
+      tabIndex={0}
+      aria-label="Scanning in progress"
       onMouseEnter={(e) => {
         e.stopPropagation();
         setShowTip(true);
       }}
       onMouseLeave={() => setShowTip(false)}
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -159,8 +168,10 @@ export function ProjectGroup({
           position: 'relative',
         }}
       >
-        <span
+        <button
+          type="button"
           onClick={handleProjectSelectToggle}
+          aria-label={allSelected ? 'Deselect all tasks' : 'Select all tasks'}
           style={{
             position: 'absolute',
             left: 8,
@@ -170,6 +181,9 @@ export function ProjectGroup({
             display: 'flex',
             alignItems: 'center',
             zIndex: 5,
+            background: 'none',
+            border: 'none',
+            padding: 0,
           }}
         >
           {tasks.length > 0 && allSelected ? (
@@ -177,7 +191,7 @@ export function ProjectGroup({
           ) : (
             <Square size={18} color="var(--fg-dim)" strokeWidth={1.5} />
           )}
-        </span>
+        </button>
         <button
           onClick={onToggleCollapse}
           style={{

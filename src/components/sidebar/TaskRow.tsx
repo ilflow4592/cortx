@@ -46,11 +46,13 @@ export function TaskRow({
   return (
     <div className="task-row-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
       {onToggleSelect && task.status !== 'done' && (
-        <span
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggleSelect();
           }}
+          aria-label={selected ? 'Deselect task' : 'Select task'}
           style={{
             position: 'absolute',
             left: 8,
@@ -60,6 +62,9 @@ export function TaskRow({
             display: 'flex',
             alignItems: 'center',
             zIndex: 5,
+            background: 'none',
+            border: 'none',
+            padding: 0,
           }}
         >
           {selected ? (
@@ -67,7 +72,7 @@ export function TaskRow({
           ) : (
             <Square size={18} color="var(--fg-dim)" strokeWidth={1.5} />
           )}
-        </span>
+        </button>
       )}
       <button
         className={cls}

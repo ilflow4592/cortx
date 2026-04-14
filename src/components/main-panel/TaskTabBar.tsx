@@ -33,9 +33,19 @@ export function TaskTabBar({ tabs, activeTab, onSelect, onCloseEditor }: Props) 
           {tab.badge && tab.badge > 0 && <span className="badge">{tab.badge}</span>}
           {tab.closable && (
             <span
+              role="button"
+              tabIndex={0}
+              aria-label="Close editor"
               onClick={(e) => {
                 e.stopPropagation();
                 onCloseEditor();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onCloseEditor();
+                }
               }}
               style={{
                 marginLeft: 6,

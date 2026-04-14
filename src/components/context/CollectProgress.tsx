@@ -48,7 +48,15 @@ export function CollectProgress({ progress, isCollecting }: CollectProgressProps
               <span style={{ color: '#ef4444' }}>— failed</span>
               {p.error && (
                 <span
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigator.clipboard.writeText(p.error || '')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigator.clipboard.writeText(p.error || '');
+                    }
+                  }}
                   title="Click to copy"
                   style={{
                     color: 'var(--fg-faint)',

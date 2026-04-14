@@ -127,20 +127,32 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Pipe
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
         zIndex: 1500,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
+      <button
+        type="button"
+        aria-label="Close pipeline config editor"
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          border: 'none',
+          padding: 0,
+          cursor: 'default',
+        }}
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         style={{
           width: 760,
           maxWidth: '95vw',
@@ -153,6 +165,8 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Pipe
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <ConfigHeader

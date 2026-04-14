@@ -196,20 +196,32 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
         zIndex: 1500,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
+      <button
+        type="button"
+        aria-label="Close slash command builder"
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          border: 'none',
+          padding: 0,
+          cursor: 'default',
+        }}
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         style={{
           width: 960,
           maxWidth: '95vw',
@@ -222,6 +234,8 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         {/* Header */}
@@ -471,28 +485,42 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
       {/* Confirm delete */}
       {confirmDelete && (
         <div
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmDelete(null);
-          }}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.7)',
             zIndex: 1600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
+          <button
+            type="button"
+            aria-label="Cancel delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(null);
+            }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.7)',
+              border: 'none',
+              padding: 0,
+              cursor: 'default',
+            }}
+          />
           <div
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
             style={{
               width: 380,
               background: 'var(--bg-panel)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 10,
               padding: 18,
+              position: 'relative',
+              zIndex: 1,
             }}
           >
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>

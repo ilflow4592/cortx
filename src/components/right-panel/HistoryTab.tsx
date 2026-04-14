@@ -109,7 +109,8 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                         )}
                       </div>
                       {r.error && (
-                        <div
+                        <button
+                          type="button"
                           onClick={() => navigator.clipboard.writeText(r.error || '')}
                           title="Click to copy"
                           style={{
@@ -121,10 +122,17 @@ export function HistoryTab({ taskHistory }: { taskHistory: CollectHistoryEntry[]
                             cursor: 'pointer',
                             userSelect: 'text',
                             WebkitUserSelect: 'text',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            textAlign: 'left',
+                            fontFamily: 'inherit',
+                            display: 'block',
+                            width: '100%',
                           }}
                         >
                           {r.error.slice(0, 150)} <span style={{ color: 'var(--fg-dim)' }}>📋</span>
-                        </div>
+                        </button>
                       )}
                     </div>
                   ))}

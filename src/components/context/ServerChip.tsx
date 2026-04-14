@@ -20,7 +20,8 @@ export function ServerChip({ server, isSelected, onSelect }: ServerChipProps) {
   const statusLabel = isDisabled ? 'disabled' : isReady ? 'connected' : needsAuth ? 'auth-needed' : 'failed';
 
   return (
-    <span
+    <button
+      type="button"
       onClick={onSelect}
       style={{
         display: 'inline-flex',
@@ -42,11 +43,12 @@ export function ServerChip({ server, isSelected, onSelect }: ServerChipProps) {
         color: statusColor,
         cursor: 'pointer',
         opacity: isDisabled ? 0.5 : 1,
+        fontFamily: 'inherit',
       }}
       title={`${server.name} · ${statusLabel}`}
     >
       <span style={{ fontSize: 10 }}>{statusIcon}</span>
       {server.name}
-    </span>
+    </button>
   );
 }

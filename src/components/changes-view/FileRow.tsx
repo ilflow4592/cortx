@@ -45,7 +45,17 @@ export function FileRow({ file, onSelect, onDiscard }: FileRowProps) {
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{file.path}</span>
       {file.status && (
         <span
+          role="button"
+          tabIndex={0}
+          aria-label="Discard changes"
           onClick={onDiscard}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              onDiscard(e as unknown as React.MouseEvent);
+            }
+          }}
           title="Discard changes"
           style={{
             color: 'var(--fg-subtle)',

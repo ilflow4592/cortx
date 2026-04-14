@@ -176,7 +176,21 @@ function MainApp() {
         </div>
         {layout.showSidebar && (
           <div
+            role="slider"
+            aria-label="Resize sidebar"
+            aria-orientation="vertical"
+            aria-valuenow={layout.sidebarWidth}
+            tabIndex={0}
             onMouseDown={handleResizeStart}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                layout.setSidebarWidth(Math.max(180, layout.sidebarWidth - 20));
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                layout.setSidebarWidth(Math.min(600, layout.sidebarWidth + 20));
+              }
+            }}
             style={{
               position: 'absolute',
               top: 0,

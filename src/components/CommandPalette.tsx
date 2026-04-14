@@ -181,12 +181,9 @@ export function CommandPalette({ open, onClose }: Props) {
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        backdropFilter: 'blur(4px)',
         zIndex: 1000,
         display: 'flex',
         alignItems: 'flex-start',
@@ -194,8 +191,24 @@ export function CommandPalette({ open, onClose }: Props) {
         paddingTop: '15vh',
       }}
     >
+      <button
+        type="button"
+        aria-label="Close command palette"
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(4px)',
+          border: 'none',
+          padding: 0,
+          cursor: 'default',
+        }}
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command Palette"
         style={{
           width: 600,
           maxWidth: '90vw',
@@ -207,6 +220,8 @@ export function CommandPalette({ open, onClose }: Props) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <Command label="Command Palette" shouldFilter={false}>

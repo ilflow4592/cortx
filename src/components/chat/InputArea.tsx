@@ -53,10 +53,15 @@ export function InputArea({
         placeholder="메시지를 입력하세요..."
       />
       <div style={{ position: 'relative' }}>
-        <div className="model-select" onClick={onToggleModelPicker}>
+        <button
+          type="button"
+          className="model-select"
+          onClick={onToggleModelPicker}
+          style={{ background: 'none', border: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+        >
           <span className="m-dot" />
           {displayModel} ▾
-        </div>
+        </button>
         {showModelPicker && (
           <div
             style={{

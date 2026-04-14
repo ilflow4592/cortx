@@ -21,20 +21,36 @@ export function StatusBar() {
         )}
       </div>
       <div className="sb-r">
-        <span
-          style={{ cursor: 'pointer', color: showSidebar ? 'var(--fg-subtle)' : '#818cf8' }}
+        <button
+          type="button"
+          style={{
+            cursor: 'pointer',
+            color: showSidebar ? 'var(--fg-subtle)' : '#818cf8',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+          }}
           onClick={toggleSidebar}
           title="Toggle sidebar ⌘B"
         >
           ⌘B {t('status.sidebar')}
-        </span>
-        <span
-          style={{ cursor: 'pointer', color: showRightPanel ? 'var(--fg-subtle)' : '#818cf8' }}
+        </button>
+        <button
+          type="button"
+          style={{
+            cursor: 'pointer',
+            color: showRightPanel ? 'var(--fg-subtle)' : '#818cf8',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+          }}
           onClick={toggleRightPanel}
           title="Toggle right panel ⌘⇧B"
         >
           ⌘⇧B {t('status.panel')}
-        </span>
+        </button>
         <span>⌘K {t('status.palette')}</span>
         <span>⌘⇧P {t('status.pause')}</span>
         <span>⌘⇧R {t('status.resume')}</span>

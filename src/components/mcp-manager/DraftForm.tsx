@@ -47,8 +47,11 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
       </div>
 
       <div style={{ marginBottom: 10 }}>
-        <label style={labelStyle}>Name</label>
+        <label style={labelStyle} htmlFor="mcp-draft-name">
+          Name
+        </label>
         <input
+          id="mcp-draft-name"
           value={draft.name}
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           placeholder="github"
@@ -58,7 +61,9 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
       </div>
 
       <div style={{ marginBottom: 10 }}>
-        <label style={labelStyle}>Type</label>
+        <div style={labelStyle} role="group" aria-label="Type">
+          Type
+        </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {(['stdio', 'http'] as const).map((t) => (
             <button
@@ -84,8 +89,11 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
       {draft.type === 'stdio' ? (
         <>
           <div style={{ marginBottom: 10 }}>
-            <label style={labelStyle}>Command</label>
+            <label style={labelStyle} htmlFor="mcp-draft-command">
+              Command
+            </label>
             <input
+              id="mcp-draft-command"
               value={draft.command}
               onChange={(e) => setDraft({ ...draft, command: e.target.value })}
               placeholder="npx"
@@ -93,8 +101,11 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
             />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label style={labelStyle}>Args (space-separated)</label>
+            <label style={labelStyle} htmlFor="mcp-draft-args">
+              Args (space-separated)
+            </label>
             <input
+              id="mcp-draft-args"
               value={draft.args}
               onChange={(e) => setDraft({ ...draft, args: e.target.value })}
               placeholder="-y @modelcontextprotocol/server-github"
@@ -104,8 +115,11 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
         </>
       ) : (
         <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>URL</label>
+          <label style={labelStyle} htmlFor="mcp-draft-url">
+            URL
+          </label>
           <input
+            id="mcp-draft-url"
             value={draft.url}
             onChange={(e) => setDraft({ ...draft, url: e.target.value })}
             placeholder="https://mcp.notion.com/mcp"
@@ -115,8 +129,11 @@ export function DraftForm({ draft, setDraft, onSave, onCancel, saving, isEdit }:
       )}
 
       <div style={{ marginBottom: 12 }}>
-        <label style={labelStyle}>Environment Variables (KEY=value, one per line)</label>
+        <label style={labelStyle} htmlFor="mcp-draft-env">
+          Environment Variables (KEY=value, one per line)
+        </label>
         <textarea
+          id="mcp-draft-env"
           value={draft.envText}
           onChange={(e) => setDraft({ ...draft, envText: e.target.value })}
           placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx"

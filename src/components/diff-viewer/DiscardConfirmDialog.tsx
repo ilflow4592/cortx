@@ -15,20 +15,32 @@ interface DiscardConfirmDialogProps {
 export function DiscardConfirmDialog({ target, onCancel, onConfirm }: DiscardConfirmDialogProps) {
   return (
     <div
-      onClick={onCancel}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
         zIndex: 1400,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
+      <button
+        type="button"
+        aria-label="Close dialog"
+        onClick={onCancel}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          border: 'none',
+          padding: 0,
+          cursor: 'default',
+        }}
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         style={{
           width: 420,
           maxWidth: '90vw',
@@ -36,6 +48,8 @@ export function DiscardConfirmDialog({ target, onCancel, onConfirm }: DiscardCon
           border: '1px solid rgba(239,68,68,0.3)',
           borderRadius: 10,
           padding: 20,
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>

@@ -143,16 +143,28 @@ export function RightPanel({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.6)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 100,
           }}
-          onClick={() => setShowResetModal(false)}
         >
+          <button
+            type="button"
+            aria-label="Close modal"
+            onClick={() => setShowResetModal(false)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              border: 'none',
+              padding: 0,
+              cursor: 'default',
+            }}
+          />
           <div
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
             style={{
               background: 'var(--bg-panel-alt)',
               border: '1px solid var(--border-strong)',
@@ -160,6 +172,8 @@ export function RightPanel({
               padding: '24px 28px',
               width: 380,
               boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              position: 'relative',
+              zIndex: 1,
             }}
           >
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-primary)', marginBottom: 12 }}>

@@ -49,6 +49,7 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
   return (
     <div
       className="main-header"
+      role="presentation"
       onMouseDown={async (e) => {
         if (e.buttons === 1 && (e.target as HTMLElement).closest('.mh-right') === null) {
           try {
