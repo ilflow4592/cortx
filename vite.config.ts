@@ -52,5 +52,31 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     // e2e/는 Playwright 전용 — vitest가 import 시 playwright 의존성으로 깨짐
     exclude: ['node_modules', 'dist', 'e2e', 'src-tauri'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      // 테스트 없는 ui-only 파일과 생성물 제외 — 숫자 왜곡 방지
+      exclude: [
+        'node_modules',
+        'dist',
+        'e2e',
+        'src-tauri',
+        'tests',
+        'scripts',
+        'src/types/generated',
+        'src/main.tsx',
+        'src/**/*.d.ts',
+        '**/*.config.{ts,js,mjs}',
+        'src/components/**/*.tsx', // React 컴포넌트는 별도 E2E·integration로 커버
+      ],
+      // 현재 기준선 — 회귀 방지용, 점진 상향 목표.
+      // 실측치(41/33/44/41) 대비 약간 낮춰 안전 margin 확보.
+      thresholds: {
+        lines: 40,
+        functions: 42,
+        branches: 30,
+        statements: 40,
+      },
+    },
   },
 });

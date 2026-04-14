@@ -38,3 +38,6 @@ src-tauri/target/
 /playwright-report/
 /test-results/
 /playwright/.cache/
+
+# Coverage
+/coverage/
