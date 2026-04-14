@@ -40,6 +40,10 @@ export function useStorePersistence(): void {
     let prevTasks = useTaskStore.getState().tasks;
     let prevActiveId = useTaskStore.getState().activeTaskId;
     let prevProjects = useProjectStore.getState().projects;
+    // project hash 캐시 — 매 변경마다 prev/curr 양쪽 stringify하던 비용을 절반으로
+    const projectHashCache = new Map<string, string>(
+      prevProjects.map((p) => [p.id, JSON.stringify(p)]),
+    );
 
     const unsubTasks = useTaskStore.subscribe((s) => {
       for (const t of s.tasks) {
@@ -61,16 +65,20 @@ export function useStorePersistence(): void {
     });
 
     const unsubProjects = useProjectStore.subscribe((s) => {
-      // prevProjects를 갱신하지 않으면 매 store 변경마다 전체 프로젝트가 중복 upsert됨 (I/O 폭주)
+      // 캐시된 prev hash와 신규 hash만 비교 — 매 tick마다 같은 prev 객체 재직렬화 회피
+      const liveIds = new Set<string>();
       for (const p of s.projects) {
-        const prev = prevProjects.find((x) => x.id === p.id);
-        if (!prev || JSON.stringify(prev) !== JSON.stringify(p)) {
+        liveIds.add(p.id);
+        const nextHash = JSON.stringify(p);
+        if (projectHashCache.get(p.id) !== nextHash) {
           upsertProject(p).catch(() => {});
+          projectHashCache.set(p.id, nextHash);
         }
       }
       for (const p of prevProjects) {
-        if (!s.projects.find((x) => x.id === p.id)) {
+        if (!liveIds.has(p.id)) {
           deleteProject(p.id).catch(() => {});
+          projectHashCache.delete(p.id);
         }
       }
       prevProjects = s.projects;

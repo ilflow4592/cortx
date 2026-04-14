@@ -4,18 +4,12 @@
 
 ## Pipeline 마커
 
-### `[PIPELINE:pr:<NUMBER>:url]` 마커가 매칭되지 않음
+### `[PIPELINE:pr:<NUMBER>:url]` 마커 (해결됨)
 
-**원인**: `src/components/claude/pipelineMarkers.ts`의 정규식이
-`[PIPELINE:key:value]`에서 value 위치를 `[a-zA-Z_]+`로 제한 — digits 불가.
+이전 정규식이 value 위치를 `[a-zA-Z_]+`로 제한해 digits를 못 받았음.
+`[a-zA-Z0-9_]+`로 완화 — `[PIPELINE:pr:4920:url]` 정상 매칭.
 
-**우회**: PR 번호는 `commit_pr` 단계의 memo 필드로 표현:
-```
-[PIPELINE:commit_pr:done:PR #4920]
-```
-
-**해결 시점**: 기존 마커 포맷과 호환 위해 보류. 수정하면 `([^\]:]+)`로
-완화 + 테스트 갱신 필요.
+여전히 호환되는 대체 표현: `[PIPELINE:commit_pr:done:PR #4920]`.
 
 ## 데이터 마이그레이션
 

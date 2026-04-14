@@ -18,7 +18,9 @@ export type PipelineMarkerUpdate =
   | { kind: 'pr'; number: number; url: string }
   | { kind: 'phase'; phase: PipelinePhase; status: PhaseStatus; memo?: string };
 
-const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z_]+)(?::([^\]]*))?\]/g;
+// value 위치는 phase status (in_progress/done/...) 또는 pr 번호 (digits) 모두 허용.
+// memo는 `:` 다음 `]` 직전까지 무엇이든 (URL, "#4920", 한글 메모 등).
+const PIPELINE_MARKER_RE = /\[PIPELINE:([a-zA-Z_]+):([a-zA-Z0-9_]+)(?::([^\]]*))?\]/g;
 
 /**
  * 입력 텍스트에서 파이프라인 마커를 추출해 업데이트 목록으로 변환.

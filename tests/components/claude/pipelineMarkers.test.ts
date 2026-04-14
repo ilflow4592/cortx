@@ -8,10 +8,11 @@ describe('parsePipelineMarkers', () => {
     expect(updates).toEqual([{ kind: 'complexity', value: 'medium' }]);
   });
 
-  it('does NOT match `[PIPELINE:pr:<digits>...]` — regex 한계 (값 위치는 [a-zA-Z_]+만 허용)', () => {
-    // PR 번호는 commit_pr 단계의 memo 필드로 표현된다: [PIPELINE:commit_pr:done:PR #4920]
-    const { updates } = parsePipelineMarkers('[PIPELINE:pr:4920:url]');
-    expect(updates).toEqual([]);
+  it('extracts pr markers with number + url', () => {
+    const { updates } = parsePipelineMarkers('Done [PIPELINE:pr:4920:https://github.com/x/y/pull/4920]');
+    expect(updates).toEqual([
+      { kind: 'pr', number: 4920, url: 'https://github.com/x/y/pull/4920' },
+    ]);
   });
 
   it('extracts phase status with optional memo', () => {
