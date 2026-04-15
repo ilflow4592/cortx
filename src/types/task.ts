@@ -38,12 +38,6 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-/** 작업별 AI 모델 오버라이드 설정 */
-export interface TaskModelConfig {
-  provider?: 'claude' | 'openai' | 'ollama';
-  modelId?: string;
-}
-
 /** 개발 파이프라인 단계 이름 (grill_me → obsidian_save → ... → done) */
 export type PipelinePhase =
   | 'grill_me'
@@ -114,8 +108,6 @@ export interface Task {
   chatHistory: ChatMessage[];
   /** 중단 기록 목록 */
   interrupts: InterruptEntry[];
-  /** 작업별 AI 모델 오버라이드 (미지정 시 글로벌 설정 사용) */
-  modelOverride?: TaskModelConfig;
   /** 개발 파이프라인 상태 */
   pipeline?: PipelineState;
   createdAt: string;

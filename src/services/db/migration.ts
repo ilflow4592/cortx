@@ -48,7 +48,6 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<void> {
           elapsedSeconds: t.elapsedSeconds || 0,
           chatHistory: Array.isArray(t.chatHistory) ? t.chatHistory : [],
           interrupts: Array.isArray(t.interrupts) ? t.interrupts : [],
-          modelOverride: t.modelOverride,
           pipeline: t.pipeline,
           createdAt: t.createdAt || new Date().toISOString(),
           updatedAt: t.updatedAt || new Date().toISOString(),

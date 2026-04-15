@@ -189,7 +189,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       elapsedSeconds: t.elapsedSeconds || 0,
       chatHistory: Array.isArray(t.chatHistory) ? t.chatHistory : [],
       interrupts: Array.isArray(t.interrupts) ? t.interrupts : [],
-      modelOverride: t.modelOverride || undefined,
       pipeline: t.pipeline || undefined,
       createdAt: t.createdAt || new Date().toISOString(),
       updatedAt: t.updatedAt || new Date().toISOString(),

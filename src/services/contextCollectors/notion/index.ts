@@ -23,8 +23,6 @@ import { searchByKeywords, searchByDatabase } from './search';
 import { fetchNotionPageContent } from './blocks';
 import { filterByKeywordRelevance } from './filter';
 
-export { filterNotionByRelevance } from './filter';
-
 /**
  * @deprecated `contextSources/notion`의 `collectNotion`을 사용하세요.
  *

@@ -32,7 +32,6 @@ export function rowToTask(row: TaskRow, chatHistory: ChatMessage[], interrupts: 
     elapsedSeconds: row.elapsed_seconds,
     chatHistory,
     interrupts,
-    modelOverride: safeJsonParse<Task['modelOverride']>(row.model_override, undefined, `task.modelOverride ${row.id}`),
     pipeline: safeJsonParse<Task['pipeline']>(row.pipeline, undefined, `task.pipeline ${row.id}`),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -136,7 +135,7 @@ export async function upsertTask(t: Task): Promise<void> {
         t.repoPath,
         t.memo,
         t.elapsedSeconds,
-        t.modelOverride ? JSON.stringify(t.modelOverride) : null,
+        null, // model_override: deprecated — always NULL (레거시 컬럼 유지만)
         t.pipeline ? JSON.stringify(t.pipeline) : null,
         t.createdAt,
         t.updatedAt,

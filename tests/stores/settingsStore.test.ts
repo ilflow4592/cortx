@@ -13,16 +13,16 @@ describe('settingsStore', () => {
       useSettingsStore.getState().setSettings({ theme: 'light' });
       const state = useSettingsStore.getState();
       expect(state.theme).toBe('light');
-      expect(state.aiProvider).toBe('claude');
-      expect(state.modelId).toBe('claude-sonnet-4-20250514');
+      expect(state.language).toBe('en');
+      expect(state.telemetryEnabled).toBe(false);
     });
 
     it('persists settings to localStorage', () => {
-      useSettingsStore.getState().setSettings({ apiKey: 'sk-test-123', theme: 'midnight' });
+      useSettingsStore.getState().setSettings({ telemetryEndpoint: 'https://example.com', theme: 'midnight' });
       const raw = localStorage.getItem('cortx-settings');
       expect(raw).toBeTruthy();
       const data = JSON.parse(raw!);
-      expect(data.apiKey).toBe('sk-test-123');
+      expect(data.telemetryEndpoint).toBe('https://example.com');
       expect(data.theme).toBe('midnight');
     });
 
@@ -37,22 +37,25 @@ describe('settingsStore', () => {
 
   describe('loadSettings', () => {
     it('loads persisted settings from localStorage', () => {
-      localStorage.setItem('cortx-settings', JSON.stringify({ theme: 'light', language: 'ko', apiKey: 'sk-loaded' }));
+      localStorage.setItem(
+        'cortx-settings',
+        JSON.stringify({ theme: 'light', language: 'ko', telemetryEnabled: true }),
+      );
       useSettingsStore.getState().loadSettings();
       const state = useSettingsStore.getState();
       expect(state.theme).toBe('light');
       expect(state.language).toBe('ko');
-      expect(state.apiKey).toBe('sk-loaded');
+      expect(state.telemetryEnabled).toBe(true);
     });
 
     it('applies defaults for missing fields', () => {
-      localStorage.setItem('cortx-settings', JSON.stringify({ apiKey: 'sk-partial' }));
+      localStorage.setItem('cortx-settings', JSON.stringify({ theme: 'midnight' }));
       useSettingsStore.getState().loadSettings();
       const state = useSettingsStore.getState();
-      expect(state.apiKey).toBe('sk-partial');
+      expect(state.theme).toBe('midnight');
       // Fields not in storage should use defaults
-      expect(state.modelId).toBe('claude-sonnet-4-20250514');
-      expect(state.ollamaUrl).toBe('http://localhost:11434');
+      expect(state.telemetryEnabled).toBe(false);
+      expect(state.telemetryEndpoint).toBe('');
     });
 
     it('handles missing localStorage gracefully', () => {

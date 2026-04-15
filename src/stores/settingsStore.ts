@@ -1,15 +1,11 @@
 /**
- * Settings Store — AI 연동 설정 관리
+ * Settings Store — 앱 UI/텔레메트리 설정 관리.
  *
- * AI 제공자(Claude, OpenAI, Ollama), 인증 방식(API Key, OAuth), 모델 ID 등을 관리한다.
- * 이 스토어만 자체적으로 localStorage에 직접 읽기/쓰기한다 (다른 스토어는 외부 subscriber 사용).
+ * Claude CLI 인증/모델은 CLI 자체가 `~/.claude/`에서 관리하므로 여기서는 다루지 않는다.
+ * 과거 API key/OAuth/modelId/aiProvider 등 필드가 있었으나 실사용처가 dead code 뿐이라 제거됐다.
  */
 import { create } from 'zustand';
 
-/** 지원하는 AI 제공자 */
-export type AIProvider = 'claude' | 'openai' | 'ollama';
-/** 인증 방식: API Key 직접 입력 또는 OAuth 토큰 */
-export type AuthMethod = 'api-key' | 'oauth';
 /** 앱 테마 */
 export type Theme = 'dark' | 'midnight' | 'light';
 /** UI 언어 */
@@ -17,14 +13,6 @@ export type Language = 'en' | 'ko';
 
 /** 설정 값 인터페이스 (순수 데이터만, 액션 제외) */
 export interface Settings {
-  aiProvider: AIProvider;
-  authMethod: AuthMethod;
-  apiKey: string;
-  oauthClientId: string;
-  oauthAccessToken: string;
-  oauthRefreshToken: string;
-  modelId: string;
-  ollamaUrl: string;
   theme: Theme;
   language: Language;
   /** Opt-in local telemetry. Default OFF. */
@@ -46,14 +34,6 @@ const initialLang: Language = typeof navigator !== 'undefined' && navigator.lang
 
 /** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
 export const SETTINGS_INITIAL_STATE: Settings = {
-  aiProvider: 'claude',
-  authMethod: 'oauth',
-  apiKey: '',
-  oauthClientId: '',
-  oauthAccessToken: '',
-  oauthRefreshToken: '',
-  modelId: 'claude-sonnet-4-20250514',
-  ollamaUrl: 'http://localhost:11434',
   theme: 'dark',
   language: initialLang,
   telemetryEnabled: false,
@@ -67,18 +47,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSettings: (updates) => {
     set((state) => {
       const next = { ...state, ...updates };
-      // 함수(액션)를 제외한 순수 데이터만 직렬화
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          aiProvider: next.aiProvider,
-          authMethod: next.authMethod,
-          apiKey: next.apiKey,
-          oauthClientId: next.oauthClientId,
-          oauthAccessToken: next.oauthAccessToken,
-          oauthRefreshToken: next.oauthRefreshToken,
-          modelId: next.modelId,
-          ollamaUrl: next.ollamaUrl,
           theme: next.theme,
           language: next.language,
           telemetryEnabled: next.telemetryEnabled,

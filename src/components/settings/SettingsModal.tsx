@@ -3,8 +3,6 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { ModalBackdrop } from '../common/ModalBackdrop';
 
 // 각 탭은 lazy chunk로 분리. 활성 탭만 다운로드돼 SettingsModal 자체 로드 시간 단축.
-// AIProviderSettings가 가장 무거움 (496줄, OAuth/모델 검증 로직 포함).
-const AIProviderSettings = lazy(() => import('./AIProviderSettings').then((m) => ({ default: m.AIProviderSettings })));
 const SourcesSettings = lazy(() => import('./SourcesSettings').then((m) => ({ default: m.SourcesSettings })));
 const IntegrationsSettings = lazy(() =>
   import('./IntegrationsSettings').then((m) => ({ default: m.IntegrationsSettings })),
@@ -12,11 +10,11 @@ const IntegrationsSettings = lazy(() =>
 const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
 const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
 
-type STab = 'ai' | 'sources' | 'integrations' | 'appearance' | 'telemetry';
+type STab = 'sources' | 'integrations' | 'appearance' | 'telemetry';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const sources = useContextPackStore((s) => s.sources);
-  const [tab, setTab] = useState<STab>('ai');
+  const [tab, setTab] = useState<STab>('sources');
 
   return (
     <ModalBackdrop onClose={onClose} ariaLabel="Settings" dialogStyle={{ width: 640 }}>
@@ -27,9 +25,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <div className="modal-tabs">
-        <button className={`modal-tab ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>
-          🤖 Claude
-        </button>
         <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
           📦 Context Sources
         </button>
@@ -48,7 +43,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="modal-body">
         <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
-          {tab === 'ai' && <AIProviderSettings />}
           {tab === 'sources' && (
             <SourcesSettings
               sources={sources}
