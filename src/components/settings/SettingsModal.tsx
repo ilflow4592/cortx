@@ -1,20 +1,17 @@
 import { useState, lazy, Suspense } from 'react';
-import { useContextPackStore } from '../../stores/contextPackStore';
 import { ModalBackdrop } from '../common/ModalBackdrop';
 
 // 각 탭은 lazy chunk로 분리. 활성 탭만 다운로드돼 SettingsModal 자체 로드 시간 단축.
-const SourcesSettings = lazy(() => import('./SourcesSettings').then((m) => ({ default: m.SourcesSettings })));
 const IntegrationsSettings = lazy(() =>
   import('./IntegrationsSettings').then((m) => ({ default: m.IntegrationsSettings })),
 );
 const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
 const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
 
-type STab = 'sources' | 'integrations' | 'appearance' | 'telemetry';
+type STab = 'integrations' | 'appearance' | 'telemetry';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const sources = useContextPackStore((s) => s.sources);
-  const [tab, setTab] = useState<STab>('sources');
+  const [tab, setTab] = useState<STab>('integrations');
 
   return (
     <ModalBackdrop onClose={onClose} ariaLabel="Settings" dialogStyle={{ width: 640 }}>
@@ -25,9 +22,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <div className="modal-tabs">
-        <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
-          📦 Context Sources
-        </button>
         <button
           className={`modal-tab ${tab === 'integrations' ? 'active' : ''}`}
           onClick={() => setTab('integrations')}
@@ -43,14 +37,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="modal-body">
         <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
-          {tab === 'sources' && (
-            <SourcesSettings
-              sources={sources}
-              onAdd={(s) => useContextPackStore.getState().addSource(s)}
-              onUpdate={(i, u) => useContextPackStore.getState().updateSource(i, u)}
-              onRemove={(i) => useContextPackStore.getState().removeSource(i)}
-            />
-          )}
           {tab === 'integrations' && <IntegrationsSettings />}
           {tab === 'appearance' && <AppearanceSettings />}
           {tab === 'telemetry' && <TelemetrySettings />}
