@@ -3,15 +3,17 @@ import { runShell } from './runShell';
 const MCP_FETCH_TIMEOUT_SEC = 60;
 const MCP_FETCH_MAX_TURNS = 6;
 
-/** OAuth-기반 MCP를 Claude CLI 경유로 호출. 타임아웃·권한·턴 수 통일. */
+/**
+ * OAuth-기반 MCP를 Claude CLI 경유로 호출. 타임아웃·권한·턴 수 통일.
+ * 타임아웃은 Rust 백엔드(run_shell_command timeoutSec)가 자식 프로세스 KILL로 처리
+ * — macOS의 GNU `timeout` 부재 / Windows cmd 차이를 우회 (cross-platform).
+ */
 async function runMcpFetch(opts: { url: string; promptHint: string; toolFilter: string }): Promise<string | null> {
   const prompt = `${opts.promptHint}\n\nURL: ${opts.url}`;
   const escaped = prompt.replace(/'/g, "'\\''");
   // stderr는 임시 로그 파일로 — 실패 시 디버그 가능. /tmp는 OS가 주기적으로 정리.
   const errPath = `/tmp/cortx-mcp-fetch-${Date.now().toString(36)}.err`;
-  // 콜드 스타트 단축 플래그 (Notion client.ts와 동일 기준)
   const cmd = [
-    `timeout ${MCP_FETCH_TIMEOUT_SEC}`,
     'claude',
     '-p',
     `'${escaped}'`,
@@ -28,7 +30,7 @@ async function runMcpFetch(opts: { url: string; promptHint: string; toolFilter: 
     'claude-haiku-4-5-20251001',
     `2>${errPath}`,
   ].join(' ');
-  const result = await runShell(cmd);
+  const result = await runShell(cmd, MCP_FETCH_TIMEOUT_SEC);
   if (result.success && result.output.trim()) return result.output.trim();
   return null;
 }

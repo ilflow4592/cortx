@@ -48,11 +48,15 @@ export async function collectViaMcp(
 
 // ── GitHub: gh CLI (즉시 실행, 토큰 소모 없음) ──
 
-/** Tauri 백엔드를 통해 shell 명령어를 실행한다 */
-async function runShell(command: string): Promise<{ success: boolean; output: string; error: string }> {
+/** Tauri 백엔드를 통해 shell 명령어를 실행한다. timeoutSec은 Rust측에서 자식 KILL. */
+async function runShell(
+  command: string,
+  timeoutSec?: number,
+): Promise<{ success: boolean; output: string; error: string }> {
   return invoke<{ success: boolean; output: string; error: string }>('run_shell_command', {
     cwd: '/',
     command,
+    timeoutSec: timeoutSec ?? null,
   });
 }
 
@@ -125,7 +129,8 @@ async function collectViaClaudeCli(serviceType: string, keywords: string[], mode
     const fastFlags =
       '--disable-slash-commands --no-session-persistence --exclude-dynamic-system-prompt-sections --permission-mode bypassPermissions';
     const cmd = `claude -p ${shellEscape(prompt)} ${modelFlag} --max-turns 10 --allowedTools ${allowedTools} Bash ${fastFlags}`;
-    const result = await runShell(cmd);
+    // 검색은 search → list children 등 체이닝 가능하므로 90초 상한
+    const result = await runShell(cmd, 90);
 
     if (!result.output?.trim()) return { items: [] };
 

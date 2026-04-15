@@ -58,8 +58,9 @@ export async function callNotionMcp(opts: McpCallOptions): Promise<McpCallResult
   // --exclude-dynamic-system-prompt-sections: cwd/env/git status 동적 주입 제외
   // 주의: --bare는 OAuth/keychain 읽기를 전부 비활성화해 OAuth Notion MCP에서
   //       인증 실패 → 사용 불가.
+  // 타임아웃은 Rust 백엔드(run_shell_command timeoutSec)가 처리 — macOS의 GNU
+  // timeout 부재 / Windows cmd 차이를 우회하는 cross-platform 처리.
   const cmd = [
-    `timeout ${timeoutSec}`,
     'claude',
     '-p',
     shellEscape(opts.prompt),
@@ -77,7 +78,7 @@ export async function callNotionMcp(opts: McpCallOptions): Promise<McpCallResult
     `2>${stderrPath}`,
   ].join(' ');
 
-  const result = await runShell(cmd);
+  const result = await runShell(cmd, timeoutSec);
   if (!result.success || !result.output?.trim()) {
     return { output: null, stderrPath };
   }
