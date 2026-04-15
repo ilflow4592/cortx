@@ -39,7 +39,10 @@ pub struct PtyManager {
 
 impl PtyManager {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new(), claude_pids: HashMap::new() }
+        Self {
+            sessions: HashMap::new(),
+            claude_pids: HashMap::new(),
+        }
     }
 
     /// Returns true if a PTY session exists for the given task ID.
@@ -55,7 +58,12 @@ impl PtyManager {
 
         let pty_system = native_pty_system();
         let pair = pty_system
-            .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| e.to_string())?;
 
         #[cfg(unix)]
@@ -115,7 +123,18 @@ impl PtyManager {
     /// `allow_all_tools`는 현재 미사용 (항상 bypassPermissions) — 기존 ABI 유지용.
     // Tauri command가 직접 호출 — 구조체 래퍼 도입 시 JS 측 호출 시그니처 깨짐.
     #[allow(clippy::too_many_arguments)]
-    pub fn spawn_claude(&mut self, id: &str, cwd: &str, message: &str, context_files: &[String], context_summary: &str, _allow_all_tools: bool, session_id: Option<&str>, model: Option<&str>, app: &AppHandle) -> Result<(), String> {
+    pub fn spawn_claude(
+        &mut self,
+        id: &str,
+        cwd: &str,
+        message: &str,
+        context_files: &[String],
+        context_summary: &str,
+        _allow_all_tools: bool,
+        session_id: Option<&str>,
+        model: Option<&str>,
+        app: &AppHandle,
+    ) -> Result<(), String> {
         self.sessions.remove(id);
 
         let event_id = id.to_string();
@@ -134,7 +153,11 @@ impl PtyManager {
             let msg_file = SecureTempFile::create("cortx-msg-", &event_id, &msg_owned);
             // 컨텍스트 요약은 있을 때만 기록 — 파일 생성 자체를 건너뜀
             let _ctx_file_guard = if !summary_owned.is_empty() {
-                Some(SecureTempFile::create("cortx-ctx-", &event_id, &summary_owned))
+                Some(SecureTempFile::create(
+                    "cortx-ctx-",
+                    &event_id,
+                    &summary_owned,
+                ))
             } else {
                 None
             };
@@ -148,8 +171,13 @@ impl PtyManager {
                 .with_add_dirs(&add_dirs)
                 .build();
 
-            if let Err(e) = spawn_and_stream(&cwd_owned, &full_cmd, &event_id, &app_handle, pid_holder) {
-                let escaped = e.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+            if let Err(e) =
+                spawn_and_stream(&cwd_owned, &full_cmd, &event_id, &app_handle, pid_holder)
+            {
+                let escaped = e
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n");
                 let _ = app_handle.emit(
                     &format!("claude-data-{}", event_id),
                     format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped),
@@ -166,7 +194,10 @@ impl PtyManager {
     /// Write raw data to the PTY session's stdin (used for terminal input).
     pub fn write(&mut self, id: &str, data: &str) -> Result<(), String> {
         let session = self.sessions.get_mut(id).ok_or("No PTY session")?;
-        session.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        session
+            .writer
+            .write_all(data.as_bytes())
+            .map_err(|e| e.to_string())?;
         session.writer.flush().map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -174,8 +205,14 @@ impl PtyManager {
     /// Resize the PTY to match the frontend terminal dimensions.
     pub fn resize(&mut self, id: &str, rows: u16, cols: u16) -> Result<(), String> {
         let session = self.sessions.get(id).ok_or("No PTY session")?;
-        session.master
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        session
+            .master
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(|e| e.to_string())
     }
 
@@ -197,7 +234,9 @@ impl PtyManager {
     /// and the process itself. Removes the PID entry from tracking.
     /// Stop all Claude processes whose ID starts with the given prefix.
     pub fn stop_claude_by_prefix(&mut self, prefix: &str) {
-        let matching_ids: Vec<String> = self.claude_pids.keys()
+        let matching_ids: Vec<String> = self
+            .claude_pids
+            .keys()
             .filter(|k| k.starts_with(prefix))
             .cloned()
             .collect();

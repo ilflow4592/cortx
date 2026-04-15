@@ -15,7 +15,11 @@ use super::tech_stack::detect_tech_stack;
 use super::time_utils::iso_now;
 use super::{ProjectMetadata, ProjectQuality, SotStatus, CONTEXT_FILE_REL, SCANNER_VERSION};
 
-pub fn do_scan(project_name: &str, project_path: &str, auto_fill: bool) -> Result<ProjectMetadata, String> {
+pub fn do_scan(
+    project_name: &str,
+    project_path: &str,
+    auto_fill: bool,
+) -> Result<ProjectMetadata, String> {
     let root = PathBuf::from(project_path);
     if !root.is_dir() {
         return Err(format!("path is not a directory: {}", project_path));
@@ -29,11 +33,12 @@ pub fn do_scan(project_name: &str, project_path: &str, auto_fill: bool) -> Resul
     let ai_docs = collect_ai_docs(&root);
 
     // 2) Parse CLAUDE.md if partial+
-    let claude_content = if claude_md.grade == DocGrade::Rich || claude_md.grade == DocGrade::Partial {
-        read_to_string_safe(&root.join("CLAUDE.md"))
-    } else {
-        None
-    };
+    let claude_content =
+        if claude_md.grade == DocGrade::Rich || claude_md.grade == DocGrade::Partial {
+            read_to_string_safe(&root.join("CLAUDE.md"))
+        } else {
+            None
+        };
     let sot_doc_raw = claude_content.as_ref().and_then(|c| extract_sot_path(c));
 
     // 3) Tech stack
@@ -66,12 +71,8 @@ pub fn do_scan(project_name: &str, project_path: &str, auto_fill: bool) -> Resul
     } else {
         Vec::new()
     };
-    let readme_excerpt = read_to_string_safe(&root.join("README.md")).map(|c| {
-        c.lines()
-            .take(50)
-            .collect::<Vec<_>>()
-            .join("\n")
-    });
+    let readme_excerpt = read_to_string_safe(&root.join("README.md"))
+        .map(|c| c.lines().take(50).collect::<Vec<_>>().join("\n"));
 
     // 6) Auto-fill (before composing context, so new files are reflected)
     let mut auto_generated_files: Vec<String> = Vec::new();
@@ -88,7 +89,8 @@ pub fn do_scan(project_name: &str, project_path: &str, auto_fill: bool) -> Resul
         if matches!(sot_status, SotStatus::ReferencedButEmpty) {
             if let Some(ref rel) = sot_doc {
                 let sot_path = root.join(rel);
-                let content = scaffold_architecture_md(project_name, &scanned_at, &tech_stack, &modules);
+                let content =
+                    scaffold_architecture_md(project_name, &scanned_at, &tech_stack, &modules);
                 if safe_write(&sot_path, &content).unwrap_or(false) {
                     auto_generated_files.push(rel.clone());
                 }

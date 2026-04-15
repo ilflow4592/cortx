@@ -20,6 +20,7 @@ pub fn read_claude_json() -> Result<Value, String> {
 
 pub fn write_claude_json(value: &Value) -> Result<(), String> {
     let path = claude_json_path()?;
-    let content = serde_json::to_string_pretty(value).map_err(|e| format!("Serialize failed: {}", e))?;
+    let content =
+        serde_json::to_string_pretty(value).map_err(|e| format!("Serialize failed: {}", e))?;
     std::fs::write(&path, content).map_err(|e| format!("Write failed: {}", e))
 }

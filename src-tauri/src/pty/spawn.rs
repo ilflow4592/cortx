@@ -61,7 +61,10 @@ pub fn spawn_and_stream(
         if let Ok(stderr_output) = handle.join() {
             let trimmed = stderr_output.trim();
             if !trimmed.is_empty() {
-                let escaped = trimmed.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+                let escaped = trimmed
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n");
                 let _ = app.emit(
                     &format!("claude-data-{}", event_id),
                     format!("{{\"type\":\"error\",\"content\":\"{}\" }}", escaped),

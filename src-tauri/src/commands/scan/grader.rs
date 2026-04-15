@@ -55,8 +55,9 @@ pub fn grade_document(path: &Path) -> (DocGrade, u64, Option<String>) {
     }
 
     let h2_count = content.lines().filter(|l| l.starts_with("## ")).count();
-    let has_bullet_or_table =
-        content.lines().any(|l| l.trim_start().starts_with("- ") || l.trim_start().starts_with("| "));
+    let has_bullet_or_table = content
+        .lines()
+        .any(|l| l.trim_start().starts_with("- ") || l.trim_start().starts_with("| "));
     let first_h1 = extract_first_h1(&content);
 
     let grade = if size >= 500 && h2_count >= 2 && has_bullet_or_table {
@@ -159,7 +160,9 @@ pub fn extract_sot_path(content: &str) -> Option<String> {
 
 pub fn collect_ai_docs(root: &Path) -> Vec<DocEntry> {
     let ai_dir = root.join(".ai/docs");
-    let Ok(reader) = fs::read_dir(&ai_dir) else { return Vec::new() };
+    let Ok(reader) = fs::read_dir(&ai_dir) else {
+        return Vec::new();
+    };
     let mut docs: Vec<DocEntry> = Vec::new();
     for entry in reader.flatten() {
         let path = entry.path();
@@ -167,7 +170,11 @@ pub fn collect_ai_docs(root: &Path) -> Vec<DocEntry> {
             continue;
         }
         let (grade, size, first_h1) = grade_document(&path);
-        let rel = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .to_string();
         docs.push(DocEntry {
             path: rel,
             grade,
@@ -202,7 +209,11 @@ pub fn doc_entry_for(root: &Path, rel: &str) -> DocEntry {
     }
 }
 
-pub fn overall_quality(claude: &DocEntry, agents: &DocEntry, ai_docs: &[DocEntry]) -> ProjectQuality {
+pub fn overall_quality(
+    claude: &DocEntry,
+    agents: &DocEntry,
+    ai_docs: &[DocEntry],
+) -> ProjectQuality {
     let has_rich = claude.grade == DocGrade::Rich
         || agents.grade == DocGrade::Rich
         || ai_docs.iter().any(|d| d.grade == DocGrade::Rich);
@@ -265,13 +276,19 @@ mod tests {
     #[test]
     fn extract_section_is_case_insensitive() {
         let content = "## SCAN QUALITY\nrich";
-        assert_eq!(extract_section(content, &["scan quality"]), Some("rich".to_string()));
+        assert_eq!(
+            extract_section(content, &["scan quality"]),
+            Some("rich".to_string())
+        );
     }
 
     #[test]
     fn extract_sot_path_finds_sot_marker() {
         let content = "Stuff\nSOT: .ai/docs/architecture.md\nrest";
-        assert_eq!(extract_sot_path(content), Some(".ai/docs/architecture.md".to_string()));
+        assert_eq!(
+            extract_sot_path(content),
+            Some(".ai/docs/architecture.md".to_string())
+        );
     }
 
     #[test]
@@ -301,11 +318,23 @@ mod tests {
             size_bytes: 1000,
             first_h1: None,
         };
-        let partial = DocEntry { grade: DocGrade::Partial, ..rich.clone() };
-        let missing = DocEntry { grade: DocGrade::Missing, ..rich.clone() };
+        let partial = DocEntry {
+            grade: DocGrade::Partial,
+            ..rich.clone()
+        };
+        let missing = DocEntry {
+            grade: DocGrade::Missing,
+            ..rich.clone()
+        };
         assert_eq!(overall_quality(&rich, &missing, &[]), ProjectQuality::Rich);
-        assert_eq!(overall_quality(&missing, &partial, &[]), ProjectQuality::Partial);
-        assert_eq!(overall_quality(&missing, &missing, &[]), ProjectQuality::Sparse);
+        assert_eq!(
+            overall_quality(&missing, &partial, &[]),
+            ProjectQuality::Partial
+        );
+        assert_eq!(
+            overall_quality(&missing, &missing, &[]),
+            ProjectQuality::Sparse
+        );
     }
 
     #[test]

@@ -38,7 +38,11 @@ fn walk_tree(
         if SCAN_IGNORE_DIRS.contains(&name.as_str()) {
             continue;
         }
-        let rel = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .to_string();
         if path.is_dir() {
             entries.push(format!("{}/", rel));
             walk_tree(root, &path, depth + 1, max_depth, entries, count);
@@ -70,7 +74,9 @@ fn count_exts(
     if depth > max_depth {
         return;
     }
-    let Ok(reader) = fs::read_dir(dir) else { return };
+    let Ok(reader) = fs::read_dir(dir) else {
+        return;
+    };
     for entry in reader.flatten() {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();

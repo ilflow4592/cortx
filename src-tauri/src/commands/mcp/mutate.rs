@@ -29,7 +29,9 @@ pub fn upsert_mcp_server(server: McpServerInput) -> Result<usize, String> {
     if !root.is_object() {
         root = json!({});
     }
-    let obj = root.as_object_mut().ok_or_else(|| "Root is not an object".to_string())?;
+    let obj = root
+        .as_object_mut()
+        .ok_or_else(|| "Root is not an object".to_string())?;
     if !obj.contains_key("mcpServers") {
         obj.insert("mcpServers".to_string(), json!({}));
     }
@@ -43,7 +45,10 @@ pub fn upsert_mcp_server(server: McpServerInput) -> Result<usize, String> {
         cfg.insert("type".to_string(), json!("http"));
         cfg.insert("url".to_string(), json!(server.url.unwrap_or_default()));
     } else {
-        cfg.insert("command".to_string(), json!(server.command.unwrap_or_default()));
+        cfg.insert(
+            "command".to_string(),
+            json!(server.command.unwrap_or_default()),
+        );
         if let Some(args) = server.args {
             cfg.insert("args".to_string(), json!(args));
         }

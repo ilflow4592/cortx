@@ -25,12 +25,20 @@ pub fn toggle_mcp_server(
     let enabled: Vec<String> = obj
         .get("enabledMcpjsonServers")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
     let disabled: Vec<String> = obj
         .get("disabledMcpjsonServers")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
 
     let is_currently_enabled = enabled.contains(&server_name);
@@ -82,9 +90,17 @@ fn resolve_settings_path(cwd_path: &Path) -> std::path::PathBuf {
     if !git_path.is_file() {
         return direct;
     }
-    let Ok(content) = std::fs::read_to_string(&git_path) else { return direct };
-    let Some(gitdir) = content.strip_prefix("gitdir: ").map(|s| s.trim()) else { return direct };
-    let Some(root) = Path::new(gitdir).parent().and_then(|p| p.parent()).and_then(|p| p.parent()) else {
+    let Ok(content) = std::fs::read_to_string(&git_path) else {
+        return direct;
+    };
+    let Some(gitdir) = content.strip_prefix("gitdir: ").map(|s| s.trim()) else {
+        return direct;
+    };
+    let Some(root) = Path::new(gitdir)
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+    else {
         return direct;
     };
     let root_settings = root.join(".claude").join("settings.local.json");

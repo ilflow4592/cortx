@@ -13,7 +13,9 @@ pub fn collect_global_servers(
     has_enabled_list: bool,
     servers: &mut Vec<McpServerInfo>,
 ) {
-    let Some(home) = std::env::var_os("HOME") else { return };
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
 
     // 2. Global ~/.claude.json
     let config_path = Path::new(&home).join(".claude.json");
@@ -38,9 +40,18 @@ pub fn collect_global_servers(
     );
 
     // 4. claude.ai cloud MCPs (claudeAiMcpEverConnected 키)
-    let Ok(content) = std::fs::read_to_string(&config_path) else { return };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else { return };
-    let Some(arr) = json.get("claudeAiMcpEverConnected").and_then(|v| v.as_array()) else { return };
+    let Ok(content) = std::fs::read_to_string(&config_path) else {
+        return;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return;
+    };
+    let Some(arr) = json
+        .get("claudeAiMcpEverConnected")
+        .and_then(|v| v.as_array())
+    else {
+        return;
+    };
     for item in arr {
         if let Some(name) = item.as_str() {
             if !servers.iter().any(|s| s.name == name) {

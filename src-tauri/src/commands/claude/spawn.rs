@@ -6,9 +6,30 @@ use crate::pty::SharedPtyManager;
 // Tauri command 직접 호출 경로라 구조체 래퍼로 묶으면 JS 측 시그니처가 깨짐.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn claude_spawn(id: String, cwd: String, message: String, context_files: Option<Vec<String>>, context_summary: Option<String>, allow_all_tools: Option<bool>, session_id: Option<String>, model: Option<String>, state: tauri::State<'_, SharedPtyManager>, app: tauri::AppHandle) -> Result<(), String> {
+pub fn claude_spawn(
+    id: String,
+    cwd: String,
+    message: String,
+    context_files: Option<Vec<String>>,
+    context_summary: Option<String>,
+    allow_all_tools: Option<bool>,
+    session_id: Option<String>,
+    model: Option<String>,
+    state: tauri::State<'_, SharedPtyManager>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
-    mgr.spawn_claude(&id, &cwd, &message, context_files.as_deref().unwrap_or(&[]), context_summary.as_deref().unwrap_or(""), allow_all_tools.unwrap_or(false), session_id.as_deref(), model.as_deref(), &app)
+    mgr.spawn_claude(
+        &id,
+        &cwd,
+        &message,
+        context_files.as_deref().unwrap_or(&[]),
+        context_summary.as_deref().unwrap_or(""),
+        allow_all_tools.unwrap_or(false),
+        session_id.as_deref(),
+        model.as_deref(),
+        &app,
+    )
 }
 
 /// Send SIGTERM to stop a running Claude CLI process.
@@ -19,7 +40,10 @@ pub fn claude_stop(id: String, state: tauri::State<'_, SharedPtyManager>) -> Res
 }
 
 #[tauri::command]
-pub fn claude_stop_task(task_id: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
+pub fn claude_stop_task(
+    task_id: String,
+    state: tauri::State<'_, SharedPtyManager>,
+) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.stop_claude_by_prefix(&format!("claude-{}", task_id));
     Ok(())
@@ -27,7 +51,11 @@ pub fn claude_stop_task(task_id: String, state: tauri::State<'_, SharedPtyManage
 
 /// Send a follow-up message to an existing Claude CLI session via its PTY.
 #[tauri::command]
-pub fn claude_send(id: String, message: String, state: tauri::State<'_, SharedPtyManager>) -> Result<(), String> {
+pub fn claude_send(
+    id: String,
+    message: String,
+    state: tauri::State<'_, SharedPtyManager>,
+) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     if !mgr.has_session(&id) {
         return Err("Claude session not running. Try reconnecting.".to_string());

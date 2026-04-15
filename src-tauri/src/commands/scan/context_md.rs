@@ -105,7 +105,12 @@ pub fn compose_context_md(
         }
         if let Some(pitfalls) = extract_section(
             content,
-            &["반복 지적", "반복 지적 패턴", "common pitfalls", "금지 패턴"],
+            &[
+                "반복 지적",
+                "반복 지적 패턴",
+                "common pitfalls",
+                "금지 패턴",
+            ],
         ) {
             out.push_str("## Common Pitfalls (verbatim)\n");
             out.push_str(&pitfalls);

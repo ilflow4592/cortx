@@ -83,7 +83,11 @@ pub fn build_system_prompt(summary: &str, files: &[String]) -> String {
 pub fn derive_add_dirs(files: &[String]) -> Vec<String> {
     let mut dirs: Vec<String> = files
         .iter()
-        .filter_map(|f| std::path::Path::new(f).parent().map(|d| d.to_string_lossy().to_string()))
+        .filter_map(|f| {
+            std::path::Path::new(f)
+                .parent()
+                .map(|d| d.to_string_lossy().to_string())
+        })
         .collect();
     dirs.sort();
     dirs.dedup();

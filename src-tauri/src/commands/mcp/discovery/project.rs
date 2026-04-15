@@ -15,7 +15,11 @@ pub fn find_repo_root(cwd: &str) -> Option<PathBuf> {
     }
     let content = std::fs::read_to_string(&git_path).ok()?;
     let gitdir = content.strip_prefix("gitdir: ").map(|s| s.trim())?;
-    Path::new(gitdir).parent()?.parent()?.parent().map(|p| p.to_path_buf())
+    Path::new(gitdir)
+        .parent()?
+        .parent()?
+        .parent()
+        .map(|p| p.to_path_buf())
 }
 
 /// `~/.claude.json`의 `projects[projectPath]` 섹션에서 disabled/enabled 목록과
@@ -38,11 +42,19 @@ pub fn load_project_settings(project_cwd: &str) -> ProjectSettings {
     let project_path = find_repo_root(project_cwd).unwrap_or_else(|| PathBuf::from(project_cwd));
     let project_key = project_path.to_string_lossy().to_string();
 
-    let Some(home) = std::env::var_os("HOME") else { return out };
+    let Some(home) = std::env::var_os("HOME") else {
+        return out;
+    };
     let claude_json = Path::new(&home).join(".claude.json");
-    let Ok(content) = std::fs::read_to_string(&claude_json) else { return out };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else { return out };
-    let Some(proj) = json.get("projects").and_then(|p| p.get(&project_key)) else { return out };
+    let Ok(content) = std::fs::read_to_string(&claude_json) else {
+        return out;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return out;
+    };
+    let Some(proj) = json.get("projects").and_then(|p| p.get(&project_key)) else {
+        return out;
+    };
 
     // disabledMcpServers — 모든 MCP 타입의 master disabled 목록
     if let Some(arr) = proj.get("disabledMcpServers").and_then(|v| v.as_array()) {
@@ -53,7 +65,10 @@ pub fn load_project_settings(project_cwd: &str) -> ProjectSettings {
         }
     }
     // disabledMcpjsonServers — .mcp.json 서버 전용
-    if let Some(arr) = proj.get("disabledMcpjsonServers").and_then(|v| v.as_array()) {
+    if let Some(arr) = proj
+        .get("disabledMcpjsonServers")
+        .and_then(|v| v.as_array())
+    {
         for item in arr {
             if let Some(name) = item.as_str() {
                 out.disabled_servers.insert(name.to_string());
@@ -117,16 +132,35 @@ pub fn collect_project_servers(
             continue;
         }
         let is_disabled = settings.disabled_servers.contains(name)
-            || config.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false);
-        let command = config.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            || config
+                .get("disabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+        let command = config
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let args: Vec<String> = config
             .get("args")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|a| a.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default();
         let env = parse_mcp_env(config);
-        let server_type = config.get("type").and_then(|v| v.as_str()).unwrap_or("stdio").to_string();
-        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let server_type = config
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("stdio")
+            .to_string();
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         servers.push(McpServerInfo {
             name: name.clone(),
             command,

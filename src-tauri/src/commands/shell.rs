@@ -1,7 +1,7 @@
-use std::process::Command;
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 use crate::types::CommandResult;
+use serde::{Deserialize, Serialize};
+use std::process::Command;
+use ts_rs::TS;
 
 /// Metadata extracted from a URL for link preview cards.
 #[derive(Serialize, Deserialize, TS)]
@@ -28,14 +28,22 @@ pub struct CortxConfig {
 /// Returns stdout, stderr, and success status. Used for git operations and file I/O.
 #[tauri::command]
 pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
-    log::debug!("[shell] cwd={} cmd={}", cwd, &command[..command.len().min(200)]);
+    log::debug!(
+        "[shell] cwd={} cmd={}",
+        cwd,
+        &command[..command.len().min(200)]
+    );
     tauri::async_runtime::spawn_blocking(move || {
         #[cfg(unix)]
-        let result = Command::new("zsh").args(["-l", "-c", &command]).current_dir(&cwd)
+        let result = Command::new("zsh")
+            .args(["-l", "-c", &command])
+            .current_dir(&cwd)
             .env("TERM", "dumb")
             .output();
         #[cfg(windows)]
-        let result = Command::new("cmd").args(["/C", &command]).current_dir(&cwd)
+        let result = Command::new("cmd")
+            .args(["/C", &command])
+            .current_dir(&cwd)
             .output();
         match result {
             Ok(out) => CommandResult {
@@ -43,29 +51,52 @@ pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
                 output: String::from_utf8_lossy(&out.stdout).to_string(),
                 error: String::from_utf8_lossy(&out.stderr).to_string(),
             },
-            Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
+            Err(e) => CommandResult {
+                success: false,
+                output: String::new(),
+                error: e.to_string(),
+            },
         }
-    }).await.unwrap_or_else(|e| CommandResult { success: false, output: String::new(), error: e.to_string() })
+    })
+    .await
+    .unwrap_or_else(|e| CommandResult {
+        success: false,
+        output: String::new(),
+        error: e.to_string(),
+    })
 }
 
 /// Execute a list of shell scripts sequentially in the given working directory.
 /// Used to run project setup commands from cortx.yaml.
 #[tauri::command]
 pub fn run_setup_scripts(cwd: String, scripts: Vec<String>) -> Vec<CommandResult> {
-    scripts.iter().map(|script| {
-        #[cfg(unix)]
-        let result = Command::new("zsh").args(["-l", "-c", script]).current_dir(&cwd).output();
-        #[cfg(windows)]
-        let result = Command::new("cmd").args(["/C", script]).current_dir(&cwd).output();
-        match result {
-            Ok(out) => CommandResult {
-                success: out.status.success(),
-                output: String::from_utf8_lossy(&out.stdout).to_string(),
-                error: String::from_utf8_lossy(&out.stderr).to_string(),
-            },
-            Err(e) => CommandResult { success: false, output: String::new(), error: e.to_string() },
-        }
-    }).collect()
+    scripts
+        .iter()
+        .map(|script| {
+            #[cfg(unix)]
+            let result = Command::new("zsh")
+                .args(["-l", "-c", script])
+                .current_dir(&cwd)
+                .output();
+            #[cfg(windows)]
+            let result = Command::new("cmd")
+                .args(["/C", script])
+                .current_dir(&cwd)
+                .output();
+            match result {
+                Ok(out) => CommandResult {
+                    success: out.status.success(),
+                    output: String::from_utf8_lossy(&out.stdout).to_string(),
+                    error: String::from_utf8_lossy(&out.stderr).to_string(),
+                },
+                Err(e) => CommandResult {
+                    success: false,
+                    output: String::new(),
+                    error: e.to_string(),
+                },
+            }
+        })
+        .collect()
 }
 
 /// Read and parse the project's cortx.yaml (or cortx.yml) configuration file.
@@ -76,7 +107,10 @@ pub fn read_cortx_yaml(repo_path: String) -> Result<CortxConfig, String> {
     if !path.exists() {
         let path_yml = std::path::Path::new(&repo_path).join("cortx.yml");
         if !path_yml.exists() {
-            return Ok(CortxConfig { setup: vec![], archive: vec![] });
+            return Ok(CortxConfig {
+                setup: vec![],
+                archive: vec![],
+            });
         }
         let content = std::fs::read_to_string(path_yml).map_err(|e| e.to_string())?;
         return parse_cortx_yaml(&content);
@@ -115,9 +149,19 @@ pub fn fetch_link_preview(url: String) -> LinkPreview {
             let description = extract_meta_attr(&html, "og:description")
                 .or_else(|| extract_meta_attr(&html, "description"))
                 .unwrap_or_default();
-            LinkPreview { url, title, description, success: true }
+            LinkPreview {
+                url,
+                title,
+                description,
+                success: true,
+            }
         }
-        _ => LinkPreview { url, title: String::new(), description: String::new(), success: false },
+        _ => LinkPreview {
+            url,
+            title: String::new(),
+            description: String::new(),
+            success: false,
+        },
     }
 }
 
@@ -197,7 +241,10 @@ archive:
   - git clean -fd
 "#;
         let config = parse_cortx_yaml(yaml).expect("valid yaml parses");
-        assert_eq!(config.setup, vec!["npm install", "cargo build", "echo \"ready\""]);
+        assert_eq!(
+            config.setup,
+            vec!["npm install", "cargo build", "echo \"ready\""]
+        );
         assert_eq!(config.archive, vec!["rm -rf tmp", "git clean -fd"]);
     }
 

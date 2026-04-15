@@ -74,7 +74,8 @@ pub fn detect_tech_stack(root: &Path) -> Vec<String> {
     let gradle_kts = root.join("build.gradle.kts");
     let gradle = root.join("build.gradle");
     let pom = root.join("pom.xml");
-    if let Some(content) = read_to_string_safe(&gradle_kts).or_else(|| read_to_string_safe(&gradle)) {
+    if let Some(content) = read_to_string_safe(&gradle_kts).or_else(|| read_to_string_safe(&gradle))
+    {
         stack.push("Java/Gradle".to_string());
         if let Some(ver) = extract_gradle_java_version(&content) {
             stack.push(format!("Java {}", ver));
@@ -106,7 +107,12 @@ fn extract_gradle_java_version(content: &str) -> Option<String> {
     for line in content.lines() {
         let l = line.trim();
         if let Some(rest) = l.strip_prefix("sourceCompatibility") {
-            return Some(rest.trim_start_matches(['=', ' ']).trim().trim_matches('"').to_string());
+            return Some(
+                rest.trim_start_matches(['=', ' '])
+                    .trim()
+                    .trim_matches('"')
+                    .to_string(),
+            );
         }
         if l.starts_with("jvmTarget") {
             return Some(

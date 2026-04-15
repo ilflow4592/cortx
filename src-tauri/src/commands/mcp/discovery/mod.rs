@@ -30,9 +30,15 @@ pub fn parse_mcp_file(
     enabled_set: &HashSet<String>,
     has_enabled_list: bool,
 ) {
-    let Ok(content) = std::fs::read_to_string(path) else { return };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else { return };
-    let Some(mcp) = json.get("mcpServers").and_then(|v| v.as_object()) else { return };
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return;
+    };
+    let Some(mcp) = json.get("mcpServers").and_then(|v| v.as_object()) else {
+        return;
+    };
 
     for (name, config) in mcp {
         if servers.iter().any(|s| s.name == *name) {
@@ -41,7 +47,10 @@ pub fn parse_mcp_file(
 
         let in_disabled_list = disabled_set.contains(name);
         let in_enabled_list = enabled_set.contains(name);
-        let config_disabled = config.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false);
+        let config_disabled = config
+            .get("disabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         // Source는 그대로 — Local MCPs는 별도 경로에서 처리됨
         let actual_source = source;
@@ -49,18 +58,35 @@ pub fn parse_mcp_file(
         // 비활성 판정: 명시적 disabled 리스트 / config의 disabled / project+local에서
         // enabled 리스트가 있고 거기 없는 경우
         let is_project_local = actual_source == "project" || actual_source == "local";
-        let is_disabled =
-            in_disabled_list || config_disabled || (is_project_local && has_enabled_list && !in_enabled_list);
+        let is_disabled = in_disabled_list
+            || config_disabled
+            || (is_project_local && has_enabled_list && !in_enabled_list);
 
-        let command = config.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let command = config
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let args: Vec<String> = config
             .get("args")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|a| a.as_str().map(|s| s.to_string())).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|a| a.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default();
         let env = parse_mcp_env(config);
-        let server_type = config.get("type").and_then(|v| v.as_str()).unwrap_or("stdio").to_string();
-        let url = config.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let server_type = config
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("stdio")
+            .to_string();
+        let url = config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         servers.push(McpServerInfo {
             name: name.clone(),
             command,
@@ -104,7 +130,11 @@ pub fn list_mcp_servers(project_cwd: Option<String>) -> Vec<McpServerInfo> {
     );
 
     // 4.5. Synthetic local entries — 설정 리스트엔 있는데 어디에도 정의되지 않은 서버
-    add_synthetic_local_entries(&settings.disabled_servers, &settings.enabled_local_servers, &mut servers);
+    add_synthetic_local_entries(
+        &settings.disabled_servers,
+        &settings.enabled_local_servers,
+        &mut servers,
+    );
 
     // 5. Built-in MCPs (항상 사용 가능)
     add_builtin_entries(&mut servers);

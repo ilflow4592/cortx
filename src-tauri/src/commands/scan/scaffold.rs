@@ -17,7 +17,12 @@ fn auto_gen_header(now: &str) -> String {
     )
 }
 
-pub fn scaffold_claude_md(project_name: &str, now: &str, tech_stack: &[String], modules: &[String]) -> String {
+pub fn scaffold_claude_md(
+    project_name: &str,
+    now: &str,
+    tech_stack: &[String],
+    modules: &[String],
+) -> String {
     let mut s = auto_gen_header(now);
     s.push_str(&format!("# {} — 개발 규칙\n\n", project_name));
     s.push_str("## 즉시 규칙\n\n");
@@ -50,7 +55,9 @@ pub fn scaffold_claude_md(project_name: &str, now: &str, tech_stack: &[String], 
     s.push_str("> SOT: `.ai/docs/architecture.md`\n\n");
 
     s.push_str("## 반복 지적 패턴\n\n");
-    s.push_str("<!-- TODO: PR 리뷰 기록에서 추출. `/pipeline:dev-task` 중 Claude가 보강 가능 -->\n");
+    s.push_str(
+        "<!-- TODO: PR 리뷰 기록에서 추출. `/pipeline:dev-task` 중 Claude가 보강 가능 -->\n",
+    );
     s
 }
 
@@ -85,7 +92,9 @@ pub fn scaffold_architecture_md(
 
 /// 최상위 디렉토리 중 "모듈" 후보 이름을 추출 (camelCase dir, 소스 포함 등).
 pub fn detect_modules(root: &Path) -> Vec<String> {
-    let Ok(reader) = fs::read_dir(root) else { return Vec::new() };
+    let Ok(reader) = fs::read_dir(root) else {
+        return Vec::new();
+    };
     let mut mods: Vec<String> = Vec::new();
     for entry in reader.flatten() {
         if !entry.path().is_dir() {
@@ -98,7 +107,10 @@ pub fn detect_modules(root: &Path) -> Vec<String> {
         if SCAN_IGNORE_DIRS.contains(&name.as_str()) {
             continue;
         }
-        if matches!(name.as_str(), "src" | "tests" | "test" | "docs" | "examples") {
+        if matches!(
+            name.as_str(),
+            "src" | "tests" | "test" | "docs" | "examples"
+        ) {
             continue;
         }
         mods.push(name);

@@ -38,13 +38,21 @@ pub struct SecureTempFile {
 impl SecureTempFile {
     pub fn create(prefix: &str, event_id: &str, content: &str) -> Self {
         // 1) tempfile 크레이트가 unique suffix를 붙여 생성 시도
-        if let Ok(f) = tempfile::Builder::new().prefix(prefix).suffix(".md").tempfile() {
+        if let Ok(f) = tempfile::Builder::new()
+            .prefix(prefix)
+            .suffix(".md")
+            .tempfile()
+        {
             let path = f.path().to_string_lossy().to_string();
             f.keep().ok(); // claude CLI가 열 수 있도록 파일 유지 (Drop은 remove로 대체)
             match write_secure_temp(&path, content) {
                 Ok(()) => return Self { path },
                 Err(e) => {
-                    log::warn!("[pty] write_secure_temp {} failed: {} — /tmp fallback 시도", prefix, e);
+                    log::warn!(
+                        "[pty] write_secure_temp {} failed: {} — /tmp fallback 시도",
+                        prefix,
+                        e
+                    );
                     let _ = std::fs::remove_file(&path);
                 }
             }

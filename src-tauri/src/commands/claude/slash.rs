@@ -8,25 +8,101 @@ use super::SlashCommand;
 #[tauri::command]
 pub fn list_slash_commands(project_cwd: Option<String>) -> Vec<SlashCommand> {
     let mut commands = vec![
-        SlashCommand { name: "bug".into(), description: "Report a bug".into(), source: "builtin".into() },
-        SlashCommand { name: "clear".into(), description: "Clear conversation".into(), source: "builtin".into() },
-        SlashCommand { name: "compact".into(), description: "Compact conversation history".into(), source: "builtin".into() },
-        SlashCommand { name: "config".into(), description: "View/modify configuration".into(), source: "builtin".into() },
-        SlashCommand { name: "cost".into(), description: "Show token usage".into(), source: "builtin".into() },
-        SlashCommand { name: "doctor".into(), description: "Check Claude Code setup".into(), source: "builtin".into() },
-        SlashCommand { name: "help".into(), description: "Get help".into(), source: "builtin".into() },
-        SlashCommand { name: "init".into(), description: "Initialize project with CLAUDE.md".into(), source: "builtin".into() },
-        SlashCommand { name: "login".into(), description: "Switch accounts".into(), source: "builtin".into() },
-        SlashCommand { name: "logout".into(), description: "Sign out".into(), source: "builtin".into() },
-        SlashCommand { name: "mcp".into(), description: "Manage MCP servers".into(), source: "builtin".into() },
-        SlashCommand { name: "memory".into(), description: "Edit CLAUDE.md memory".into(), source: "builtin".into() },
-        SlashCommand { name: "model".into(), description: "Switch model".into(), source: "builtin".into() },
-        SlashCommand { name: "permissions".into(), description: "Manage tool permissions".into(), source: "builtin".into() },
-        SlashCommand { name: "pr-comments".into(), description: "View PR comments".into(), source: "builtin".into() },
-        SlashCommand { name: "review".into(), description: "Code review".into(), source: "builtin".into() },
-        SlashCommand { name: "status".into(), description: "View account status".into(), source: "builtin".into() },
-        SlashCommand { name: "terminal-setup".into(), description: "Install shell integration".into(), source: "builtin".into() },
-        SlashCommand { name: "vim".into(), description: "Toggle vim mode".into(), source: "builtin".into() },
+        SlashCommand {
+            name: "bug".into(),
+            description: "Report a bug".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "clear".into(),
+            description: "Clear conversation".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "compact".into(),
+            description: "Compact conversation history".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "config".into(),
+            description: "View/modify configuration".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "cost".into(),
+            description: "Show token usage".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "doctor".into(),
+            description: "Check Claude Code setup".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "help".into(),
+            description: "Get help".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "init".into(),
+            description: "Initialize project with CLAUDE.md".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "login".into(),
+            description: "Switch accounts".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "logout".into(),
+            description: "Sign out".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "mcp".into(),
+            description: "Manage MCP servers".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "memory".into(),
+            description: "Edit CLAUDE.md memory".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "model".into(),
+            description: "Switch model".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "permissions".into(),
+            description: "Manage tool permissions".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "pr-comments".into(),
+            description: "View PR comments".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "review".into(),
+            description: "Code review".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "status".into(),
+            description: "View account status".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "terminal-setup".into(),
+            description: "Install shell integration".into(),
+            source: "builtin".into(),
+        },
+        SlashCommand {
+            name: "vim".into(),
+            description: "Toggle vim mode".into(),
+            source: "builtin".into(),
+        },
     ];
 
     // Scan user commands: ~/.claude/commands/**/*.md (recursive, subdirs become prefix)
@@ -46,7 +122,12 @@ pub fn list_slash_commands(project_cwd: Option<String>) -> Vec<SlashCommand> {
 
 /// Recursively scan a directory for .md command files, building names from relative paths
 /// (e.g., pipeline/dev-task.md → "pipeline:dev-task").
-fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source: &str, commands: &mut Vec<SlashCommand>) {
+fn scan_commands_recursive(
+    base: &std::path::Path,
+    dir: &std::path::Path,
+    source: &str,
+    commands: &mut Vec<SlashCommand>,
+) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -76,9 +157,17 @@ fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source
 
                 let desc = std::fs::read_to_string(&path)
                     .ok()
-                    .and_then(|c| c.lines().next().map(|l| l.trim_start_matches('#').trim().to_string()))
+                    .and_then(|c| {
+                        c.lines()
+                            .next()
+                            .map(|l| l.trim_start_matches('#').trim().to_string())
+                    })
                     .unwrap_or_default();
-                commands.push(SlashCommand { name, description: desc, source: source.into() });
+                commands.push(SlashCommand {
+                    name,
+                    description: desc,
+                    source: source.into(),
+                });
             }
         }
     }
@@ -88,7 +177,11 @@ fn scan_commands_recursive(base: &std::path::Path, dir: &std::path::Path, source
 /// name format: "pipeline:dev-task" → "pipeline/dev-task.md"
 ///
 /// 보안: name에 `..` 또는 `/`가 포함되면 거부. canonicalize 후 base 하위인지 재확인.
-fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> Result<std::path::PathBuf, String> {
+fn resolve_command_path(
+    name: &str,
+    source: &str,
+    project_cwd: Option<&str>,
+) -> Result<std::path::PathBuf, String> {
     // 1) Name validation — `..` path traversal 및 절대 경로 차단
     if name.contains("..") || name.contains('/') || name.contains('\\') {
         return Err(format!("Invalid command name: {}", name));
@@ -98,7 +191,8 @@ fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> 
     let base = match source {
         "user" => std::path::Path::new(&home).join(".claude").join("commands"),
         "project" => {
-            let cwd = project_cwd.ok_or_else(|| "project_cwd required for project source".to_string())?;
+            let cwd =
+                project_cwd.ok_or_else(|| "project_cwd required for project source".to_string())?;
             std::path::Path::new(cwd).join(".claude").join("commands")
         }
         _ => return Err(format!("Invalid source: {}", source)),
@@ -121,7 +215,11 @@ fn resolve_command_path(name: &str, source: &str, project_cwd: Option<&str>) -> 
 
 /// Read the contents of a slash command .md file.
 #[tauri::command]
-pub fn read_slash_command(name: String, source: String, project_cwd: Option<String>) -> Result<String, String> {
+pub fn read_slash_command(
+    name: String,
+    source: String,
+    project_cwd: Option<String>,
+) -> Result<String, String> {
     let path = resolve_command_path(&name, &source, project_cwd.as_deref())?;
     std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))
 }
@@ -143,7 +241,11 @@ pub fn write_slash_command(
 
 /// Delete a slash command .md file.
 #[tauri::command]
-pub fn delete_slash_command(name: String, source: String, project_cwd: Option<String>) -> Result<(), String> {
+pub fn delete_slash_command(
+    name: String,
+    source: String,
+    project_cwd: Option<String>,
+) -> Result<(), String> {
     let path = resolve_command_path(&name, &source, project_cwd.as_deref())?;
     if !path.exists() {
         return Err(format!("File not found: {}", path.display()));

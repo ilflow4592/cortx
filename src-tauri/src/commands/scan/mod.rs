@@ -107,7 +107,12 @@ pub async fn scan_project(
 ) -> Result<(), String> {
     let fill = auto_fill.unwrap_or(true);
     std::thread::spawn(move || {
-        log::info!("[scan] start project={} path={} auto_fill={}", project_id, project_path, fill);
+        log::info!(
+            "[scan] start project={} path={} auto_fill={}",
+            project_id,
+            project_path,
+            fill
+        );
         match do_scan(&project_name, &project_path, fill) {
             Ok(metadata) => {
                 let event = format!("project-scan-done-{}", project_id);
@@ -127,7 +132,10 @@ pub async fn scan_project(
 
 /// 자동 생성된 파일(AUTO-GENERATED 마커 포함)만 삭제한다. 사용자가 편집한 파일은 건너뜀.
 #[tauri::command]
-pub async fn remove_auto_generated(project_path: String, files: Vec<String>) -> Result<Vec<String>, String> {
+pub async fn remove_auto_generated(
+    project_path: String,
+    files: Vec<String>,
+) -> Result<Vec<String>, String> {
     let root = PathBuf::from(&project_path);
     let mut removed: Vec<String> = Vec::new();
     for rel in files {
@@ -135,7 +143,9 @@ pub async fn remove_auto_generated(project_path: String, files: Vec<String>) -> 
         if !p.exists() {
             continue;
         }
-        let Ok(content) = fs::read_to_string(&p) else { continue };
+        let Ok(content) = fs::read_to_string(&p) else {
+            continue;
+        };
         if !content.contains(AUTO_GEN_MARKER) {
             log::info!("[scan] skip remove (marker gone): {}", rel);
             continue;

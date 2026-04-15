@@ -1,10 +1,10 @@
+pub mod commands;
 mod pty;
 mod types;
-pub mod commands;
 
+use pty::{PtyManager, SharedPtyManager};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use pty::{PtyManager, SharedPtyManager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

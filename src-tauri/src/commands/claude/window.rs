@@ -5,11 +5,18 @@ use tauri::Manager;
 /// Open a new webview window showing a single task in popout mode.
 /// Query params: ?task=<taskId>&mode=popout
 #[tauri::command]
-pub fn open_task_window(task_id: String, task_title: String, app: tauri::AppHandle) -> Result<(), String> {
+pub fn open_task_window(
+    task_id: String,
+    task_title: String,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
 
     // Unique label per task so reopening focuses instead of duplicating
-    let label = format!("task-{}", task_id.replace(|c: char| !c.is_alphanumeric(), "-"));
+    let label = format!(
+        "task-{}",
+        task_id.replace(|c: char| !c.is_alphanumeric(), "-")
+    );
 
     // If a window with this label already exists, just focus it
     if let Some(existing) = app.get_webview_window(&label) {
