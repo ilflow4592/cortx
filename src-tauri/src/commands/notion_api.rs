@@ -52,30 +52,3 @@ pub async fn notion_fetch_page(page_id: String) -> Result<Value, String> {
     get_json(&path).await
 }
 
-/// `/v1/search` POST 호출 — 쿼리 텍스트로 integration 공유된 페이지 검색.
-/// 최신 수정 순 정렬, 페이지만 반환 (DB 필터 제외).
-#[tauri::command]
-pub async fn notion_search(query: String, page_size: Option<u32>) -> Result<Value, String> {
-    let token = load_token()?;
-    let body = serde_json::json!({
-        "query": query,
-        "filter": { "property": "object", "value": "page" },
-        "page_size": page_size.unwrap_or(20).min(100),
-        "sort": { "direction": "descending", "timestamp": "last_edited_time" }
-    });
-    let resp = reqwest::Client::new()
-        .post(format!("{}/search", NOTION_BASE))
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Notion-Version", NOTION_VERSION)
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("request: {}", e))?;
-    let status = resp.status();
-    if !status.is_success() {
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!("http {}: {}", status.as_u16(), body));
-    }
-    resp.json::<Value>().await.map_err(|e| format!("json: {}", e))
-}

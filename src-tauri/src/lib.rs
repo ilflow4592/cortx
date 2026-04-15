@@ -88,7 +88,6 @@ pub fn run() {
             commands::secrets::delete_secret,
             commands::notion_api::notion_fetch_blocks,
             commands::notion_api::notion_fetch_page,
-            commands::notion_api::notion_search,
             commands::shell::run_setup_scripts,
             commands::shell::run_shell_command,
             commands::mcp::discovery::list_mcp_servers,

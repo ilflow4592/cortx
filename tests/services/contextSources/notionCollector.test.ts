@@ -17,12 +17,7 @@ import { callNotionMcp } from '../../../src/services/contextSources/notion/clien
 import { getNotionApiToken } from '../../../src/services/secrets';
 import { invoke } from '@tauri-apps/api/core';
 import { collectNotion } from '../../../src/services/contextSources/notion';
-import {
-  parseSearchOutput,
-  rankByMatchQuality,
-  extractSearchPhrase,
-  filterByTokenOverlap,
-} from '../../../src/services/contextSources/notion/search';
+import { parseSearchOutput, rankByMatchQuality } from '../../../src/services/contextSources/notion/search';
 import type { NotionSearchHit } from '../../../src/services/contextSources/notion';
 import { fetchNotionFullText, normalizeNotionUrl } from '../../../src/services/contextSources/notion/fetch';
 
@@ -170,68 +165,6 @@ describe('fetchNotionFullText (REST/MCP 분기)', () => {
   });
 });
 
-describe('extractSearchPhrase', () => {
-  it("' - ' 앞의 phrase만 추출", () => {
-    expect(extractSearchPhrase('NEXUS country 모듈 - Kotlin/Exposed 기반 기본 CRUD')).toBe('NEXUS country 모듈');
-  });
-
-  it("'[PMS]' 같은 접두 대괄호 제거", () => {
-    expect(extractSearchPhrase('[PMS] Country 프록시 컨트롤러 추가')).toBe('Country 프록시 컨트롤러 추가');
-  });
-
-  it("' : ' 구분자도 인식", () => {
-    expect(extractSearchPhrase('BE-1456 : Country 프록시')).toBe('BE-1456');
-  });
-
-  it('구분자 없으면 원본 반환', () => {
-    expect(extractSearchPhrase('simple query')).toBe('simple query');
-  });
-
-  it('빈 문자열 처리', () => {
-    expect(extractSearchPhrase('')).toBe('');
-    expect(extractSearchPhrase('   ')).toBe('');
-  });
-
-  it('추출 결과가 너무 짧으면(< 3자) 원본 반환', () => {
-    // "A - long text" → "A"는 너무 짧아 원본 유지
-    expect(extractSearchPhrase('A - long descriptive text')).toBe('A - long descriptive text');
-  });
-});
-
-describe('filterByTokenOverlap', () => {
-  function h(title: string): NotionSearchHit {
-    return { title, url: `https://notion.so/${encodeURIComponent(title)}` };
-  }
-
-  it('쿼리 토큰 하나라도 매칭되는 결과만 남김', () => {
-    const hits = [h('NEXUS country 관련 작업'), h('Portlogics ID OAuth'), h('country API 리팩토링')];
-    const out = filterByTokenOverlap(hits, 'NEXUS country 모듈');
-    expect(out.map((x) => x.title)).toEqual(['NEXUS country 관련 작업', 'country API 리팩토링']);
-  });
-
-  it('아무 토큰도 매칭 안 되면 모두 제거 (recent-list 폴백 차단)', () => {
-    const hits = [h('vibe-setup.sh'), h('AWS 인프라 정리'), h('Portlogics ID')];
-    const out = filterByTokenOverlap(hits, 'NEXUS country 모듈');
-    expect(out).toEqual([]);
-  });
-
-  it('빈 쿼리는 모두 통과', () => {
-    const hits = [h('foo'), h('bar')];
-    expect(filterByTokenOverlap(hits, '')).toEqual(hits);
-  });
-
-  it('쿼리에 의미있는 토큰(>=2자)이 없으면 필터 스킵 — 전부 통과', () => {
-    // 'a' 1자만이면 tokenize 결과 빈 배열 → 필터 안 함 (원본 유지)
-    const hits = [h('aa some title')];
-    expect(filterByTokenOverlap(hits, 'a')).toEqual(hits);
-  });
-
-  it('대소문자 무관', () => {
-    const hits = [h('Country API')];
-    expect(filterByTokenOverlap(hits, 'COUNTRY')).toHaveLength(1);
-  });
-});
-
 describe('rankByMatchQuality', () => {
   function hit(title: string): NotionSearchHit {
     return { title, url: `https://notion.so/${title}` };
@@ -268,123 +201,49 @@ describe('rankByMatchQuality', () => {
   });
 });
 
-describe('searchNotion (REST/MCP 분기)', () => {
+describe('searchNotion (MCP 단일 경로)', () => {
   beforeEach(() => {
     vi.mocked(callNotionMcp).mockReset();
     vi.mocked(getNotionApiToken).mockReset();
-    vi.mocked(invoke).mockReset();
   });
 
-  it('token 있으면 invoke(notion_search) 우선', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
-    vi.mocked(invoke).mockResolvedValue({
-      results: [
-        {
-          id: '341dd60e-86f4-8114-a998-ef671ea63b1f',
-          url: 'https://www.notion.so/p-abc',
-          // 쿼리 'country'가 제목에 포함돼야 token overlap 필터 통과
-          properties: { Task: { type: 'title', title: [{ plain_text: 'country proxy controller' }] } },
-          parent: { type: 'database_id', database_id: '19fdd60e-86f4-8055-8bad-c78c2233fbbe' },
-        },
-      ],
-    });
-
-    const hits = await (
-      await import('../../../src/services/contextSources/notion/search')
-    ).searchNotion(['country'], 10);
-    expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('country proxy controller');
-    expect(hits[0].url).toBe('https://www.notion.so/p-abc');
-    expect(hits[0].parent).toContain('DB 19fdd60e');
-    expect(callNotionMcp).not.toHaveBeenCalled();
-  });
-
-  it('token 있고 REST Err (401) → MCP 폴백', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_invalid');
-    vi.mocked(invoke).mockRejectedValue('http 401: unauthorized');
+  it('MCP 호출 후 결과 rank 적용해 반환', async () => {
     vi.mocked(callNotionMcp).mockResolvedValue({
-      output: '[{"title":"country fallback","url":"https://notion.so/x"}]',
+      output: '[{"title":"country proxy","url":"https://notion.so/m"}]',
       stderrPath: '/tmp/x',
     });
 
     const hits = await (
       await import('../../../src/services/contextSources/notion/search')
-    ).searchNotion(['country'], 10);
+    ).searchNotion(['country proxy'], 10);
     expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('country fallback');
+    expect(hits[0].title).toBe('country proxy');
     expect(callNotionMcp).toHaveBeenCalledOnce();
   });
 
-  it('token 없으면 바로 MCP', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue(undefined);
+  it('토큰 있어도 MCP 경로만 사용 (REST 분기 제거됨)', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_anything');
     vi.mocked(callNotionMcp).mockResolvedValue({
-      output: '[{"title":"country mcp-only","url":"https://notion.so/m"}]',
+      output: '[{"title":"via mcp","url":"https://notion.so/x"}]',
       stderrPath: '/tmp/x',
     });
 
-    const hits = await (
-      await import('../../../src/services/contextSources/notion/search')
-    ).searchNotion(['country'], 10);
+    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['test'], 10);
     expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('country mcp-only');
-    expect(invoke).not.toHaveBeenCalled();
+    expect(hits[0].title).toBe('via mcp');
+    expect(callNotionMcp).toHaveBeenCalledOnce();
   });
 
-  it('토큰 매칭 없는 결과는 제외 (Notion recent-list 폴백 차단)', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
-    vi.mocked(invoke).mockResolvedValue({
-      results: [
-        {
-          id: 'x',
-          url: 'https://notion.so/a',
-          properties: { Name: { type: 'title', title: [{ plain_text: 'unrelated page' }] } },
-        },
-        {
-          id: 'y',
-          url: 'https://notion.so/b',
-          properties: { Name: { type: 'title', title: [{ plain_text: 'country spec' }] } },
-        },
-      ],
-    });
-    const hits = await (
-      await import('../../../src/services/contextSources/notion/search')
-    ).searchNotion(['country'], 10);
-    expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('country spec');
-  });
-
-  it('REST 빈 결과도 성공 처리 (MCP 폴백 안 함)', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
-    vi.mocked(invoke).mockResolvedValue({ results: [] });
-
-    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['none'], 10);
-    expect(hits).toEqual([]);
-    expect(callNotionMcp).not.toHaveBeenCalled();
-  });
-
-  it('keywords 빈 배열이면 즉시 빈 배열', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+  it('keywords 빈 배열이면 즉시 빈 배열, MCP 호출 없음', async () => {
     const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion([], 10);
     expect(hits).toEqual([]);
-    expect(invoke).not.toHaveBeenCalled();
     expect(callNotionMcp).not.toHaveBeenCalled();
   });
 
-  it('title 없는 결과는 필터링', async () => {
-    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
-    vi.mocked(invoke).mockResolvedValue({
-      results: [
-        { id: 'x', url: 'https://notion.so/a', properties: {} }, // title 없음
-        {
-          id: 'y',
-          url: 'https://notion.so/b',
-          properties: { Name: { type: 'title', title: [{ plain_text: 'valid' }] } },
-        },
-      ],
-    });
-    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['k'], 10);
-    expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('valid');
+  it('MCP 출력 빈 결과는 그대로 빈 배열', async () => {
+    vi.mocked(callNotionMcp).mockResolvedValue({ output: '[]', stderrPath: '/tmp/x' });
+    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['none'], 10);
+    expect(hits).toEqual([]);
   });
 });
 
