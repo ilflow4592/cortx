@@ -3,7 +3,6 @@ import { useProjectStore } from '../stores/projectStore';
 import type { Project } from '../types/project';
 import { ModalBackdrop } from './common/ModalBackdrop';
 import { ProjectScanPanel } from './project-settings/ProjectScanPanel';
-import { SlackChannelInput } from './project-settings/SlackChannelInput';
 import { BranchPicker } from './project-settings/BranchPicker';
 
 // Tauri API는 동적 import (CLAUDE.md 규칙 + quality gate).
@@ -139,20 +138,6 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
               placeholder="repo"
             />
           </div>
-        </div>
-
-        <div style={{ height: 1, background: '#1e1e26', margin: '12px 0' }} />
-
-        {/* Slack channels */}
-        <div className="field">
-          <span className="field-label">Slack channels</span>
-          <span className="field-hint" style={{ marginBottom: 8 }}>
-            Link Slack channels to auto-collect relevant messages. AI filters for task relevance.
-          </span>
-          <SlackChannelInput
-            channels={project.slackChannels || []}
-            onChange={(channels) => update({ slackChannels: channels })}
-          />
         </div>
 
         <div style={{ height: 1, background: '#1e1e26', margin: '12px 0' }} />
