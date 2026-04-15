@@ -301,18 +301,34 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     const ranked = rankByKeywordMatch(collected, userKw);
     const relevant = await filterByVectorSearch(ranked, taskTitle || '', taskId);
 
-    // pinned 보존 + 신규 아이템 병합 (id 기준 중복 제거, pinned 우선)
-    const existing = state.items[taskId] || [];
-    const pinned = existing.filter((i) => i.category === 'pinned');
-    const seen = new Set<string>();
-    const deduped = [...pinned, ...relevant].filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-
     // 수집 이력 — history store에 위임
     const finalProgress = get().collectProgresses[taskId] || [];
+
+    // pinned 보존 + 신규 아이템 병합. functional set으로 현재 state(s)에서 pinned를
+    // 다시 읽어 collect 중에 추가된 Pin도 안전하게 보존한다.
+    // (이전엔 collectAll 시작 시점에 캡처한 state를 사용해 race condition 발생 —
+    //  Collect 진행 중 사용자가 Pin 추가하면 완료 시점에 덮어쓰여 사라졌음)
+    let totalItems = 0;
+    let pinnedCount = 0;
+    set((s) => {
+      const currentExisting = s.items[taskId] || [];
+      const currentPinned = currentExisting.filter((i) => i.category === 'pinned');
+      const seen = new Set<string>();
+      const deduped = [...currentPinned, ...relevant].filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+      pinnedCount = currentPinned.length;
+      totalItems = deduped.length - pinnedCount;
+      return {
+        items: { ...s.items, [taskId]: deduped },
+        collecting: { ...s.collecting, [taskId]: false },
+        collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
+        lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
+      };
+    });
+
     const historyEntry: CollectHistoryEntry = {
       id: `ch-${Date.now().toString(36)}`,
       taskId,
@@ -327,19 +343,12 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
         tokenUsage: p.tokenUsage,
         ...(p.error ? { error: p.error } : {}),
       })),
-      totalItems: deduped.length - pinned.length,
+      totalItems,
       totalTokens: finalProgress.reduce(
         (sum, p) => sum + (p.tokenUsage ? p.tokenUsage.input + p.tokenUsage.output : 0),
         0,
       ),
     };
-
-    set((s) => ({
-      items: { ...s.items, [taskId]: deduped },
-      collecting: { ...s.collecting, [taskId]: false },
-      collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
-      lastCollectedAt: { ...s.lastCollectedAt, [taskId]: new Date().toISOString() },
-    }));
     useContextHistoryStore.getState().appendHistory(taskId, historyEntry);
     get().persist();
   },
