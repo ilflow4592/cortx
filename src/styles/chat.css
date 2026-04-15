@@ -167,6 +167,12 @@
 .chat-input textarea::placeholder {
   color: var(--fg-muted);
 }
+/* 빈 상태에서 placeholder 가 한 줄 초과 시 줄바꿈 대신 ... 으로 잘림.
+   입력 시작하면 :placeholder-shown 이 해제되며 기본 wrap 동작으로 돌아감. */
+.chat-input textarea:placeholder-shown {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .chat-input textarea:focus {
   border-color: rgba(90, 165, 165, 0.3);
 }
