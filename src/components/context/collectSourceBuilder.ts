@@ -75,7 +75,9 @@ export function buildCollectSources(params: BuildSourcesParams): ContextSourceCo
     });
   }
 
-  // MCP 미지원 타입만 settings 소스에서 보강
+  // MCP 미지원 타입만 settings 소스에서 보강. 단, searchResources 체크박스에서
+  // 선택된 타입에 한해서만 (이전엔 selectedResources 무시하고 settings 소스를
+  // 모두 포함시켜 GitHub 미체크여도 GitHub fetch가 발생하던 회귀).
   const mergedTypes = new Set<string>(mcpSources.map((s) => s.type));
-  return [...mcpSources, ...existingSources.filter((s) => !mergedTypes.has(s.type))];
+  return [...mcpSources, ...existingSources.filter((s) => searchResources.has(s.type) && !mergedTypes.has(s.type))];
 }
