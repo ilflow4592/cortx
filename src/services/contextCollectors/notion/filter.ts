@@ -1,5 +1,10 @@
 /**
  * @module contextCollectors/notion/filter
+ *
+ * @deprecated 신규 코드는 `src/services/contextSources/notion`을 사용하세요.
+ *   토큰 기반 REST 수집기와 짝을 이루던 필터. 통합 모듈이 자체적으로 maxItems
+ *   상한을 적용하므로 별도 키워드 필터 불필요. 토큰 워크플로우 부활 시 재사용.
+ *
  * Notion 검색 결과를 태스크 제목과의 관련성으로 필터링한다.
  * - 키워드 토큰 기반 스코어링 (동기, 빠름)
  * - AI 기반 필터링 (비동기, 정확도 높음)

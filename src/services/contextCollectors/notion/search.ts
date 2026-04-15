@@ -1,5 +1,10 @@
 /**
  * @module contextCollectors/notion/search
+ *
+ * @deprecated 신규 코드는 `src/services/contextSources/notion`을 사용하세요.
+ *   Notion REST API(토큰 필요) 기반 검색 헬퍼. 토큰 기반 워크플로우 부활 시
+ *   재사용 목적으로 보존.
+ *
  * Notion search API helpers and shared formatting utilities.
  */
 

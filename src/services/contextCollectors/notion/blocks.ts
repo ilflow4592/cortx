@@ -1,5 +1,11 @@
 /**
  * @module contextCollectors/notion/blocks
+ *
+ * @deprecated 신규 코드는 `src/services/contextSources/notion`을 사용하세요.
+ *   이 헬퍼들은 Notion REST API(토큰 필요) 기반이며, OAuth Notion MCP 환경
+ *   에서는 동작하지 않습니다. 토큰 기반 워크플로우가 다시 필요해질 때까지
+ *   유지 목적으로 보존합니다.
+ *
  * Notion page block fetching — properties/relations + body blocks.
  */
 
