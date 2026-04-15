@@ -7,20 +7,17 @@
  * - 각 단위는 순수 함수에 가까워 테스트 시 collectors만 mock하면 됨
  */
 import type { ContextItem, ContextSourceConfig, ContextSourceType } from '../types/contextPack';
-import { collectGitHub } from './contextCollectors/github';
 import { collectSlack } from './contextCollectors/slack';
 import { collectNotion } from './contextCollectors/notion';
 import { collectViaMcp } from './contextCollectors/mcpSearch';
 import { isSearchableService } from '../config/searchResources';
-import { getGithubPat, getNotionApiToken, getSlackBotToken } from './secrets';
+import { getNotionApiToken, getSlackBotToken } from './secrets';
 
 /**
  * 서비스별 토큰을 Keychain에서 우선 조회. 실패 시 undefined.
- * collectSource에서 source.token(localStorage 유래)에 우선해 효력 있음.
- * — Phase B 마이그레이션의 핵심 지점.
+ * GitHub은 `gh CLI`가 커버하므로 토큰 UI 없음 — 여기서도 제외.
  */
 async function resolveKeychainToken(type: ContextSourceType): Promise<string | undefined> {
-  if (type === 'github') return getGithubPat();
   if (type === 'slack') return getSlackBotToken();
   if (type === 'notion') return getNotionApiToken();
   return undefined;
@@ -61,7 +58,7 @@ async function collectSource(
   source: ContextSourceConfig,
   opts: Pick<CollectOptions, 'branchName' | 'slackChannels' | 'taskTitle' | 'model' | 'userKeywords'>,
 ): Promise<SourceResult> {
-  const { userKeywords: kw, slackChannels, taskTitle, model, branchName } = opts;
+  const { userKeywords: kw, slackChannels, taskTitle, model } = opts;
 
   const keychainToken = await resolveKeychainToken(source.type);
   const effectiveToken = keychainToken || source.token;
@@ -84,9 +81,7 @@ async function collectSource(
   }
 
   if (src.type === 'github') {
-    if (src.token && src.owner && src.repo) {
-      return { items: await collectGitHub(src, kw, branchName) };
-    }
+    // GitHub은 gh CLI(collectViaMcp 내부) 단일 경로. 과거 REST PAT 분기는 제거됨.
     const r = await collectViaMcp('github', kw, '', { owner: src.owner, repo: src.repo, model });
     return { items: r?.items || [], tokenUsage: r?.tokenUsage };
   }

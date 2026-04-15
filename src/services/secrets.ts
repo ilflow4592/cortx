@@ -77,11 +77,6 @@ export const setNotionApiToken = (t: string) => notionHelpers.set(t);
 export const clearNotionApiToken = () => notionHelpers.clear();
 export const hasNotionApiToken = () => notionHelpers.has();
 
-export const getGithubPat = () => githubHelpers.get();
-export const setGithubPat = (t: string) => githubHelpers.set(t);
-export const clearGithubPat = () => githubHelpers.clear();
-export const hasGithubPat = () => githubHelpers.has();
-
 export const getSlackBotToken = () => slackHelpers.get();
 export const setSlackBotToken = (t: string) => slackHelpers.set(t);
 export const clearSlackBotToken = () => slackHelpers.clear();

@@ -1,11 +1,11 @@
 /**
  * @module settings/IntegrationsSettings
  *
- * 외부 서비스(Notion/GitHub/Slack) 통합 관리 — 각 카드 1개가
- *   · 토큰 (OS Keychain)
- *   · 활성화 토글 (contextPackStore.sources[].enabled)
- * 을 담당한다. 1 서비스 = 1 카드. 수집 범위(owner/repo, channel, dbId)는 UI에서
- * 노출하지 않고 저장된 값이 있으면 그대로 사용 (설정 단순화).
+ * 외부 서비스(Notion/Slack) 통합 관리 — 각 카드가 토큰(Keychain) + Enable 토글을
+ * 담당한다. 토큰이 없어도 MCP 경로로 동일 기능이 동작하며, 토큰은 **Claude API
+ * 비용을 절감**하기 위한 최적화 옵션이다.
+ *
+ * GitHub는 `gh CLI`가 MCP 경로를 커버하므로 별도 PAT UI를 제공하지 않는다.
  */
 
 import type { JSX } from 'react';
@@ -16,30 +16,12 @@ import {
   getNotionApiToken,
   setNotionApiToken,
   clearNotionApiToken,
-  getGithubPat,
-  setGithubPat,
-  clearGithubPat,
   getSlackBotToken,
   setSlackBotToken,
   clearSlackBotToken,
 } from '../../services/secrets';
 
 // ── Brand SVG Icons (simple-icons, MIT) ──────────────────────
-
-function GitHubIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ flexShrink: 0 }}
-    >
-      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-    </svg>
-  );
-}
 
 function NotionIcon({ size = 18 }: { size?: number }) {
   return (
@@ -94,11 +76,12 @@ interface ServiceConfig {
   clear: () => Promise<void>;
 }
 
-const CONFIGS: Record<'github' | 'slack' | 'notion', ServiceConfig> = {
+const CONFIGS: Record<'slack' | 'notion', ServiceConfig> = {
   notion: {
     title: 'Notion',
     Icon: NotionIcon,
-    description: 'Internal Integration token을 저장하면 REST API로 Pin/검색이 5배 빠름.',
+    description:
+      '선택 사항. MCP만으로도 검색/수집이 동작하지만, 토큰을 저장하면 REST API를 직접 호출해 Pin/검색이 빠르고 Claude API 토큰을 소모하지 않는다.',
     issueLink: {
       url: 'https://www.notion.so/my-integrations',
       label: 'notion.so/my-integrations',
@@ -110,25 +93,11 @@ const CONFIGS: Record<'github' | 'slack' | 'notion', ServiceConfig> = {
     set: setNotionApiToken,
     clear: clearNotionApiToken,
   },
-  github: {
-    title: 'GitHub',
-    Icon: GitHubIcon,
-    description: 'Fine-grained or Classic PAT로 Issues/PR/Commit 검색.',
-    issueLink: {
-      url: 'https://github.com/settings/tokens',
-      label: 'github.com/settings/tokens',
-      suffix: '→ Generate new token → repo 스코프 체크. 또는 터미널에서 `gh auth login` 사용 가능.',
-    },
-    placeholder: 'ghp_… 또는 github_pat_…',
-    validate: (v) => (/^(ghp_|github_pat_)/i.test(v) ? null : '토큰 형식이 다름 (ghp_… 또는 github_pat_… 으로 시작)'),
-    get: getGithubPat,
-    set: setGithubPat,
-    clear: clearGithubPat,
-  },
   slack: {
     title: 'Slack',
     Icon: SlackIcon,
-    description: 'Bot User OAuth Token으로 채널 메시지 검색.',
+    description:
+      '선택 사항. MCP로 채널 검색이 기본 동작하며, Bot Token을 저장하면 REST API를 직접 호출해 Claude API 토큰을 소모하지 않는다.',
     issueLink: {
       url: 'https://api.slack.com/apps',
       label: 'api.slack.com/apps',
@@ -146,13 +115,36 @@ export function IntegrationsSettings() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <IntegrationCard type="notion" />
-      <IntegrationCard type="github" />
       <IntegrationCard type="slack" />
+      <GitHubHint />
     </div>
   );
 }
 
-function IntegrationCard({ type }: { type: 'github' | 'slack' | 'notion' }) {
+function GitHubHint() {
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 8,
+        padding: 16,
+        background: 'var(--bg-elevated)',
+        fontSize: 12,
+        color: 'var(--fg-muted)',
+        lineHeight: 1.6,
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 6 }}>
+        GitHub <span style={{ fontSize: 10, color: 'var(--fg-faint)', fontWeight: 400 }}>(별도 토큰 불필요)</span>
+      </div>
+      터미널에서{' '}
+      <code style={{ background: 'var(--bg-chip)', padding: '1px 5px', borderRadius: 3 }}>gh auth login</code> 하면
+      GitHub CLI가 자동으로 사용된다. REST PAT과 기능 동일 — 토큰 UI를 별도로 두지 않는다.
+    </div>
+  );
+}
+
+function IntegrationCard({ type }: { type: 'slack' | 'notion' }) {
   const cfg = CONFIGS[type];
   const sources = useContextPackStore((s) => s.sources);
   const source = sources.find((s) => s.type === type);
