@@ -57,8 +57,12 @@ async function collectSource(
 
   if (source.type === 'notion') {
     if (source.token) return { items: await collectNotion(source, kw, taskTitle) };
-    const r = await collectViaMcp('notion', kw, '', { model });
-    return { items: r?.items || [], tokenUsage: r?.tokenUsage };
+    // OAuth Notion MCP 경로: 통합 collector가 검색 + fullText fetch를 한 번에 수행
+    // (이전엔 mcpSearch가 메타만 반환하고 본문은 파이프라인 시작 시 lazy fetch로 처리해
+    //  Q1 도달 시간이 길었음). always-fetch 정책으로 dev-task가 즉시 활용 가능.
+    const { collectNotion: collectNotionUnified } = await import('./contextSources/notion');
+    const items = await collectNotionUnified({ keywords: kw, model });
+    return { items };
   }
 
   if (source.type === 'github') {

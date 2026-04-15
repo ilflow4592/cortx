@@ -57,28 +57,23 @@ export async function fetchPinUrl(url: string): Promise<string | null> {
       if (result.success && result.output.trim()) return result.output.trim();
     }
 
-    // Notion: use Claude CLI + MCP (AI fetches via notion-fetch tool)
-    // OAuth Notion MCP에 OAuth 토큰이 Claude CLI 내부에 있어 cortx가 직접 API 호출 불가 →
-    // Claude subprocess 경로 유지. 대신 플래그/프롬프트/타임아웃 강화로 실패율·hang 줄임.
+    // Notion: 통합 모듈 위임 (contextSources/notion). 이전엔 fetchPinUrl 안에
+    // Notion MCP 호출 로직이 인라인돼 있었으나, 키워드 검색 경로(mcpSearch)와
+    // 동일 호출을 중복 구현하던 것을 단일 모듈로 통합.
+    // 인증 필요한 도메인이라 실패 시 curl 폴백은 의미 없음 → 명시적으로 null 반환.
     if (url.includes('notion.so') || url.includes('notion.site')) {
-      const result = await runMcpFetch({
-        url,
-        promptHint:
-          'Call mcp__notion__notion-fetch (or notion-search → notion-fetch) for this URL and return ONLY the page content as plain text. No JSON wrapping, no markdown code fences, no preamble.',
-        toolFilter: 'mcp__notion__*',
-      });
-      if (result) return result;
+      const { fetchNotionFullText } = await import('../../services/contextSources/notion/fetch');
+      return await fetchNotionFullText(url);
     }
 
-    // Slack: use Claude CLI + MCP
+    // Slack: use Claude CLI + MCP. 인증 필요 → curl 폴백 의미 없음.
     if (url.includes('slack.com')) {
-      const result = await runMcpFetch({
+      return await runMcpFetch({
         url,
         promptHint:
           'Call mcp__slack__* tools to fetch this Slack message/thread and return ONLY the content as plain text. No JSON wrapping, no markdown code fences.',
         toolFilter: 'mcp__slack__*',
       });
-      if (result) return result;
     }
 
     // Fallback: curl for public URLs
