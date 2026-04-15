@@ -17,7 +17,13 @@ import { callNotionMcp } from '../../../src/services/contextSources/notion/clien
 import { getNotionApiToken } from '../../../src/services/secrets';
 import { invoke } from '@tauri-apps/api/core';
 import { collectNotion } from '../../../src/services/contextSources/notion';
-import { parseSearchOutput } from '../../../src/services/contextSources/notion/search';
+import {
+  parseSearchOutput,
+  rankByMatchQuality,
+  extractSearchPhrase,
+  filterByTokenOverlap,
+} from '../../../src/services/contextSources/notion/search';
+import type { NotionSearchHit } from '../../../src/services/contextSources/notion';
 import { fetchNotionFullText, normalizeNotionUrl } from '../../../src/services/contextSources/notion/fetch';
 
 describe('normalizeNotionUrl', () => {
@@ -164,6 +170,104 @@ describe('fetchNotionFullText (REST/MCP 분기)', () => {
   });
 });
 
+describe('extractSearchPhrase', () => {
+  it("' - ' 앞의 phrase만 추출", () => {
+    expect(extractSearchPhrase('NEXUS country 모듈 - Kotlin/Exposed 기반 기본 CRUD')).toBe('NEXUS country 모듈');
+  });
+
+  it("'[PMS]' 같은 접두 대괄호 제거", () => {
+    expect(extractSearchPhrase('[PMS] Country 프록시 컨트롤러 추가')).toBe('Country 프록시 컨트롤러 추가');
+  });
+
+  it("' : ' 구분자도 인식", () => {
+    expect(extractSearchPhrase('BE-1456 : Country 프록시')).toBe('BE-1456');
+  });
+
+  it('구분자 없으면 원본 반환', () => {
+    expect(extractSearchPhrase('simple query')).toBe('simple query');
+  });
+
+  it('빈 문자열 처리', () => {
+    expect(extractSearchPhrase('')).toBe('');
+    expect(extractSearchPhrase('   ')).toBe('');
+  });
+
+  it('추출 결과가 너무 짧으면(< 3자) 원본 반환', () => {
+    // "A - long text" → "A"는 너무 짧아 원본 유지
+    expect(extractSearchPhrase('A - long descriptive text')).toBe('A - long descriptive text');
+  });
+});
+
+describe('filterByTokenOverlap', () => {
+  function h(title: string): NotionSearchHit {
+    return { title, url: `https://notion.so/${encodeURIComponent(title)}` };
+  }
+
+  it('쿼리 토큰 하나라도 매칭되는 결과만 남김', () => {
+    const hits = [h('NEXUS country 관련 작업'), h('Portlogics ID OAuth'), h('country API 리팩토링')];
+    const out = filterByTokenOverlap(hits, 'NEXUS country 모듈');
+    expect(out.map((x) => x.title)).toEqual(['NEXUS country 관련 작업', 'country API 리팩토링']);
+  });
+
+  it('아무 토큰도 매칭 안 되면 모두 제거 (recent-list 폴백 차단)', () => {
+    const hits = [h('vibe-setup.sh'), h('AWS 인프라 정리'), h('Portlogics ID')];
+    const out = filterByTokenOverlap(hits, 'NEXUS country 모듈');
+    expect(out).toEqual([]);
+  });
+
+  it('빈 쿼리는 모두 통과', () => {
+    const hits = [h('foo'), h('bar')];
+    expect(filterByTokenOverlap(hits, '')).toEqual(hits);
+  });
+
+  it('쿼리에 의미있는 토큰(>=2자)이 없으면 필터 스킵 — 전부 통과', () => {
+    // 'a' 1자만이면 tokenize 결과 빈 배열 → 필터 안 함 (원본 유지)
+    const hits = [h('aa some title')];
+    expect(filterByTokenOverlap(hits, 'a')).toEqual(hits);
+  });
+
+  it('대소문자 무관', () => {
+    const hits = [h('Country API')];
+    expect(filterByTokenOverlap(hits, 'COUNTRY')).toHaveLength(1);
+  });
+});
+
+describe('rankByMatchQuality', () => {
+  function hit(title: string): NotionSearchHit {
+    return { title, url: `https://notion.so/${title}` };
+  }
+
+  it('완전일치가 최상위 (case-insensitive)', () => {
+    const hits = [hit('country partial'), hit('Country 프록시 컨트롤러 추가'), hit('other')];
+    const ranked = rankByMatchQuality(hits, 'Country 프록시 컨트롤러 추가');
+    expect(ranked[0].title).toBe('Country 프록시 컨트롤러 추가');
+  });
+
+  it('접두일치 > 부분일치 > 매칭 없음', () => {
+    const hits = [hit('xxx country yyy'), hit('Country API proxy'), hit('unrelated')];
+    const ranked = rankByMatchQuality(hits, 'Country');
+    expect(ranked.map((h) => h.title)).toEqual(['Country API proxy', 'xxx country yyy', 'unrelated']);
+  });
+
+  it('동점이면 원래 순서 보존 (API의 last_edited_time 순)', () => {
+    const hits = [hit('foo'), hit('bar'), hit('baz')];
+    const ranked = rankByMatchQuality(hits, 'nothing');
+    expect(ranked.map((h) => h.title)).toEqual(['foo', 'bar', 'baz']);
+  });
+
+  it('빈 쿼리는 원본 순서 그대로 반환', () => {
+    const hits = [hit('a'), hit('b')];
+    expect(rankByMatchQuality(hits, '')).toEqual(hits);
+    expect(rankByMatchQuality(hits, '   ')).toEqual(hits);
+  });
+
+  it('공백 붕괴 — 여러 공백이 단일로 취급', () => {
+    const hits = [hit('Country   proxy'), hit('Country Api')];
+    const ranked = rankByMatchQuality(hits, 'country proxy');
+    expect(ranked[0].title).toBe('Country   proxy'); // normalized 하면 exact
+  });
+});
+
 describe('searchNotion (REST/MCP 분기)', () => {
   beforeEach(() => {
     vi.mocked(callNotionMcp).mockReset();
@@ -178,7 +282,8 @@ describe('searchNotion (REST/MCP 분기)', () => {
         {
           id: '341dd60e-86f4-8114-a998-ef671ea63b1f',
           url: 'https://www.notion.so/p-abc',
-          properties: { Task: { type: 'title', title: [{ plain_text: 'BE-1456' }] } },
+          // 쿼리 'country'가 제목에 포함돼야 token overlap 필터 통과
+          properties: { Task: { type: 'title', title: [{ plain_text: 'country proxy controller' }] } },
           parent: { type: 'database_id', database_id: '19fdd60e-86f4-8055-8bad-c78c2233fbbe' },
         },
       ],
@@ -188,7 +293,7 @@ describe('searchNotion (REST/MCP 분기)', () => {
       await import('../../../src/services/contextSources/notion/search')
     ).searchNotion(['country'], 10);
     expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('BE-1456');
+    expect(hits[0].title).toBe('country proxy controller');
     expect(hits[0].url).toBe('https://www.notion.so/p-abc');
     expect(hits[0].parent).toContain('DB 19fdd60e');
     expect(callNotionMcp).not.toHaveBeenCalled();
@@ -198,7 +303,7 @@ describe('searchNotion (REST/MCP 분기)', () => {
     vi.mocked(getNotionApiToken).mockResolvedValue('ntn_invalid');
     vi.mocked(invoke).mockRejectedValue('http 401: unauthorized');
     vi.mocked(callNotionMcp).mockResolvedValue({
-      output: '[{"title":"fallback","url":"https://notion.so/x"}]',
+      output: '[{"title":"country fallback","url":"https://notion.so/x"}]',
       stderrPath: '/tmp/x',
     });
 
@@ -206,14 +311,14 @@ describe('searchNotion (REST/MCP 분기)', () => {
       await import('../../../src/services/contextSources/notion/search')
     ).searchNotion(['country'], 10);
     expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('fallback');
+    expect(hits[0].title).toBe('country fallback');
     expect(callNotionMcp).toHaveBeenCalledOnce();
   });
 
   it('token 없으면 바로 MCP', async () => {
     vi.mocked(getNotionApiToken).mockResolvedValue(undefined);
     vi.mocked(callNotionMcp).mockResolvedValue({
-      output: '[{"title":"mcp-only","url":"https://notion.so/m"}]',
+      output: '[{"title":"country mcp-only","url":"https://notion.so/m"}]',
       stderrPath: '/tmp/x',
     });
 
@@ -221,8 +326,31 @@ describe('searchNotion (REST/MCP 분기)', () => {
       await import('../../../src/services/contextSources/notion/search')
     ).searchNotion(['country'], 10);
     expect(hits).toHaveLength(1);
-    expect(hits[0].title).toBe('mcp-only');
+    expect(hits[0].title).toBe('country mcp-only');
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('토큰 매칭 없는 결과는 제외 (Notion recent-list 폴백 차단)', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockResolvedValue({
+      results: [
+        {
+          id: 'x',
+          url: 'https://notion.so/a',
+          properties: { Name: { type: 'title', title: [{ plain_text: 'unrelated page' }] } },
+        },
+        {
+          id: 'y',
+          url: 'https://notion.so/b',
+          properties: { Name: { type: 'title', title: [{ plain_text: 'country spec' }] } },
+        },
+      ],
+    });
+    const hits = await (
+      await import('../../../src/services/contextSources/notion/search')
+    ).searchNotion(['country'], 10);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('country spec');
   });
 
   it('REST 빈 결과도 성공 처리 (MCP 폴백 안 함)', async () => {
@@ -278,19 +406,19 @@ describe('collectNotion', () => {
   });
 
   it('keywords 주면 검색 후 각 결과에 대해 fullText fetch', async () => {
-    // 1) 검색 결과
+    // 1) 검색 결과 — 쿼리 'country proxy'가 제목에 포함돼야 token overlap 필터 통과
     vi.mocked(callNotionMcp).mockResolvedValueOnce({
-      output: '[{"title":"BE-1456","url":"https://notion.so/be-1456","id":"abc"}]',
+      output: '[{"title":"country proxy controller","url":"https://notion.so/be-1456","id":"abc"}]',
       stderrPath: '/tmp/x',
     });
     // 2) fullText fetch
-    vi.mocked(callNotionMcp).mockResolvedValueOnce({ output: '본문 BE-1456', stderrPath: '/tmp/x' });
+    vi.mocked(callNotionMcp).mockResolvedValueOnce({ output: '본문 본문 내용', stderrPath: '/tmp/x' });
 
     const items = await collectNotion({ keywords: ['country', 'proxy'] });
 
     expect(items).toHaveLength(1);
-    expect(items[0].title).toBe('BE-1456');
-    expect(items[0].metadata?.fullText).toBe('본문 BE-1456');
+    expect(items[0].title).toBe('country proxy controller');
+    expect(items[0].metadata?.fullText).toBe('본문 본문 내용');
     expect(items[0].metadata?.notionId).toBe('abc');
     expect(callNotionMcp).toHaveBeenCalledTimes(2);
   });

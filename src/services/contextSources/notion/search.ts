@@ -32,20 +32,106 @@ export async function searchNotion(keywords: string[], maxItems = 10, model?: st
 /** Rust proxy(notion_search)를 통해 REST `/v1/search` 호출. 실패 시 null. */
 async function searchViaRest(keywords: string[], maxItems: number): Promise<NotionSearchHit[] | null> {
   try {
-    const query = keywords.slice(0, 2).join(' ');
+    // 전체 phrase (rank용)와 Notion API에 보낼 짧은 쿼리를 분리.
+    // Notion /v1/search는 긴 phrase에서 매칭 못 찾으면 "최근 수정 페이지"로
+    // 폴백해 완전 무관한 결과를 반환함 — 첫 구분자 앞의 짧은 쿼리만 보내서
+    // 매칭 정확도 확보.
+    const fullPhrase = keywords.join(' ').trim();
+    const shortQuery = extractSearchPhrase(fullPhrase);
+
     const { invoke } = await import('@tauri-apps/api/core');
     const data = await invoke<{ results?: unknown[] }>('notion_search', {
-      query,
-      pageSize: Math.min(maxItems * 2, 50), // 여유를 두고 가져와서 필터 후 slice
+      query: shortQuery,
+      pageSize: Math.min(maxItems * 3, 100),
     });
-    return (data.results || [])
+    const hits = (data.results || [])
       .map(toNotionSearchHit)
-      .filter((h): h is NotionSearchHit => !!h && !!h.title && !!h.url)
-      .slice(0, maxItems);
+      .filter((h): h is NotionSearchHit => !!h && !!h.title && !!h.url);
+    // 클라이언트 측 필터 + 재정렬 — Notion의 recent-list 폴백을 제거하고
+    // 토큰 매칭 없는 결과를 드롭한다.
+    const ranked = rankByMatchQuality(hits, fullPhrase);
+    return filterByTokenOverlap(ranked, fullPhrase).slice(0, maxItems);
   } catch {
     // Rust Err (401/403/404/네트워크) → MCP 폴백
     return null;
   }
+}
+
+/**
+ * 긴 쿼리에서 검색에 유용한 첫 phrase를 추출. Notion API가 수용 가능한 범위.
+ * 구분자: ' - ', ' : ', ' / ', '(', '[', '|' (첫 등장 전까지)
+ * 결과가 너무 짧으면(< 3자) 전체 그대로 반환.
+ */
+export function extractSearchPhrase(full: string): string {
+  const trimmed = full.trim();
+  if (!trimmed) return '';
+  // 괄호/대괄호 접두사는 제거하고 내부 텍스트 추출 유지 ("[PMS] Country..." → "Country...")
+  const bracketStripped = trimmed.replace(/^\s*[[(][^\])]*[\])]\s*/, '').trim();
+  const base = bracketStripped || trimmed;
+  const sepMatch = base.match(/^(.+?)\s+[-:|/]\s+/);
+  const candidate = (sepMatch ? sepMatch[1] : base).trim();
+  return candidate.length >= 3 ? candidate : trimmed;
+}
+
+/**
+ * 쿼리 토큰 중 의미있는 수만큼 제목에 매칭되어야 통과. Notion recent-list 폴백
+ * 및 "공통 단어 1개만 매칭"(예: '이관')으로 스며드는 무관 결과 차단.
+ *
+ * 적응형 임계값:
+ * - 쿼리 토큰 1-3개: 1개 매칭 필수
+ * - 쿼리 토큰 4+개: 2개 매칭 필수 (긴 쿼리일수록 유일한 공통 단어로 통과하기 쉬움)
+ */
+export function filterByTokenOverlap(hits: NotionSearchHit[], query: string): NotionSearchHit[] {
+  const tokens = tokenize(query);
+  if (tokens.length === 0) return hits;
+  const required = tokens.length >= 4 ? 2 : 1;
+  return hits.filter((h) => {
+    const titleSet = new Set(tokenize(h.title));
+    let matches = 0;
+    for (const t of tokens) {
+      if (titleSet.has(t)) {
+        matches++;
+        if (matches >= required) return true;
+      }
+    }
+    return false;
+  });
+}
+
+/** 매칭용 토큰화 — 한/영/숫자 유지, 구분자·기호는 공백 취급. 2자 미만 토큰 제거. */
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .split(/[\s\-:/|()[\],]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+}
+
+/**
+ * 완전일치 → 접두일치 → 부분일치 → API fuzzy 순으로 재정렬.
+ * 동점이면 원래 순서(= Notion API의 last_edited_time 내림차순) 보존.
+ */
+export function rankByMatchQuality(hits: NotionSearchHit[], query: string): NotionSearchHit[] {
+  const q = normalizeForMatch(query);
+  if (!q) return hits;
+  return [...hits]
+    .map((h, idx) => ({ h, idx, score: matchScore(h.title, q) }))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .map((x) => x.h);
+}
+
+function matchScore(title: string, normalizedQuery: string): number {
+  const t = normalizeForMatch(title);
+  if (!t) return 0;
+  if (t === normalizedQuery) return 3;
+  if (t.startsWith(normalizedQuery)) return 2;
+  if (t.includes(normalizedQuery)) return 1;
+  return 0;
+}
+
+/** 매칭용 정규화 — 대소문자 무시 + 공백 붕괴. 한국어는 그대로 유지. */
+function normalizeForMatch(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 /** Notion REST 응답 객체를 NotionSearchHit로 변환. title 추출 실패 시 null. */
@@ -87,8 +173,10 @@ function extractParentLabel(parent: unknown): string | undefined {
 
 /** 기존 Claude+MCP 경로. REST 토큰 없거나 REST 실패 시 fallback. */
 async function searchViaMcp(keywords: string[], maxItems: number, model?: string): Promise<NotionSearchHit[]> {
-  const kw = keywords.slice(0, 2).join(', ');
-  const prompt = SEARCH_PROMPT(kw).replace('{N}', String(maxItems));
+  const fullPhrase = keywords.join(' ').trim();
+  // MCP도 동일하게 짧은 쿼리로 검색하되 rank/filter는 full phrase 기준
+  const shortQuery = extractSearchPhrase(fullPhrase);
+  const prompt = SEARCH_PROMPT(shortQuery).replace('{N}', String(maxItems));
 
   const result = await callNotionMcp({
     prompt,
@@ -98,7 +186,9 @@ async function searchViaMcp(keywords: string[], maxItems: number, model?: string
   });
 
   if (!result.output) return [];
-  return parseSearchOutput(result.output, maxItems);
+  const hits = parseSearchOutput(result.output, maxItems * 3);
+  const ranked = rankByMatchQuality(hits, fullPhrase);
+  return filterByTokenOverlap(ranked, fullPhrase).slice(0, maxItems);
 }
 
 /** Claude가 반환한 JSON 배열을 파싱. ```json 코드 펜스 / 잡음 텍스트 허용. */
