@@ -7,6 +7,44 @@ vi.mock('../../../src/services/contextSources/notion/client', () => ({
 import { callNotionMcp } from '../../../src/services/contextSources/notion/client';
 import { collectNotion } from '../../../src/services/contextSources/notion';
 import { parseSearchOutput } from '../../../src/services/contextSources/notion/search';
+import { normalizeNotionUrl } from '../../../src/services/contextSources/notion/fetch';
+
+describe('normalizeNotionUrl', () => {
+  it('database view + 페이지 선택 URL → 페이지 canonical URL', () => {
+    const input =
+      'https://www.notion.so/19fdd60e86f480558badc78c2233fbbe?v=19fdd60e86f4804f9ea9000cd0c32bdf&p=341dd60e86f48114a998ef671ea63b1f&pm=s';
+    expect(normalizeNotionUrl(input)).toBe('https://www.notion.so/341dd60e86f48114a998ef671ea63b1f');
+  });
+
+  it('p= 파라미터에 하이픈 포함된 page ID도 인식', () => {
+    const input = 'https://www.notion.so/db?v=v1&p=341dd60e-86f4-8114-a998-ef671ea63b1f';
+    expect(normalizeNotionUrl(input)).toBe('https://www.notion.so/341dd60e-86f4-8114-a998-ef671ea63b1f');
+  });
+
+  it('일반 페이지 URL은 변경 안 함', () => {
+    const url = 'https://www.notion.so/title-341dd60e86f48114a998ef671ea63b1f';
+    expect(normalizeNotionUrl(url)).toBe(url);
+  });
+
+  it('p= 없이 v=만 있는 DB 뷰 URL은 변경 안 함', () => {
+    const url = 'https://www.notion.so/db?v=view1';
+    expect(normalizeNotionUrl(url)).toBe(url);
+  });
+
+  it('Notion 도메인 아니면 변경 안 함', () => {
+    const url = 'https://example.com/page?p=341dd60e86f48114a998ef671ea63b1f';
+    expect(normalizeNotionUrl(url)).toBe(url);
+  });
+
+  it('잘못된 page ID 형식이면 변경 안 함', () => {
+    const url = 'https://www.notion.so/db?p=not-a-valid-id';
+    expect(normalizeNotionUrl(url)).toBe(url);
+  });
+
+  it('URL 파싱 실패 시 원본 반환', () => {
+    expect(normalizeNotionUrl('not a url')).toBe('not a url');
+  });
+});
 
 describe('parseSearchOutput', () => {
   it('순수 JSON 배열 파싱', () => {
