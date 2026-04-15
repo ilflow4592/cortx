@@ -15,6 +15,7 @@ pub fn claude_spawn(
     allow_all_tools: Option<bool>,
     session_id: Option<String>,
     model: Option<String>,
+    effort: Option<String>,
     state: tauri::State<'_, SharedPtyManager>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -28,6 +29,7 @@ pub fn claude_spawn(
         allow_all_tools.unwrap_or(false),
         session_id.as_deref(),
         model.as_deref(),
+        effort.as_deref(),
         &app,
     )
 }

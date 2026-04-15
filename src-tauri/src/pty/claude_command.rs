@@ -40,6 +40,17 @@ impl ClaudeCommand {
         self
     }
 
+    /// Claude CLI `--effort` 플래그 (low | medium | high | max). None이면 CLI 기본값 사용.
+    /// 잘못된 값은 무시해 CLI 에러를 피한다.
+    pub fn with_effort(mut self, effort: Option<&str>) -> Self {
+        if let Some(level) = effort {
+            if matches!(level, "low" | "medium" | "high" | "max") {
+                self.parts.extend(["--effort".into(), level.to_string()]);
+            }
+        }
+        self
+    }
+
     pub fn with_system_prompt(mut self, prompt: &str) -> Self {
         if !prompt.is_empty() {
             self.parts.push("--append-system-prompt".into());

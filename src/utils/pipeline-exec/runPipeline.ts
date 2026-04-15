@@ -306,6 +306,24 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     listen(`claude-done-${reqId}`, () => resolve());
   });
 
+  // Pre-load project-context.md so Claude doesn't need a separate Read tool call
+  // Saves 1 tool round-trip (~2-3s) per pipeline invocation. The scanner output
+  // already contains full CLAUDE.md/AGENTS.md bodies since the embed refactor.
+  let projectContextMd = '';
+  if (cwd) {
+    try {
+      const ctxRes = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd: '/',
+        command: `cat "${cwd}/.cortx/project-context.md" 2>/dev/null`,
+      });
+      if (ctxRes.success && ctxRes.output.trim()) {
+        projectContextMd = ctxRes.output;
+      }
+    } catch {
+      /* no project-context.md yet, skill falls back to fresh exploration */
+    }
+  }
+
   // Build context summary
   const summaryParts = [
     '## CORTX_PIPELINE_TRACKING',
@@ -331,6 +349,13 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     '- 한국어로만 대화합니다.',
     '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
   ];
+
+  if (projectContextMd) {
+    summaryParts.push('', '---', '', '## CORTX_PROJECT_CONTEXT (pre-loaded)');
+    summaryParts.push('project-context.md가 이미 아래에 포함돼 있습니다. 같은 파일을 Read 도구로 다시 읽지 마세요.');
+    summaryParts.push('Tech Stack, Rule Files, 임베드된 CLAUDE.md/AGENTS.md 본문이 모두 포함됨.');
+    summaryParts.push('', projectContextMd);
+  }
 
   if (contextItems.length > 0) {
     summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
@@ -366,6 +391,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Select model based on pipeline phase
   const currentPipeline = useTaskStore.getState().tasks.find((t) => t.id === taskId)?.pipeline;
   const selectedModel = currentPipeline?.phases?.implement?.status === 'in_progress' ? 'claude-sonnet-4-6' : null;
+  // Opus 사용 경로(selectedModel == null → pty가 opus로 기본 승격)에서만 effort 낮춤.
+  // Sonnet은 기존 동작 유지.
+  const selectedEffort = selectedModel === null ? 'medium' : null;
 
   await invoke('claude_spawn', {
     id: reqId,
@@ -376,6 +404,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     allowAllTools: true,
     sessionId: null,
     model: selectedModel,
+    effort: selectedEffort,
   });
 
   await donePromise;

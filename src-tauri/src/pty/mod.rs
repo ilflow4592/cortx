@@ -133,6 +133,7 @@ impl PtyManager {
         _allow_all_tools: bool,
         session_id: Option<&str>,
         model: Option<&str>,
+        effort: Option<&str>,
         app: &AppHandle,
     ) -> Result<(), String> {
         self.sessions.remove(id);
@@ -145,6 +146,7 @@ impl PtyManager {
         let summary_owned = context_summary.to_string();
         let session_id_owned = session_id.map(|s| s.to_string());
         let model_owned = model.unwrap_or("claude-opus-4-6").to_string();
+        let effort_owned = effort.map(|s| s.to_string());
 
         let pid_holder: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
@@ -167,6 +169,7 @@ impl PtyManager {
 
             let full_cmd = ClaudeCommand::new(msg_file.path(), &model_owned)
                 .with_session(session_id_owned.as_deref())
+                .with_effort(effort_owned.as_deref())
                 .with_system_prompt(&system_prompt)
                 .with_add_dirs(&add_dirs)
                 .build();
