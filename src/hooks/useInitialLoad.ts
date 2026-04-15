@@ -13,6 +13,7 @@ import { useContextHistoryStore } from '../stores/contextHistoryStore';
 import { useMcpStore } from '../stores/mcpStore';
 import { useModalStore } from '../stores/modalStore';
 import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '../services/db';
+import { migrateSourceTokensToKeychain } from '../services/secrets';
 
 export function useInitialLoad(): void {
   useEffect(() => {
@@ -40,5 +41,19 @@ export function useInitialLoad(): void {
     useContextPackStore.getState().loadState();
     useContextHistoryStore.getState().loadState();
     useMcpStore.getState().load();
+
+    // Context Source localStorage 토큰 → Keychain 1회 이관 (backward-compat).
+    // Keychain 미지원/실패 시 기존 토큰 유지 — 수집 경로가 fallback으로 동작.
+    void (async () => {
+      try {
+        const store = useContextPackStore.getState();
+        if (store.sources.some((s) => s.token && s.token.trim())) {
+          const migrated = await migrateSourceTokensToKeychain(store.sources);
+          store.setSources(migrated);
+        }
+      } catch (err) {
+        console.warn('[cortx] Context source token migration skipped:', err);
+      }
+    })();
   }, []);
 }

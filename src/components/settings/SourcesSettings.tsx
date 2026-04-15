@@ -52,7 +52,6 @@ export function SourcesSettings({
                     onAdd({
                       type: t.type,
                       enabled: true,
-                      token: '',
                       ...(t.type === 'github' ? { owner: '', repo: '' } : {}),
                       ...(t.type === 'slack' ? { slackChannel: '' } : {}),
                       ...(t.type === 'notion' ? { notionDatabaseId: '' } : {}),
@@ -89,7 +88,8 @@ export function SourcesSettings({
         <SourceCard key={i} source={s} onUpdate={(u) => onUpdate(i, u)} onRemove={() => onRemove(i)} />
       ))}
       <div className="field-hint" style={{ marginTop: 16 }}>
-        Tokens are stored locally only. API calls go directly from your machine to each provider.
+        Scope only — tokens are stored in OS Keychain via the Integrations tab. API calls go directly from your machine
+        to each provider.
       </div>
     </>
   );

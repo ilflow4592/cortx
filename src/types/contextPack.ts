@@ -41,8 +41,12 @@ export interface ContextSnapshot {
 export interface ContextSourceConfig {
   type: ContextSourceType;
   enabled: boolean;
-  /** API 인증 토큰 */
-  token: string;
+  /**
+   * @deprecated 토큰은 Integrations 탭에서 OS Keychain에 저장한다.
+   * 이 필드는 과거 localStorage 기반 설정의 하위 호환성을 위해만 유지되며,
+   * 앱 시작 시 migrateSourceTokensToKeychain이 자동으로 Keychain으로 이관해 비운다.
+   */
+  token?: string;
   // GitHub 전용
   owner?: string;
   repo?: string;

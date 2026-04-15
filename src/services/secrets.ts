@@ -86,3 +86,50 @@ export const getSlackBotToken = () => slackHelpers.get();
 export const setSlackBotToken = (t: string) => slackHelpers.set(t);
 export const clearSlackBotToken = () => slackHelpers.clear();
 export const hasSlackBotToken = () => slackHelpers.has();
+
+// ── Context Source 토큰 → Keychain 1회 마이그레이션 ───────
+
+interface SourceLike {
+  type: string;
+  token?: string;
+}
+
+/**
+ * 과거 Context Sources(localStorage)에 저장됐던 토큰을 Keychain으로 이관.
+ * 규칙:
+ *   - Keychain에 이미 값이 있으면 덮어쓰지 않음(사용자가 Integrations에 직접 설정했을 수 있음)
+ *   - 이관 후 source.token은 빈 문자열로 비움 (호출자가 store에 반영)
+ *   - 입력 배열은 수정하지 않고 새 배열 반환
+ * 반환 배열 — Context Sources 스토어에 그대로 반영 가능 (token 제거된 버전).
+ */
+export async function migrateSourceTokensToKeychain<T extends SourceLike>(sources: T[]): Promise<T[]> {
+  const result: T[] = [];
+  for (const s of sources) {
+    if (!s.token || !s.token.trim()) {
+      result.push({ ...s, token: '' } as T);
+      continue;
+    }
+    const helpers =
+      s.type === 'github'
+        ? githubHelpers
+        : s.type === 'slack'
+          ? slackHelpers
+          : s.type === 'notion'
+            ? notionHelpers
+            : null;
+    if (!helpers) {
+      result.push(s);
+      continue;
+    }
+    try {
+      const existing = await helpers.get();
+      if (!existing) await helpers.set(s.token);
+    } catch {
+      // Keychain 접근 실패 시 기존 토큰 보존 (fallback 경로 유지)
+      result.push(s);
+      continue;
+    }
+    result.push({ ...s, token: '' } as T);
+  }
+  return result;
+}
