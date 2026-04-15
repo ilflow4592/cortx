@@ -16,10 +16,12 @@ pub fn claude_spawn(
     session_id: Option<String>,
     model: Option<String>,
     effort: Option<String>,
+    disallowed_tools: Option<Vec<String>>,
     state: tauri::State<'_, SharedPtyManager>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
+    let disallowed = disallowed_tools.unwrap_or_default();
     mgr.spawn_claude(
         &id,
         &cwd,
@@ -30,6 +32,7 @@ pub fn claude_spawn(
         session_id.as_deref(),
         model.as_deref(),
         effort.as_deref(),
+        &disallowed,
         &app,
     )
 }

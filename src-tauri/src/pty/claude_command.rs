@@ -51,6 +51,17 @@ impl ClaudeCommand {
         self
     }
 
+    /// Claude CLI `--disallowedTools` 플래그. 패턴 배열을 쉼표 구분 단일 인자로 전달.
+    /// 빈 슬라이스면 플래그 미추가. Grill-me 단계에서 Notion/Slack/GitHub MCP 재쿼리를
+    /// 하드 차단하는 용도.
+    pub fn with_disallowed_tools(mut self, patterns: &[String]) -> Self {
+        if !patterns.is_empty() {
+            self.parts.push("--disallowedTools".into());
+            self.parts.push(shell_escape(&patterns.join(",")));
+        }
+        self
+    }
+
     pub fn with_system_prompt(mut self, prompt: &str) -> Self {
         if !prompt.is_empty() {
             self.parts.push("--append-system-prompt".into());
@@ -69,6 +80,60 @@ impl ClaudeCommand {
 
     pub fn build(self) -> String {
         self.parts.join(" ")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_disallowed_tools_joins_patterns_with_comma() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+            .with_disallowed_tools(&["mcp__notion__*".into(), "mcp__slack__*".into()])
+            .build();
+        assert!(
+            cmd.contains("--disallowedTools 'mcp__notion__*,mcp__slack__*'"),
+            "got: {}",
+            cmd
+        );
+    }
+
+    #[test]
+    fn with_disallowed_tools_empty_omits_flag() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+            .with_disallowed_tools(&[])
+            .build();
+        assert!(!cmd.contains("--disallowedTools"), "got: {}", cmd);
+    }
+
+    #[test]
+    fn with_effort_allows_valid_levels() {
+        for level in ["low", "medium", "high", "max"] {
+            let cmd =
+                ClaudeCommand::new("/tmp/msg", "claude-opus-4-6").with_effort(Some(level)).build();
+            assert!(cmd.contains(&format!("--effort {}", level)));
+        }
+    }
+
+    #[test]
+    fn with_effort_rejects_invalid_values() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+            .with_effort(Some("extreme"))
+            .build();
+        assert!(!cmd.contains("--effort"));
+    }
+
+    #[test]
+    fn opus_model_adds_sonnet_fallback() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6").build();
+        assert!(cmd.contains("--fallback-model claude-sonnet-4-6"));
+    }
+
+    #[test]
+    fn sonnet_model_omits_fallback() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6").build();
+        assert!(!cmd.contains("--fallback-model"));
     }
 }
 
