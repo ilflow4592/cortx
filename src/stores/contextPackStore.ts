@@ -26,6 +26,10 @@ import { useContextHistoryStore, type CollectHistoryEntry } from './contextHisto
 // 기존 `import { McpServerStatus } from '../stores/contextPackStore'`는
 // re-export로 뒤로 호환.
 export type { McpServerStatus } from './mcpStore';
+
+// fetchPinUrl 모듈 promise를 모듈 로드 시점에 시작 — 첫 Pin fetch 시 import 대기 0.
+// 동적 import 유지 이유: 테스트 환경에서 vi.mock 격리 + 순환 의존 회피.
+const fetchPinUrlModule = import('../utils/pipeline-exec/fetchPinUrl');
 // History entry 타입은 history store로 이동했지만, 기존 import 경로 호환을 위해 re-export.
 export type { CollectHistoryEntry } from './contextHistoryStore';
 
@@ -106,44 +110,59 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
     get().persist();
   },
 
-  // Pin 추가 + HTTP URL이면 백그라운드로 fullText fetch.
-  // 파이프라인 시작 시점의 fetchPinUrl 블로킹(45-120초)을 Pin 추가 시점으로 이동시켜
-  // /pipeline:dev-task가 즉시 시작되도록 한다. 중복 fetch는 metadata.fetching 플래그로 가드.
-  // fetchPinUrl 실패 시 runPipeline.ts의 lazy fetch 폴백이 여전히 동작.
+  // Pin 추가 + HTTP URL이면 fire-and-forget으로 백그라운드 fullText fetch 큐에 등록.
+  // 파이프라인 시작 시점의 fetchPinUrl 블로킹(45-120초)을 Pin 추가 시점으로 이동.
+  // 호출자(handlePin)는 즉시 리턴 받고 onClose() 가능 — UI 절대 블록 안 함.
+  // fetchPinUrl 실패 시 runPipeline.ts lazy fetch 폴백이 커버.
+  //
+  // 핵심: addPin 호출 시점에 metadata.fetching='1'을 동기적으로 박아 즉시
+  // [fetching…] 배지를 띄운다 (microtask 지연 없음). 모듈 import는 모듈 로드
+  // 시점에 미리 시작해 첫 fetch의 import 대기 비용 0.
   addPinWithFetch: (taskId, item) => {
-    get().addPin(taskId, item);
     const url = item.url;
-    // fetching='1' 플래그로 중복 호출 방지 (metadata는 Record<string,string>)
-    if (!url || !url.startsWith('http') || item.metadata?.fullText || item.metadata?.fetching === '1') return;
-    void (async () => {
-      try {
-        // 동적 import — 테스트 격리 + 순환 의존 방지
-        const { fetchPinUrl } = await import('../utils/pipeline-exec/fetchPinUrl');
-        set((s) => ({
-          items: {
-            ...s.items,
-            [taskId]: (s.items[taskId] || []).map((i) =>
-              i.id === item.id ? { ...i, metadata: { ...i.metadata, fetching: '1' } } : i,
-            ),
-          },
-        }));
-        const content = await fetchPinUrl(url);
-        set((s) => ({
-          items: {
-            ...s.items,
-            [taskId]: (s.items[taskId] || []).map((i) => {
-              if (i.id !== item.id) return i;
-              const rest = { ...(i.metadata || {}) };
-              delete rest.fetching;
-              return content ? { ...i, metadata: { ...rest, fullText: content } } : { ...i, metadata: rest };
-            }),
-          },
-        }));
-        get().persist();
-      } catch {
-        // silent — runPipeline lazy fetch 폴백 경로가 커버
-      }
-    })();
+    const willFetch = !!url && url.startsWith('http') && !item.metadata?.fullText && item.metadata?.fetching !== '1';
+    // willFetch면 fetching 플래그를 metadata에 동기 주입 → 카드 즉시 [fetching…] 표시
+    const itemToAdd: ContextItem = willFetch
+      ? { ...item, metadata: { ...(item.metadata || {}), fetching: '1' } }
+      : item;
+    get().addPin(taskId, itemToAdd);
+    if (!willFetch || !url) return;
+
+    // 모듈 로드는 import 시작 → 첫 호출 비용 분산. setTimeout(0)으로 다음 tick에 실행해
+    // addPin의 set() 렌더가 먼저 처리되도록 양보 (UI 응답성 최대화).
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const { fetchPinUrl } = await fetchPinUrlModule;
+          const content = await fetchPinUrl(url);
+          set((s) => ({
+            items: {
+              ...s.items,
+              [taskId]: (s.items[taskId] || []).map((i) => {
+                if (i.id !== item.id) return i;
+                const rest = { ...(i.metadata || {}) };
+                delete rest.fetching;
+                return content ? { ...i, metadata: { ...rest, fullText: content } } : { ...i, metadata: rest };
+              }),
+            },
+          }));
+          get().persist();
+        } catch {
+          // 실패 시 fetching 플래그만 정리
+          set((s) => ({
+            items: {
+              ...s.items,
+              [taskId]: (s.items[taskId] || []).map((i) => {
+                if (i.id !== item.id) return i;
+                const rest = { ...(i.metadata || {}) };
+                delete rest.fetching;
+                return { ...i, metadata: rest };
+              }),
+            },
+          }));
+        }
+      })();
+    }, 0);
   },
 
   removeItem: (taskId, itemId) => {
