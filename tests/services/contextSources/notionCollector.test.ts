@@ -164,6 +164,102 @@ describe('fetchNotionFullText (REST/MCP 분기)', () => {
   });
 });
 
+describe('searchNotion (REST/MCP 분기)', () => {
+  beforeEach(() => {
+    vi.mocked(callNotionMcp).mockReset();
+    vi.mocked(getNotionApiToken).mockReset();
+    vi.mocked(invoke).mockReset();
+  });
+
+  it('token 있으면 invoke(notion_search) 우선', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockResolvedValue({
+      results: [
+        {
+          id: '341dd60e-86f4-8114-a998-ef671ea63b1f',
+          url: 'https://www.notion.so/p-abc',
+          properties: { Task: { type: 'title', title: [{ plain_text: 'BE-1456' }] } },
+          parent: { type: 'database_id', database_id: '19fdd60e-86f4-8055-8bad-c78c2233fbbe' },
+        },
+      ],
+    });
+
+    const hits = await (
+      await import('../../../src/services/contextSources/notion/search')
+    ).searchNotion(['country'], 10);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('BE-1456');
+    expect(hits[0].url).toBe('https://www.notion.so/p-abc');
+    expect(hits[0].parent).toContain('DB 19fdd60e');
+    expect(callNotionMcp).not.toHaveBeenCalled();
+  });
+
+  it('token 있고 REST Err (401) → MCP 폴백', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_invalid');
+    vi.mocked(invoke).mockRejectedValue('http 401: unauthorized');
+    vi.mocked(callNotionMcp).mockResolvedValue({
+      output: '[{"title":"fallback","url":"https://notion.so/x"}]',
+      stderrPath: '/tmp/x',
+    });
+
+    const hits = await (
+      await import('../../../src/services/contextSources/notion/search')
+    ).searchNotion(['country'], 10);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('fallback');
+    expect(callNotionMcp).toHaveBeenCalledOnce();
+  });
+
+  it('token 없으면 바로 MCP', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue(undefined);
+    vi.mocked(callNotionMcp).mockResolvedValue({
+      output: '[{"title":"mcp-only","url":"https://notion.so/m"}]',
+      stderrPath: '/tmp/x',
+    });
+
+    const hits = await (
+      await import('../../../src/services/contextSources/notion/search')
+    ).searchNotion(['country'], 10);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('mcp-only');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('REST 빈 결과도 성공 처리 (MCP 폴백 안 함)', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockResolvedValue({ results: [] });
+
+    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['none'], 10);
+    expect(hits).toEqual([]);
+    expect(callNotionMcp).not.toHaveBeenCalled();
+  });
+
+  it('keywords 빈 배열이면 즉시 빈 배열', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion([], 10);
+    expect(hits).toEqual([]);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(callNotionMcp).not.toHaveBeenCalled();
+  });
+
+  it('title 없는 결과는 필터링', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockResolvedValue({
+      results: [
+        { id: 'x', url: 'https://notion.so/a', properties: {} }, // title 없음
+        {
+          id: 'y',
+          url: 'https://notion.so/b',
+          properties: { Name: { type: 'title', title: [{ plain_text: 'valid' }] } },
+        },
+      ],
+    });
+    const hits = await (await import('../../../src/services/contextSources/notion/search')).searchNotion(['k'], 10);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].title).toBe('valid');
+  });
+});
+
 describe('collectNotion', () => {
   beforeEach(() => {
     vi.mocked(callNotionMcp).mockReset();
