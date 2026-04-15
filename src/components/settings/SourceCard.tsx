@@ -20,9 +20,10 @@ export function SourceCard({
   const [verifyError, setVerifyError] = useState('');
   const [tokenDraft, setTokenDraft] = useState(source.token);
 
-  const [ghCliAuth, setGhCliAuth] = useState(false);
+  // GitHub + 토큰 없음 + 이전에 enabled였다면 gh CLI 인증이 통과됐다는 뜻 → optimistic true로 시작
+  // (백그라운드 검증이 실패하면 false로 정정). 재방문 시 "Not connected → Connected" 깜빡임 방지.
+  const [ghCliAuth, setGhCliAuth] = useState(source.type === 'github' && !source.token && source.enabled);
 
-  // Check gh CLI auth for GitHub sources without token
   useEffect(() => {
     if (source.type === 'github' && !source.token) {
       invoke<{ success: boolean; output: string }>('run_shell_command', {
@@ -30,12 +31,11 @@ export function SourceCard({
         command: 'gh auth status 2>&1',
       })
         .then((r) => {
-          if (r.success || r.output.includes('Logged in')) {
-            setGhCliAuth(true);
-            if (!source.enabled) onUpdate({ enabled: true });
-          }
+          const ok = r.success || r.output.includes('Logged in');
+          setGhCliAuth(ok);
+          if (ok && !source.enabled) onUpdate({ enabled: true });
         })
-        .catch(() => {});
+        .catch(() => setGhCliAuth(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onUpdate is a prop callback; adding it causes infinite re-renders
   }, [source.type, source.token]);

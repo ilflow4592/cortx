@@ -1,54 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { ClaudeProviderCard } from './ai-provider/ClaudeProviderCard';
-import { OllamaProviderCard } from './ai-provider/OllamaProviderCard';
-import { OpenAIProviderCard } from './ai-provider/OpenAIProviderCard';
-import { ProviderSelector } from './ai-provider/ProviderSelector';
-import { providerConfigs } from './ai-provider/config';
-import type { AIProvider } from './ai-provider/types';
 
-/** Settings 모달의 AI Provider 섹션 오케스트레이터.
- *  현재 선택된 프로바이더에 맞춰 Claude/OpenAI/Ollama 카드를 스위치한다. */
+/** Settings 모달의 Claude 인증/모델 섹션. 과거 다중 프로바이더 선택 UI는 제거됨. */
 export function AIProviderSettings() {
-  const settings = useSettingsStore();
+  const aiProvider = useSettingsStore((s) => s.aiProvider);
+  const authMethod = useSettingsStore((s) => s.authMethod);
+  const apiKey = useSettingsStore((s) => s.apiKey);
+  const oauthAccessToken = useSettingsStore((s) => s.oauthAccessToken);
+  const modelId = useSettingsStore((s) => s.modelId);
+  const setSettings = useSettingsStore((s) => s.setSettings);
   const [error, setError] = useState('');
 
-  // Connected = authMethod is explicitly set AND matching credential exists
-  const isConnected =
-    settings.aiProvider === 'claude'
-      ? (settings.authMethod === 'api-key' && !!settings.apiKey) ||
-        (settings.authMethod === 'oauth' && !!settings.oauthAccessToken)
-      : settings.aiProvider === 'openai'
-        ? !!settings.apiKey
-        : false; // ollama handled separately
+  // 과거 세션에서 openai/ollama로 설정된 경우 claude로 강제 정규화.
+  useEffect(() => {
+    if (aiProvider !== 'claude') setSettings({ aiProvider: 'claude' });
+  }, [aiProvider, setSettings]);
 
-  const handleSelectProvider = (provider: AIProvider) => {
-    const cfg = providerConfigs.find((p) => p.value === provider)!;
-    settings.setSettings({ aiProvider: provider, modelId: cfg.model });
-    setError('');
-  };
+  const isConnected = (authMethod === 'api-key' && !!apiKey) || (authMethod === 'oauth' && !!oauthAccessToken);
 
   return (
     <>
-      <ProviderSelector value={settings.aiProvider} onChange={handleSelectProvider} />
+      <ClaudeProviderCard isConnected={isConnected} error={error} setError={setError} />
 
-      {settings.aiProvider === 'claude' && (
-        <ClaudeProviderCard isConnected={isConnected} error={error} setError={setError} />
-      )}
-
-      {settings.aiProvider === 'openai' && (
-        <OpenAIProviderCard isConnected={isConnected} error={error} setError={setError} />
-      )}
-
-      {settings.aiProvider === 'ollama' && <OllamaProviderCard error={error} setError={setError} />}
-
-      {/* Model */}
       <div className="field">
         <span className="field-label">Model</span>
         <input
           className="field-input mono"
-          value={settings.modelId}
-          onChange={(e) => settings.setSettings({ modelId: e.target.value })}
+          value={modelId}
+          onChange={(e) => setSettings({ modelId: e.target.value })}
         />
       </div>
     </>
