@@ -19,7 +19,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<STab>('ai');
 
   return (
-    <ModalBackdrop onClose={onClose} ariaLabel="Settings">
+    <ModalBackdrop onClose={onClose} ariaLabel="Settings" dialogStyle={{ width: 640 }}>
       <div className="modal-header">
         <h2>Settings</h2>
         <button className="modal-close" onClick={onClose}>
