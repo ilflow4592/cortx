@@ -7,10 +7,13 @@ import { ModalBackdrop } from '../common/ModalBackdrop';
 // AIProviderSettings가 가장 무거움 (496줄, OAuth/모델 검증 로직 포함).
 const AIProviderSettings = lazy(() => import('./AIProviderSettings').then((m) => ({ default: m.AIProviderSettings })));
 const SourcesSettings = lazy(() => import('./SourcesSettings').then((m) => ({ default: m.SourcesSettings })));
+const IntegrationsSettings = lazy(() =>
+  import('./IntegrationsSettings').then((m) => ({ default: m.IntegrationsSettings })),
+);
 const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
 const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
 
-type STab = 'ai' | 'sources' | 'appearance' | 'telemetry';
+type STab = 'ai' | 'sources' | 'integrations' | 'appearance' | 'telemetry';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const sources = useContextPackStore((s) => s.sources);
@@ -32,6 +35,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <button className={`modal-tab ${tab === 'sources' ? 'active' : ''}`} onClick={() => setTab('sources')}>
           📦 {t('settings.contextSources')}
         </button>
+        <button
+          className={`modal-tab ${tab === 'integrations' ? 'active' : ''}`}
+          onClick={() => setTab('integrations')}
+        >
+          🔐 Integrations
+        </button>
         <button className={`modal-tab ${tab === 'appearance' ? 'active' : ''}`} onClick={() => setTab('appearance')}>
           🎨 {t('settings.appearance')}
         </button>
@@ -50,6 +59,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onRemove={(i) => useContextPackStore.getState().removeSource(i)}
             />
           )}
+          {tab === 'integrations' && <IntegrationsSettings />}
           {tab === 'appearance' && <AppearanceSettings />}
           {tab === 'telemetry' && <TelemetrySettings />}
         </Suspense>

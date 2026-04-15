@@ -4,10 +4,21 @@ vi.mock('../../../src/services/contextSources/notion/client', () => ({
   callNotionMcp: vi.fn(),
 }));
 
+vi.mock('../../../src/services/secrets', () => ({
+  getNotionApiToken: vi.fn(),
+}));
+
+// Tauri invoke mock — notion_fetch_blocks Rust 커맨드 프록시
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+}));
+
 import { callNotionMcp } from '../../../src/services/contextSources/notion/client';
+import { getNotionApiToken } from '../../../src/services/secrets';
+import { invoke } from '@tauri-apps/api/core';
 import { collectNotion } from '../../../src/services/contextSources/notion';
 import { parseSearchOutput } from '../../../src/services/contextSources/notion/search';
-import { normalizeNotionUrl } from '../../../src/services/contextSources/notion/fetch';
+import { fetchNotionFullText, normalizeNotionUrl } from '../../../src/services/contextSources/notion/fetch';
 
 describe('normalizeNotionUrl', () => {
   it('database view + 페이지 선택 URL → 페이지 canonical URL', () => {
@@ -85,9 +96,78 @@ describe('parseSearchOutput', () => {
   });
 });
 
+describe('fetchNotionFullText (REST/MCP 분기)', () => {
+  const restUrl = 'https://www.notion.so/341dd60e86f48114a998ef671ea63b1f';
+
+  beforeEach(() => {
+    vi.mocked(callNotionMcp).mockReset();
+    vi.mocked(getNotionApiToken).mockReset();
+    vi.mocked(invoke).mockReset();
+  });
+
+  it('token 있으면 Rust invoke 호출, 성공 시 MCP 호출 안 함', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test_token');
+    vi.mocked(invoke).mockResolvedValue({
+      results: [{ type: 'paragraph', paragraph: { rich_text: [{ plain_text: '본문 텍스트' }] } }],
+    });
+
+    const result = await fetchNotionFullText(restUrl);
+    expect(result).toContain('본문');
+    expect(invoke).toHaveBeenCalledWith('notion_fetch_blocks', { pageId: '341dd60e86f48114a998ef671ea63b1f' });
+    expect(callNotionMcp).not.toHaveBeenCalled();
+  });
+
+  it('token 있고 Rust invoke가 Err (401) → MCP 자동 폴백', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_invalid');
+    vi.mocked(invoke).mockRejectedValue('http 401: unauthorized');
+    vi.mocked(callNotionMcp).mockResolvedValue({ output: 'fallback body', stderrPath: '/tmp/x' });
+
+    const result = await fetchNotionFullText(restUrl);
+    expect(result).toBe('fallback body');
+    expect(callNotionMcp).toHaveBeenCalledOnce();
+  });
+
+  it('token 있고 404 (페이지 공유 안 됨) → MCP 폴백', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockRejectedValue('http 404: object_not_found');
+    vi.mocked(callNotionMcp).mockResolvedValue({ output: 'mcp body', stderrPath: '/tmp/x' });
+
+    const result = await fetchNotionFullText(restUrl);
+    expect(result).toBe('mcp body');
+  });
+
+  it('token 없으면 REST 안 거치고 바로 MCP', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue(undefined);
+    vi.mocked(callNotionMcp).mockResolvedValue({ output: 'mcp result', stderrPath: '/tmp/x' });
+
+    const result = await fetchNotionFullText(restUrl);
+    expect(result).toBe('mcp result');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('REST가 빈 본문 반환 시 그대로 빈 문자열 (MCP 폴백 안 함)', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(invoke).mockResolvedValue({ results: [] });
+
+    const result = await fetchNotionFullText(restUrl);
+    expect(result).toBe('');
+    expect(callNotionMcp).not.toHaveBeenCalled();
+  });
+
+  it('page ID 추출 불가 URL → REST 스킵 후 MCP 폴백', async () => {
+    vi.mocked(getNotionApiToken).mockResolvedValue('ntn_test');
+    vi.mocked(callNotionMcp).mockResolvedValue({ output: 'mcp body', stderrPath: '/tmp/x' });
+
+    const result = await fetchNotionFullText('https://www.notion.so/no-valid-id-here');
+    expect(result).toBe('mcp body');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
 describe('collectNotion', () => {
   beforeEach(() => {
     vi.mocked(callNotionMcp).mockReset();
+    vi.mocked(getNotionApiToken).mockResolvedValue(undefined); // 기본은 token 없음 → MCP 경로
   });
 
   it('urls만 주면 검색 안 하고 fullText fetch만 수행', async () => {
