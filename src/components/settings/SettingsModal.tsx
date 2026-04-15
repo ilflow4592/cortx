@@ -14,7 +14,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<STab>('integrations');
 
   return (
-    <ModalBackdrop onClose={onClose} ariaLabel="Settings" dialogStyle={{ width: 640 }}>
+    <ModalBackdrop
+      onClose={onClose}
+      ariaLabel="Settings"
+      dialogStyle={{ width: 640, height: 'min(720px, 90vh)', maxHeight: 'none' }}
+    >
       <div className="modal-header">
         <h2>Settings</h2>
         <button className="modal-close" onClick={onClose}>
