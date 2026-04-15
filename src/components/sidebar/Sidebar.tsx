@@ -42,7 +42,7 @@ export function Sidebar() {
     setDeleteProjectTarget,
   } = useSidebarSelection();
 
-  const { runningPipelines, setRunningPipelines, askingTasks, setAskingTasks, runSelectedPipelines } =
+  const { runningPipelines, setRunningPipelines, askingTasks, setAskingTasks, runSelectedPipelines, countRunnable } =
     usePipelineRunner();
 
   const resetSelectedTasks = useResetSelectedTasks();
@@ -205,6 +205,7 @@ export function Sidebar() {
 
       <SelectionActionsPanel
         selectedCount={selectedTasks.size}
+        runnableCount={countRunnable(selectedTasks)}
         showResetConfirm={showResetConfirm}
         onRun={() => runSelectedPipelines(selectedTasks, clearSelection)}
         onReset={async () => {

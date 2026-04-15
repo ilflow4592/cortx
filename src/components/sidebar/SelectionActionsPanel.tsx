@@ -10,6 +10,8 @@ import { Play, RotateCcw } from 'lucide-react';
 
 interface SelectionActionsPanelProps {
   selectedCount: number;
+  /** 선택된 task 중 실제 실행 가능한 수 (이미 실행 중이거나 done인 task 제외). */
+  runnableCount: number;
   showResetConfirm: boolean;
   onRun: () => void;
   onReset: () => void;
@@ -19,6 +21,7 @@ interface SelectionActionsPanelProps {
 
 export function SelectionActionsPanel({
   selectedCount,
+  runnableCount,
   showResetConfirm,
   onRun,
   onReset,
@@ -27,20 +30,30 @@ export function SelectionActionsPanel({
 }: SelectionActionsPanelProps) {
   if (selectedCount === 0) return null;
 
+  const runDisabled = runnableCount === 0;
+  const runLabel = runDisabled
+    ? selectedCount === 1
+      ? 'Already running'
+      : `${selectedCount} already running`
+    : `Run Pipeline (${runnableCount}${runnableCount !== selectedCount ? `/${selectedCount}` : ''})`;
+
   return (
     <div style={{ padding: '8px 16px' }}>
       <button
-        onClick={onRun}
+        onClick={runDisabled ? undefined : onRun}
+        disabled={runDisabled}
+        title={runDisabled ? '선택한 태스크가 이미 파이프라인 실행 중입니다' : undefined}
         style={{
           width: '100%',
           padding: '8px 12px',
           borderRadius: 6,
           fontSize: 11,
           fontWeight: 600,
-          background: 'var(--accent-bg)',
-          border: '1px solid var(--accent-bg)',
-          color: 'var(--accent)',
-          cursor: 'pointer',
+          background: runDisabled ? 'var(--bg-chip)' : 'var(--accent-bg)',
+          border: `1px solid ${runDisabled ? 'var(--border-subtle)' : 'var(--accent-bg)'}`,
+          color: runDisabled ? 'var(--fg-faint)' : 'var(--accent)',
+          cursor: runDisabled ? 'not-allowed' : 'pointer',
+          opacity: runDisabled ? 0.65 : 1,
           fontFamily: 'inherit',
           display: 'flex',
           alignItems: 'center',
@@ -49,15 +62,17 @@ export function SelectionActionsPanel({
           transition: 'all 200ms ease',
         }}
         onMouseEnter={(e) => {
+          if (runDisabled) return;
           e.currentTarget.style.background = 'var(--accent-bg)';
           e.currentTarget.style.borderColor = 'var(--accent-border)';
         }}
         onMouseLeave={(e) => {
+          if (runDisabled) return;
           e.currentTarget.style.background = 'var(--accent-bg)';
           e.currentTarget.style.borderColor = 'var(--accent-bg)';
         }}
       >
-        <Play size={12} strokeWidth={2} /> Run Pipeline ({selectedCount})
+        <Play size={12} strokeWidth={2} /> {runLabel}
       </button>
       {showResetConfirm && (
         <div style={{ padding: '8px 0', marginTop: 4 }}>
