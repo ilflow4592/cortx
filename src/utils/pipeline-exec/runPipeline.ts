@@ -60,11 +60,16 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   messageCache.set(taskId, [...msgs]);
   loadingCache.set(taskId, true);
 
-  // Resolve slash command from .claude/commands/ files
+  // Resolve slash command from .claude/commands/ files.
+  // 주의: 더블쿼트 안에서 `~`는 확장되지 않으므로 `$HOME`로 치환해 shell이 풀도록 한다.
+  // 이 fallback이 깨지면 Claude CLI가 슬래시 명령을 받아 Skill 툴로 스킬을 로드하게 되고,
+  // 스킬 로드 + 내부 실행이 한 tool_use 안에서 네스티드되어 "Using Skill..." 상태로 수분간
+  // 멈춘 것처럼 보인다. Project-local → $HOME 순으로 조회한다.
   let resolvedPrompt = `${command} ${args}`;
   const cmdName = command.slice(1);
   const skillKey = cmdName.replace(/:/g, '/') + '.md';
-  for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
+  const skillBases = [`${cwd}/.claude/commands`, '$HOME/.claude/commands'];
+  for (const base of skillBases) {
     try {
       const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
         cwd: '/',
@@ -99,7 +104,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     });
     contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
 
-    // Fetch content for pinned HTTP URLs that don't have fullText yet
+    // Lazy fetch 폴백 — Pin 추가 시점의 eager fetch(addPinWithFetch)가
+    // 아직 완료되지 않았거나 실패했을 때만 동작. 파이프라인 시작을 과도하게
+    // 블로킹하지 않도록 2초 상한 설정 — 타임아웃되면 fullText 없이 진행되고
+    // CORTX_RULES/dev-task.md가 Claude의 재조회를 차단한다.
     const pinFetches = contextItems
       .filter(
         (item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText,
@@ -110,7 +118,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
           item.metadata = { ...item.metadata, fullText: content };
         }
       });
-    if (pinFetches.length > 0) await Promise.all(pinFetches);
+    if (pinFetches.length > 0) {
+      await Promise.race([Promise.all(pinFetches), new Promise<void>((r) => setTimeout(r, 2000))]);
+    }
   }
   messageCache.set(taskId, [...msgs]);
 
@@ -348,6 +358,8 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
     '- 한국어로만 대화합니다.',
     '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
+    '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Read/Bash 호출 금지. project-context.md와 Context Pack fullText만 사용.',
+    '- Context Pack에 Notion/Slack/GitHub fullText가 있으면 해당 MCP 도구 재호출 금지 (mcp__notion__*, mcp__slack__*, mcp__github__*).',
   ];
 
   if (projectContextMd) {
@@ -378,8 +390,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       const lines = items.map((item) => {
         const parts = [`- **${item.title}**`];
         if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
-        if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
-        if (item.metadata?.fullText) parts.push(`\n${item.metadata.fullText}`);
+        const hasFullText = !!item.metadata?.fullText;
+        // fullText가 있으면 URL은 감춤 — Claude가 원본 URL을 보고 MCP로 재조회하는 유인 제거
+        if (item.url && item.url.startsWith('http') && !hasFullText) parts.push(`  ${item.url}`);
+        if (hasFullText) {
+          parts.push(`\n<!-- 본문 이미 포함됨 — ${label} MCP로 재조회 금지 -->\n${item.metadata!.fullText}`);
+        }
         return parts.join('\n');
       });
       summaryParts.push('', `## ${label}`, ...lines);
@@ -395,6 +411,29 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Sonnet은 기존 동작 유지.
   const selectedEffort = selectedModel === null ? 'medium' : null;
 
+  // grill-me / obsidian-save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
+  // 로직: "fullText가 이미 있는 소스만 차단". fullText가 없는 소스는 Claude가 필요 시
+  // MCP로 fetch 폴백을 탈 수 있게 허용 — eager fetch 실패 / MCP 미연결 케이스 커버.
+  //
+  // 예: Notion Pin에 fullText가 있으면 mcp__notion__* 차단 (재조회 낭비 제거).
+  //     fullText가 없으면 mcp__notion__* 허용 (Claude가 한 번 fetch해서 진행).
+  const GRILLME_PHASES: ReadonlyArray<string> = ['grill_me', 'obsidian_save', 'dev_plan'];
+  const phases = currentPipeline?.phases;
+  const activePhase = phases
+    ? (Object.keys(phases) as Array<keyof typeof phases>).find((p) => phases[p]?.status === 'in_progress')
+    : undefined;
+
+  let disallowedTools: string[] | null = null;
+  if (activePhase && GRILLME_PHASES.includes(activePhase as string)) {
+    const hasUnfetched = (pattern: RegExp) =>
+      contextItems.some((i) => i.url && pattern.test(i.url) && !i.metadata?.fullText);
+    const tools: string[] = [];
+    if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
+    if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
+    if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
+    disallowedTools = tools.length > 0 ? tools : null;
+  }
+
   await invoke('claude_spawn', {
     id: reqId,
     cwd: cwd || '/',
@@ -405,6 +444,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     sessionId: null,
     model: selectedModel,
     effort: selectedEffort,
+    disallowedTools,
   });
 
   await donePromise;

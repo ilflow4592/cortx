@@ -51,6 +51,8 @@ interface ContextPackState {
 
   // Actions
   addPin: (taskId: string, item: ContextItem) => void;
+  /** addPin + HTTP URL이면 백그라운드로 본문 fetch (Notion/GitHub/Slack MCP). */
+  addPinWithFetch: (taskId: string, item: ContextItem) => void;
   removeItem: (taskId: string, itemId: string) => void;
   setKeywords: (taskId: string, keywords: string[]) => void;
   setSources: (sources: ContextSourceConfig[]) => void;
@@ -102,6 +104,46 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       };
     });
     get().persist();
+  },
+
+  // Pin 추가 + HTTP URL이면 백그라운드로 fullText fetch.
+  // 파이프라인 시작 시점의 fetchPinUrl 블로킹(45-120초)을 Pin 추가 시점으로 이동시켜
+  // /pipeline:dev-task가 즉시 시작되도록 한다. 중복 fetch는 metadata.fetching 플래그로 가드.
+  // fetchPinUrl 실패 시 runPipeline.ts의 lazy fetch 폴백이 여전히 동작.
+  addPinWithFetch: (taskId, item) => {
+    get().addPin(taskId, item);
+    const url = item.url;
+    // fetching='1' 플래그로 중복 호출 방지 (metadata는 Record<string,string>)
+    if (!url || !url.startsWith('http') || item.metadata?.fullText || item.metadata?.fetching === '1') return;
+    void (async () => {
+      try {
+        // 동적 import — 테스트 격리 + 순환 의존 방지
+        const { fetchPinUrl } = await import('../utils/pipeline-exec/fetchPinUrl');
+        set((s) => ({
+          items: {
+            ...s.items,
+            [taskId]: (s.items[taskId] || []).map((i) =>
+              i.id === item.id ? { ...i, metadata: { ...i.metadata, fetching: '1' } } : i,
+            ),
+          },
+        }));
+        const content = await fetchPinUrl(url);
+        set((s) => ({
+          items: {
+            ...s.items,
+            [taskId]: (s.items[taskId] || []).map((i) => {
+              if (i.id !== item.id) return i;
+              const rest = { ...(i.metadata || {}) };
+              delete rest.fetching;
+              return content ? { ...i, metadata: { ...rest, fullText: content } } : { ...i, metadata: rest };
+            }),
+          },
+        }));
+        get().persist();
+      } catch {
+        // silent — runPipeline lazy fetch 폴백 경로가 커버
+      }
+    })();
   },
 
   removeItem: (taskId, itemId) => {
