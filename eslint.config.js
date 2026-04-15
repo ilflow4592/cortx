@@ -8,7 +8,16 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src-tauri/target', 'src/types/generated', 'playwright-report', 'test-results']),
+  globalIgnores([
+    'dist',
+    'src-tauri/target',
+    'src/types/generated',
+    'playwright-report',
+    'test-results',
+    'coverage',
+    'reports',
+    '.stryker-tmp',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
