@@ -107,6 +107,11 @@ pub fn do_scan(
     } else {
         None
     };
+    let agents_content_final = if agents_md_final.grade != DocGrade::Missing {
+        read_to_string_safe(&root.join("AGENTS.md"))
+    } else {
+        None
+    };
     let quality_final = overall_quality(&claude_md_final, &agents_md_final, &ai_docs_final);
     let used_fallback_final = matches!(quality_final, ProjectQuality::Sparse);
 
@@ -123,6 +128,7 @@ pub fn do_scan(
         quality_final,
         used_fallback_final,
         &claude_content_final,
+        &agents_content_final,
         &tree_entries,
         &lang_hist,
         &readme_excerpt,

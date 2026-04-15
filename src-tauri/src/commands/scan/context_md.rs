@@ -1,7 +1,12 @@
 //! `project-context.md` 합성 — do_scan이 수집한 데이터를 Markdown 문서로 조립.
-//! Rule Files / Tech Stack / 추출 섹션 / Fallback(트리·언어·README)을 배너 순으로 렌더링.
+//!
+//! 전략: rich/partial 등급 문서는 본문을 통째로 임베드한다. 예전엔 특정 헤더
+//! 키워드(`## 즉시 규칙` 등)만 뽑았지만, 팀마다 헤더 네이밍이 달라 rich
+//! 문서에서 0건 추출되는 일이 잦았다 (ex. TOMS-server). 헤더 컨벤션을
+//! 프로젝트에 강요하지 않기 위해 전체 본문을 포함하고, 다운스트림 파이프라인이
+//! 필요한 부분만 골라 쓰도록 한다.
 
-use super::grader::{extract_section, grade_label, quality_label, DocEntry};
+use super::grader::{grade_label, quality_label, DocEntry, DocGrade};
 use super::{ProjectQuality, SotStatus, SCANNER_VERSION};
 
 #[allow(clippy::too_many_arguments)]
@@ -17,6 +22,7 @@ pub fn compose_context_md(
     quality: ProjectQuality,
     used_fallback: bool,
     claude_content: &Option<String>,
+    agents_content: &Option<String>,
     tree_entries: &[String],
     lang_hist: &[(String, u64)],
     readme_excerpt: &Option<String>,
@@ -63,7 +69,7 @@ pub fn compose_context_md(
     }
     out.push('\n');
 
-    // Rule Files
+    // Rule Files (metadata)
     out.push_str("## Rule Files\n");
     out.push_str(&format!(
         "- `CLAUDE.md`: **{}** ({} bytes)\n",
@@ -88,40 +94,9 @@ pub fn compose_context_md(
     }
     out.push('\n');
 
-    // CLAUDE.md 추출 섹션 (grade >= partial 일 때만)
-    if let Some(content) = claude_content {
-        if let Some(table) = extract_section(
-            content,
-            &["작업 유형", "task-type", "task type", "트리거", "trigger"],
-        ) {
-            out.push_str("## Task-Type → Doc Mapping (from CLAUDE.md)\n");
-            out.push_str(&table);
-            out.push_str("\n\n");
-        }
-        if let Some(rules) = extract_section(content, &["즉시 규칙", "immediate rules"]) {
-            out.push_str("## Immediate Rules (verbatim)\n");
-            out.push_str(&rules);
-            out.push_str("\n\n");
-        }
-        if let Some(pitfalls) = extract_section(
-            content,
-            &[
-                "반복 지적",
-                "반복 지적 패턴",
-                "common pitfalls",
-                "금지 패턴",
-            ],
-        ) {
-            out.push_str("## Common Pitfalls (verbatim)\n");
-            out.push_str(&pitfalls);
-            out.push_str("\n\n");
-        }
-        if let Some(forbidden) = extract_section(content, &["금지 경로", "forbidden"]) {
-            out.push_str("## Forbidden Paths\n");
-            out.push_str(&forbidden);
-            out.push_str("\n\n");
-        }
-    }
+    // Embedded rule documents — 헤더 컨벤션 무관하게 본문을 통째로 포함
+    append_embedded_doc(&mut out, "CLAUDE.md", claude_md.grade, claude_content);
+    append_embedded_doc(&mut out, "AGENTS.md", agents_md.grade, agents_content);
 
     // Fallback sections
     if used_fallback {
@@ -148,4 +123,180 @@ pub fn compose_context_md(
     }
 
     out
+}
+
+fn append_embedded_doc(
+    out: &mut String,
+    name: &str,
+    grade: DocGrade,
+    content: &Option<String>,
+) {
+    if !matches!(grade, DocGrade::Rich | DocGrade::Partial) {
+        return;
+    }
+    let Some(body) = content else {
+        return;
+    };
+    out.push_str(&format!("## {} (full content)\n\n", name));
+    out.push_str(body);
+    if !body.ends_with('\n') {
+        out.push('\n');
+    }
+    out.push('\n');
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::scan::grader::{DocEntry, DocGrade};
+    use crate::commands::scan::{ProjectQuality, SotStatus};
+
+    fn doc(grade: DocGrade, size: u64) -> DocEntry {
+        DocEntry {
+            path: "x".into(),
+            grade,
+            size_bytes: size,
+            first_h1: None,
+        }
+    }
+
+    #[test]
+    fn rich_claude_md_is_embedded_verbatim() {
+        let claude = doc(DocGrade::Rich, 500);
+        let agents = doc(DocGrade::Missing, 0);
+        let body = "# Proj\n## 필수 행동\n- 규칙1\n- 규칙2\n".to_string();
+        let out = compose_context_md(
+            "proj",
+            "2026-01-01T00:00:00Z",
+            &[],
+            &claude,
+            &agents,
+            &[],
+            &None,
+            SotStatus::None,
+            ProjectQuality::Rich,
+            false,
+            &Some(body.clone()),
+            &None,
+            &[],
+            &[],
+            &None,
+        );
+        assert!(out.contains("## CLAUDE.md (full content)"));
+        assert!(out.contains("필수 행동"));
+        assert!(out.contains("- 규칙1"));
+        assert!(out.contains("- 규칙2"));
+    }
+
+    #[test]
+    fn partial_doc_is_also_embedded() {
+        let claude = doc(DocGrade::Partial, 150);
+        let agents = doc(DocGrade::Missing, 0);
+        let body = "# P\nsmall body".to_string();
+        let out = compose_context_md(
+            "p",
+            "t",
+            &[],
+            &claude,
+            &agents,
+            &[],
+            &None,
+            SotStatus::None,
+            ProjectQuality::Partial,
+            false,
+            &Some(body),
+            &None,
+            &[],
+            &[],
+            &None,
+        );
+        assert!(out.contains("## CLAUDE.md (full content)"));
+        assert!(out.contains("small body"));
+    }
+
+    #[test]
+    fn empty_or_missing_doc_is_not_embedded() {
+        let claude = doc(DocGrade::Empty, 30);
+        let agents = doc(DocGrade::Missing, 0);
+        let out = compose_context_md(
+            "p",
+            "t",
+            &[],
+            &claude,
+            &agents,
+            &[],
+            &None,
+            SotStatus::None,
+            ProjectQuality::Sparse,
+            true,
+            &Some("noise".into()),
+            &None,
+            &[],
+            &[],
+            &None,
+        );
+        assert!(!out.contains("## CLAUDE.md (full content)"));
+        assert!(!out.contains("## AGENTS.md (full content)"));
+    }
+
+    #[test]
+    fn both_rule_docs_embedded_when_rich() {
+        let claude = doc(DocGrade::Rich, 500);
+        let agents = doc(DocGrade::Rich, 500);
+        let out = compose_context_md(
+            "p",
+            "t",
+            &[],
+            &claude,
+            &agents,
+            &[],
+            &None,
+            SotStatus::None,
+            ProjectQuality::Rich,
+            false,
+            &Some("claude body".into()),
+            &Some("agents body".into()),
+            &[],
+            &[],
+            &None,
+        );
+        assert!(out.contains("## CLAUDE.md (full content)"));
+        assert!(out.contains("claude body"));
+        assert!(out.contains("## AGENTS.md (full content)"));
+        assert!(out.contains("agents body"));
+    }
+
+    #[test]
+    fn toms_style_headers_embedded_without_keyword_match() {
+        // TOMS-server 스타일: 헤더에 "즉시 규칙"/"task-type" 같은 키워드 없음
+        let body = "# TOMS-server\n\n@.claude/principles.md\n\n\
+            ## ⛔ AI 에이전트 필수 행동\n| 상황 | 조치 |\n|---|---|\n| 시작 | worktree |\n\n\
+            ## 문서 맵\n| 질문 | 문서 |\n|---|---|\n| 아키텍처 | ARCHITECTURE.md |\n\n\
+            ## 보호 파일\n- build.gradle\n"
+            .to_string();
+        let claude = doc(DocGrade::Rich, 500);
+        let agents = doc(DocGrade::Missing, 0);
+        let out = compose_context_md(
+            "TOMS-server",
+            "t",
+            &[],
+            &claude,
+            &agents,
+            &[],
+            &None,
+            SotStatus::None,
+            ProjectQuality::Rich,
+            false,
+            &Some(body),
+            &None,
+            &[],
+            &[],
+            &None,
+        );
+        // 예전 로직은 이 헤더들을 0건 추출했음 — 이제 본문 통째로 포함됨
+        assert!(out.contains("AI 에이전트 필수 행동"));
+        assert!(out.contains("문서 맵"));
+        assert!(out.contains("보호 파일"));
+        assert!(out.contains("build.gradle"));
+    }
 }

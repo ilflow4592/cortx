@@ -109,53 +109,48 @@ pub fn read_to_string_safe(path: &Path) -> Option<String> {
     fs::read_to_string(path).ok()
 }
 
-/// CLAUDE.md 류 문서에서 "## 섹션_이름" 블록을 통째로 추출. 다음 `## ` 헤더
-/// 또는 파일 끝까지를 반환.
-pub fn extract_section(content: &str, headings: &[&str]) -> Option<String> {
-    let lines: Vec<&str> = content.lines().collect();
-    for (i, line) in lines.iter().enumerate() {
-        if !line.starts_with("## ") {
-            continue;
+/// CLAUDE.md에서 SOT 경로 추출.
+/// 인식 패턴: `SOT: {경로}` 마커, `@{경로}.md` Claude Code import 문법.
+/// 따옴표/백틱/서식 문자는 제거. 확장자(.포함)가 있어야 경로로 간주.
+pub fn extract_sot_path(content: &str) -> Option<String> {
+    for line in content.lines() {
+        if let Some(p) = parse_sot_marker(line) {
+            return Some(p);
         }
-        let title = line.trim_start_matches("## ").trim().to_lowercase();
-        let matched = headings.iter().any(|h| title.contains(&h.to_lowercase()));
-        if !matched {
-            continue;
+        if let Some(p) = parse_import_marker(line) {
+            return Some(p);
         }
-        let mut out = String::new();
-        for next in &lines[i + 1..] {
-            if next.starts_with("## ") {
-                break;
-            }
-            out.push_str(next);
-            out.push('\n');
-        }
-        let trimmed = out.trim().to_string();
-        if trimmed.is_empty() {
-            return None;
-        }
-        return Some(trimmed);
     }
     None
 }
 
-/// CLAUDE.md에서 `SOT: {경로}` 패턴을 찾아 경로 반환 (따옴표/백틱 제거).
-pub fn extract_sot_path(content: &str) -> Option<String> {
-    for line in content.lines() {
-        if let Some(idx) = line.find("SOT:") {
-            let rest = line[idx + "SOT:".len()..].trim();
-            let cleaned: String = rest
-                .chars()
-                .take_while(|c| !c.is_whitespace() || *c == '/' || *c == '.')
-                .filter(|c| *c != '`' && *c != '"' && *c != '\'' && *c != '*')
-                .collect();
-            let trimmed = cleaned.trim().trim_end_matches(&[',', '.', ';'][..]);
-            if !trimmed.is_empty() && trimmed.contains('.') {
-                return Some(trimmed.to_string());
-            }
-        }
+fn parse_sot_marker(line: &str) -> Option<String> {
+    let idx = line.find("SOT:")?;
+    let rest = line[idx + "SOT:".len()..].trim();
+    clean_path_token(rest)
+}
+
+fn parse_import_marker(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    let rest = trimmed.strip_prefix('@')?;
+    if rest.starts_with(char::is_whitespace) || rest.is_empty() {
+        return None;
     }
-    None
+    clean_path_token(rest)
+}
+
+fn clean_path_token(input: &str) -> Option<String> {
+    let cleaned: String = input
+        .chars()
+        .take_while(|c| !c.is_whitespace() || *c == '/' || *c == '.')
+        .filter(|c| *c != '`' && *c != '"' && *c != '\'' && *c != '*')
+        .collect();
+    let trimmed = cleaned.trim().trim_end_matches(&[',', '.', ';'][..]);
+    if !trimmed.is_empty() && trimmed.contains('.') {
+        Some(trimmed.to_string())
+    } else {
+        None
+    }
 }
 
 pub fn collect_ai_docs(root: &Path) -> Vec<DocEntry> {
@@ -262,27 +257,6 @@ mod tests {
     }
 
     #[test]
-    fn extract_section_finds_named_block_until_next_h2() {
-        let content = "# T\n## Rules\n- A\n- B\n## Other\nignored";
-        let result = extract_section(content, &["rules"]);
-        assert_eq!(result, Some("- A\n- B".to_string()));
-    }
-
-    #[test]
-    fn extract_section_returns_none_for_missing_heading() {
-        assert_eq!(extract_section("## Foo\nbody", &["bar"]), None);
-    }
-
-    #[test]
-    fn extract_section_is_case_insensitive() {
-        let content = "## SCAN QUALITY\nrich";
-        assert_eq!(
-            extract_section(content, &["scan quality"]),
-            Some("rich".to_string())
-        );
-    }
-
-    #[test]
     fn extract_sot_path_finds_sot_marker() {
         let content = "Stuff\nSOT: .ai/docs/architecture.md\nrest";
         assert_eq!(
@@ -308,6 +282,37 @@ mod tests {
     #[test]
     fn extract_sot_path_returns_none_when_marker_absent() {
         assert_eq!(extract_sot_path("nothing about source of truth"), None);
+    }
+
+    #[test]
+    fn extract_sot_path_recognizes_claude_code_import() {
+        let content = "# Title\n\n@.claude/principles.md\n\nrest";
+        assert_eq!(
+            extract_sot_path(content),
+            Some(".claude/principles.md".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_sot_path_import_with_leading_whitespace() {
+        assert_eq!(
+            extract_sot_path("  @docs/architecture.md"),
+            Some("docs/architecture.md".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_sot_path_ignores_at_without_path() {
+        // @Component, @click 같은 데코레이터/이벤트는 확장자 없으므로 None
+        assert_eq!(extract_sot_path("@Component"), None);
+        assert_eq!(extract_sot_path("@click"), None);
+    }
+
+    #[test]
+    fn extract_sot_path_prefers_sot_marker_over_import() {
+        let content = "@ignored.md\nSOT: real.md";
+        // 두 패턴이 있으면 먼저 발견된 쪽이 승리 (라인 순서)
+        assert_eq!(extract_sot_path(content), Some("ignored.md".to_string()));
     }
 
     #[test]
