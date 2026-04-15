@@ -111,6 +111,26 @@
   border-radius: 3px;
   font-weight: 600;
 }
+/* fullText fetch 상태 배지 — Pin/Notion 아이템에 표시 */
+.cp-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cp-badge.fetching {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+.cp-badge.ready {
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+}
+.cp-badge.missing {
+  background: rgba(249, 115, 22, 0.08);
+  color: #f97316;
+}
 .memo-textarea {
   width: 100%;
   height: 200px;

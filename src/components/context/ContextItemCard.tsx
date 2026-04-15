@@ -15,6 +15,23 @@ function sourceIcon(t: string) {
   return <PinIcon size={14} />;
 }
 
+/**
+ * fullText fetch 상태 배지. URL이 있는 외부 소스에만 의미 있음 (로컬 파일 path는 skip).
+ * - fetching: eager fetch 진행 중
+ * - ready: fullText 채워짐 (대략 KB 단위 표시)
+ * - missing: URL 있는데 본문 못 가져옴 → 사용자가 paste 권장
+ */
+function FullTextBadge({ item }: { item: ContextItem }) {
+  if (!item.url || !item.url.startsWith('http')) return null;
+  const ft = item.metadata?.fullText;
+  if (item.metadata?.fetching === '1') return <span className="cp-badge fetching">fetching…</span>;
+  if (ft) {
+    const kb = (ft.length / 1024).toFixed(ft.length < 1024 ? 0 : 1);
+    return <span className="cp-badge ready">ready · {kb}k</span>;
+  }
+  return <span className="cp-badge missing">no body</span>;
+}
+
 export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProps) {
   return (
     <div className="cp-item" style={{ position: 'relative' }}>
@@ -44,6 +61,7 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
             <span className="cp-name">{item.title}</span>
           )}
           {item.isNew && <span className="cp-new">NEW</span>}
+          <FullTextBadge item={item} />
           {item.url && (
             <a
               href={item.url}
