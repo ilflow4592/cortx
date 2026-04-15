@@ -9,6 +9,7 @@ async function runMcpFetch(opts: { url: string; promptHint: string; toolFilter: 
   const escaped = prompt.replace(/'/g, "'\\''");
   // stderr는 임시 로그 파일로 — 실패 시 디버그 가능. /tmp는 OS가 주기적으로 정리.
   const errPath = `/tmp/cortx-mcp-fetch-${Date.now().toString(36)}.err`;
+  // 콜드 스타트 단축 플래그 (Notion client.ts와 동일 기준)
   const cmd = [
     `timeout ${MCP_FETCH_TIMEOUT_SEC}`,
     'claude',
@@ -20,6 +21,9 @@ async function runMcpFetch(opts: { url: string; promptHint: string; toolFilter: 
     `'${opts.toolFilter}'`,
     '--permission-mode',
     'bypassPermissions',
+    '--disable-slash-commands',
+    '--no-session-persistence',
+    '--exclude-dynamic-system-prompt-sections',
     '--model',
     'claude-haiku-4-5-20251001',
     `2>${errPath}`,

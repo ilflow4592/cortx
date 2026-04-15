@@ -120,7 +120,11 @@ async function collectViaClaudeCli(serviceType: string, keywords: string[], mode
 
   try {
     const modelFlag = model ? `--model ${model}` : '';
-    const cmd = `claude -p ${shellEscape(prompt)} ${modelFlag} --max-turns 10 --allowedTools ${allowedTools} Bash`;
+    // 콜드 스타트 단축 플래그 (Notion 통합 client와 동일 기준).
+    // --bare는 OAuth 깨뜨려 사용 불가.
+    const fastFlags =
+      '--disable-slash-commands --no-session-persistence --exclude-dynamic-system-prompt-sections --permission-mode bypassPermissions';
+    const cmd = `claude -p ${shellEscape(prompt)} ${modelFlag} --max-turns 10 --allowedTools ${allowedTools} Bash ${fastFlags}`;
     const result = await runShell(cmd);
 
     if (!result.output?.trim()) return { items: [] };

@@ -52,6 +52,12 @@ export async function callNotionMcp(opts: McpCallOptions): Promise<McpCallResult
   const model = opts.model ?? DEFAULT_MODEL;
   const stderrPath = `/tmp/cortx-notion-mcp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}.err`;
 
+  // 콜드 스타트 단축 플래그 (OAuth 호환):
+  // --disable-slash-commands: 스킬 resolve 스킵 (MCP만 사용하므로 불필요)
+  // --no-session-persistence: 세션 디스크 저장/복원 스킵 (1회성 호출)
+  // --exclude-dynamic-system-prompt-sections: cwd/env/git status 동적 주입 제외
+  // 주의: --bare는 OAuth/keychain 읽기를 전부 비활성화해 OAuth Notion MCP에서
+  //       인증 실패 → 사용 불가.
   const cmd = [
     `timeout ${timeoutSec}`,
     'claude',
@@ -63,6 +69,9 @@ export async function callNotionMcp(opts: McpCallOptions): Promise<McpCallResult
     opts.toolFilter,
     '--permission-mode',
     'bypassPermissions',
+    '--disable-slash-commands',
+    '--no-session-persistence',
+    '--exclude-dynamic-system-prompt-sections',
     '--model',
     model,
     `2>${stderrPath}`,
