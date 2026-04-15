@@ -1,7 +1,10 @@
 use crate::types::CommandResult;
 use serde::{Deserialize, Serialize};
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 use ts_rs::TS;
+use wait_timeout::ChildExt;
 
 /// Metadata extracted from a URL for link preview cards.
 #[derive(Serialize, Deserialize, TS)]
@@ -26,26 +29,44 @@ pub struct CortxConfig {
 /// Execute an arbitrary shell command in a background thread.
 /// Uses zsh on Unix, cmd on Windows.
 /// Returns stdout, stderr, and success status. Used for git operations and file I/O.
+///
+/// `timeout_sec` (optional) — if provided, kills the child process if it doesn't
+/// complete in time. Cross-platform alternative to GNU `timeout` which is absent on
+/// macOS by default and inconsistent on Windows. None = wait indefinitely.
 #[tauri::command]
-pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
+pub async fn run_shell_command(
+    cwd: String,
+    command: String,
+    timeout_sec: Option<u64>,
+) -> CommandResult {
     log::debug!(
-        "[shell] cwd={} cmd={}",
+        "[shell] cwd={} timeout={:?} cmd={}",
         cwd,
+        timeout_sec,
         &command[..command.len().min(200)]
     );
-    tauri::async_runtime::spawn_blocking(move || {
-        #[cfg(unix)]
-        let result = Command::new("zsh")
-            .args(["-l", "-c", &command])
-            .current_dir(&cwd)
-            .env("TERM", "dumb")
-            .output();
-        #[cfg(windows)]
-        let result = Command::new("cmd")
-            .args(["/C", &command])
-            .current_dir(&cwd)
-            .output();
-        match result {
+    tauri::async_runtime::spawn_blocking(move || run_with_optional_timeout(&cwd, &command, timeout_sec))
+        .await
+        .unwrap_or_else(|e| CommandResult {
+            success: false,
+            output: String::new(),
+            error: e.to_string(),
+        })
+}
+
+/// 내부 실행기. timeout_sec이 None이면 기존 `output()` 동기 실행, 있으면
+/// `spawn` + `wait_timeout`으로 시간 초과 시 자식 프로세스를 KILL한다.
+fn run_with_optional_timeout(cwd: &str, command: &str, timeout_sec: Option<u64>) -> CommandResult {
+    let mut cmd = build_shell_command(command);
+    cmd.current_dir(cwd);
+    #[cfg(unix)]
+    {
+        cmd.env("TERM", "dumb");
+    }
+
+    let Some(secs) = timeout_sec else {
+        // 기존 경로 — timeout 없음
+        return match cmd.output() {
             Ok(out) => CommandResult {
                 success: out.status.success(),
                 output: String::from_utf8_lossy(&out.stdout).to_string(),
@@ -56,14 +77,72 @@ pub async fn run_shell_command(cwd: String, command: String) -> CommandResult {
                 output: String::new(),
                 error: e.to_string(),
             },
+        };
+    };
+
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            return CommandResult {
+                success: false,
+                output: String::new(),
+                error: e.to_string(),
+            }
         }
-    })
-    .await
-    .unwrap_or_else(|e| CommandResult {
-        success: false,
-        output: String::new(),
-        error: e.to_string(),
-    })
+    };
+
+    match child.wait_timeout(Duration::from_secs(secs)) {
+        Ok(Some(status)) => {
+            // 자식이 시간 내 종료
+            let mut stdout = String::new();
+            let mut stderr = String::new();
+            if let Some(mut o) = child.stdout.take() {
+                let _ = o.read_to_string(&mut stdout);
+            }
+            if let Some(mut e) = child.stderr.take() {
+                let _ = e.read_to_string(&mut stderr);
+            }
+            CommandResult {
+                success: status.success(),
+                output: stdout,
+                error: stderr,
+            }
+        }
+        Ok(None) => {
+            // 시간 초과 — 자식 KILL
+            let _ = child.kill();
+            let _ = child.wait();
+            CommandResult {
+                success: false,
+                output: String::new(),
+                error: format!("command timed out after {}s", secs),
+            }
+        }
+        Err(e) => {
+            let _ = child.kill();
+            CommandResult {
+                success: false,
+                output: String::new(),
+                error: e.to_string(),
+            }
+        }
+    }
+}
+
+fn build_shell_command(command: &str) -> Command {
+    #[cfg(unix)]
+    {
+        let mut c = Command::new("zsh");
+        c.args(["-l", "-c", command]);
+        c
+    }
+    #[cfg(windows)]
+    {
+        let mut c = Command::new("cmd");
+        c.args(["/C", command]);
+        c
+    }
 }
 
 /// Execute a list of shell scripts sequentially in the given working directory.

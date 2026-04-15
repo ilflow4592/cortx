@@ -37,6 +37,7 @@ urlencoding = "2.1.3"
 tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
 tauri-plugin-fs = "2.5.0"
 tauri-plugin-process = "2.3.1"
+wait-timeout = "0.2"
 
 # TS 타입 자동 생성 — Rust 구조체에 #[derive(TS)] 적용 후 cargo test 실행 시
 # src/types/generated/*.ts로 export. serde-compat 기능으로 #[serde(rename_all)] 존중.
