@@ -50,8 +50,9 @@ pre-load된 내용에서 확인:
 
 Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 
-- Context Pack에는 Notion, Github, Obsidian, Slack과 더불어 Pinnned title과 url이 존재할 수 있다.
-- 스펙에 오기/모순이 있을 수 있으므로 코드베이스와 교차 검증 필수
+- Context Pack에는 Notion, Github, Obsidian, Slack과 더불어 Pinned title과 url이 존재할 수 있다.
+- Context Pack의 fullText가 이미 있으면 **해당 소스의 MCP 도구 재호출 금지** (`mcp__notion__*`, `mcp__slack__*`, `mcp__github__*`). 본문이 누락된 경우에만 MCP로 **한 번** fetch 후 진행 (cortx가 차단 상태를 자동 조절).
+- ⛔ **첫 질문(`**Q1.**`) 출력 전까지 Grep/Glob/Read/Bash 호출 금지.** project-context.md(시스템 프롬프트 pre-load) + Context Pack fullText 만으로 Q1을 생성합니다.
 - Context Pack에 충분한 정보가 없으면 사용자에게 보충을 요청
 
 ### Step 1: Grill-me 대화 시작
@@ -62,7 +63,7 @@ Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 
 1. 모든 질문과 대화는 **한국어**로 진행
 2. **한 번에 하나의 질문**만 합니다
-3. **project-context.md가 이미 답하는 것은 Read하지 말 것.** Tech Stack, 모듈 목록, SOT, Immediate Rules, Forbidden Paths는 이미 로드됨 — 재확인 금지. 코드를 실제로 읽어야만 답할 수 있는 구체적 지점(특정 메서드 시그니처, 엔티티 필드 등)만 Read.
+3. **project-context.md가 이미 답하는 것은 Read하지 말 것.** Tech Stack, 모듈 목록, SOT, Immediate Rules, Forbidden Paths는 이미 로드됨 — 재확인 금지. 코드를 실제로 읽어야만 답할 수 있는 구체적 지점(특정 메서드 시그니처, 엔티티 필드 등)만 Read — **단, `**Q1.**` 출력 이후에만 Read 허용.**
 4. 코드베이스에서 확인/추측한 결과를 먼저 제시하고, 비즈니스 의도/판단만 질문
 5. 도메인 문서는 도메인 비즈니스 태스크에서만 참조
 6. **질문 형식은 반드시 `**Q1.**`, `**Q2.**`, `**Q3.**` ... 으로 번호를 매겨서(마크다운 bold) 합니다.** 질문은 항상 `?`로 끝냅니다.
