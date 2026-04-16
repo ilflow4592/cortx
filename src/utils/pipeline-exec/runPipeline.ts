@@ -33,6 +33,16 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // /pipeline:dev-implement, dev-resume, dev-review-loop, pr-review-fu 등 =
   //   기존 파이프라인의 다음 단계 → 메시지/세션 유지 (Claude가 --resume으로 이어가도록)
   const isFreshStart = command === '/pipeline:dev-task' || command.startsWith('/pipeline:dev-task ');
+
+  // Auto-handover: 이전 Claude 프로세스가 아직 살아있다면 (이전 /pipeline:* 가
+  // MCP teardown 중이거나 donePromise가 resolve 안 된 상태) 강제로 kill해 UI 잠금 해제.
+  // claude_stop_task는 해당 task의 모든 Claude 프로세스 종료, 프로세스 없으면 no-op.
+  try {
+    await invoke('claude_stop_task', { taskId });
+  } catch {
+    /* 이전 프로세스 없음 — 정상 */
+  }
+
   if (isFreshStart) {
     messageCache.delete(taskId);
     sessionCache.delete(taskId);
@@ -60,8 +70,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   }
 
   // Add user message + show loading indicator (green dot "Claude is thinking...")
-  const msgs: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[] = [];
-  msgs.push({ id: `${reqId}-user`, role: 'user', content: command });
+  // Fresh start에서는 messageCache가 비어있고, continuation(/pipeline:dev-implement 등)에서는
+  // 이전 대화가 남아있어 새 user msg를 **append** 한다.
+  // (예전 코드는 무조건 빈 배열로 시작해 continuation 시 grill-me 대화가 사라졌음)
+  type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
+  const prevMsgs: Msg[] = isFreshStart ? [] : (messageCache.get(taskId) || []).filter((m) => m.role !== 'activity');
+  const msgs: Msg[] = [...prevMsgs, { id: `${reqId}-user`, role: 'user', content: command }];
   messageCache.set(taskId, [...msgs]);
   loadingCache.set(taskId, true);
 
@@ -118,16 +132,20 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const contextItems = useContextPackStore.getState().items[taskId] || [];
   let contextFiles: string[] = [];
   if (contextItems.length > 0) {
-    const sourceIcons: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin' };
-    const lines = contextItems.map((item) => {
-      const src = sourceIcons[item.sourceType] || item.sourceType;
-      return `  [${src}] ${item.title}`;
-    });
-    msgs.push({
-      id: `${reqId}-context-load`,
-      role: 'activity',
-      content: `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`,
-    });
+    // Context Pack 로딩 activity는 fresh start에서만 표시. Continuation은 이미
+    // 이전 세션에 주입됨 — 다시 보여주면 사용자가 "또 로드되나?" 혼동.
+    if (isFreshStart) {
+      const sourceIcons: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pin' };
+      const lines = contextItems.map((item) => {
+        const src = sourceIcons[item.sourceType] || item.sourceType;
+        return `  [${src}] ${item.title}`;
+      });
+      msgs.push({
+        id: `${reqId}-context-load`,
+        role: 'activity',
+        content: `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`,
+      });
+    }
     contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
 
     // Lazy fetch 폴백 — Pin 추가 시점의 eager fetch(addPinWithFetch)가
