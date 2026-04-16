@@ -20,20 +20,37 @@ export function DashboardTab({
     return (
       <div
         style={{
-          padding: '32px 0',
+          padding: '32px 16px',
           textAlign: 'center',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <div style={{ marginBottom: 8, opacity: 0.3 }}>
           <Zap size={24} strokeWidth={1.5} />
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-faint)', marginBottom: 16 }}>No pipeline active</div>
-        <div style={{ fontSize: 10, color: 'var(--fg-dim)', lineHeight: 1.6 }}>
+        <div
+          style={{
+            fontSize: 10,
+            color: 'var(--fg-dim)',
+            lineHeight: 1.6,
+            overflowWrap: 'anywhere',
+            textAlign: 'center',
+          }}
+        >
           Run{' '}
-          <code style={{ background: 'var(--bg-surface-hover)', padding: '1px 5px', borderRadius: 3 }}>
+          <code
+            style={{
+              background: 'var(--bg-surface-hover)',
+              padding: '1px 5px',
+              borderRadius: 3,
+              wordBreak: 'break-all',
+            }}
+          >
             /pipeline:dev-task
           </code>{' '}
           to start
