@@ -36,23 +36,22 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Reset timer + set active
   useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
 
-  // Initialize pipeline state
-  if (!task.pipeline?.enabled) {
-    useTaskStore.getState().updateTask(taskId, {
-      pipeline: {
-        enabled: true,
-        phases: {
-          grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
-          obsidian_save: { status: 'pending' },
-          dev_plan: { status: 'pending' },
-          implement: { status: 'pending' },
-          commit_pr: { status: 'pending' },
-          review_loop: { status: 'pending' },
-          done: { status: 'pending' },
-        },
+  // Initialize pipeline state — 매번 fresh reset. 이전 run이 남긴 상태를 이어받으면
+  // Progress/Phase UI가 잘못 표시되고 markers 전환 로직이 깨짐.
+  useTaskStore.getState().updateTask(taskId, {
+    pipeline: {
+      enabled: true,
+      phases: {
+        grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
+        obsidian_save: { status: 'pending' },
+        dev_plan: { status: 'pending' },
+        implement: { status: 'pending' },
+        commit_pr: { status: 'pending' },
+        review_loop: { status: 'pending' },
+        done: { status: 'pending' },
       },
-    });
-  }
+    },
+  });
 
   // Add user message + show loading indicator (green dot "Claude is thinking...")
   const msgs: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[] = [];
