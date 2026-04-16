@@ -375,6 +375,7 @@ export function useClaudeSession(
         taskId,
         reqId,
         activityId,
+        cwd,
         setMessages,
         setError,
         claudeSessionIdRef,

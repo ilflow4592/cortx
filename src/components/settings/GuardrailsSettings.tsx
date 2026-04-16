@@ -5,7 +5,7 @@
  * Opt-in telemetry가 꺼져 있으면 안내 메시지 표시.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Shield, AlertTriangle, Key, Terminal, FileLock2, RefreshCw } from 'lucide-react';
+import { Shield, AlertTriangle, Key, Terminal, FileLock2, RefreshCw, Globe, FolderLock } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { listEvents, type TelemetryEvent } from '../../services/telemetry';
 
@@ -22,6 +22,9 @@ const GUARDRAIL_EVENT_NAMES = [
   'dangerous_command_detected',
   'token_budget_exceeded',
   'canary_leak_detected',
+  'sensitive_file_access',
+  'workspace_boundary_violation',
+  'network_exfil_detected',
 ] as const;
 
 const EVENT_META: Record<string, { label: string; icon: typeof Shield; color: string }> = {
@@ -31,6 +34,9 @@ const EVENT_META: Record<string, { label: string; icon: typeof Shield; color: st
   dangerous_command_detected: { label: '위험 명령 감지', icon: Terminal, color: '#ef4444' },
   token_budget_exceeded: { label: '토큰 예산 초과', icon: FileLock2, color: '#f59e0b' },
   canary_leak_detected: { label: 'Canary 유출 (Injection 성공)', icon: Shield, color: '#dc2626' },
+  sensitive_file_access: { label: '민감 파일 접근', icon: FolderLock, color: '#ef4444' },
+  workspace_boundary_violation: { label: '워크스페이스 이탈', icon: FolderLock, color: '#f59e0b' },
+  network_exfil_detected: { label: '외부 네트워크 호출', icon: Globe, color: '#f59e0b' },
 };
 
 export function GuardrailsSettings() {

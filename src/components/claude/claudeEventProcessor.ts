@@ -14,6 +14,8 @@ import { sendNotification } from '../../utils/notification';
 import { scanDangerousCommand, extractBashCommand } from './dangerousCommandGuard';
 import { isAllowedInSession } from './dangerousCommandAlert';
 import { requestDangerDecision } from './dangerousCommandQueue';
+import { scanSensitivePath, extractToolPaths, isPathOutsideWorkspace } from './fileAccessGuard';
+import { scanNetworkExfil } from './networkExfilGuard';
 import type { Message } from './types';
 
 interface ContentBlock {
@@ -59,6 +61,7 @@ export interface ClaudeEventProcessorContext {
   taskId: string;
   reqId: string;
   activityId: string;
+  cwd: string;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setError: (msg: string) => void;
   claudeSessionIdRef: MutableRefObject<string>;
@@ -144,6 +147,52 @@ export class ClaudeEventProcessor {
       // 도구 블록 이후의 텍스트는 새 턴으로 분리
       this.currentMsgId = '';
       const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+
+      // 민감 파일 경로 감지 — Read/Edit/Glob/Grep 등
+      for (const block of toolBlocks) {
+        const paths = extractToolPaths(block.name || '', block.input);
+        for (const p of paths) {
+          const sensitive = scanSensitivePath(p);
+          if (sensitive.length > 0) {
+            void recordEvent('metric', 'sensitive_file_access', {
+              taskId: this.ctx.taskId,
+              tool: block.name,
+              path: p,
+              patterns: sensitive.map((s) => s.pattern),
+              severities: sensitive.map((s) => s.severity),
+            });
+            if (sensitive.some((s) => s.severity === 'critical')) {
+              sendNotification(
+                'Cortx — 민감 파일 접근 감지',
+                `Claude가 ${sensitive[0].description} 접근 시도. 터미널/로그 확인 필요.`,
+              );
+            }
+          }
+          // Workspace boundary check
+          if (this.ctx.cwd && isPathOutsideWorkspace(p, this.ctx.cwd)) {
+            void recordEvent('metric', 'workspace_boundary_violation', {
+              taskId: this.ctx.taskId,
+              tool: block.name,
+              path: p,
+              cwd: this.ctx.cwd,
+            });
+          }
+        }
+      }
+
+      // Network exfil 감지 — Bash 호출에서 외부 URL 검사
+      for (const block of toolBlocks) {
+        const cmd = extractBashCommand(block.name || '', block.input);
+        if (!cmd) continue;
+        const exfilMatches = scanNetworkExfil(cmd);
+        if (exfilMatches.length > 0) {
+          void recordEvent('metric', 'network_exfil_detected', {
+            taskId: this.ctx.taskId,
+            hosts: exfilMatches.map((e) => e.host),
+            tools: exfilMatches.map((e) => e.tool),
+          });
+        }
+      }
 
       // 파괴적 명령 감지 — Bash tool_use에 대해 패턴 검사
       let dangerLabel: string | null = null;

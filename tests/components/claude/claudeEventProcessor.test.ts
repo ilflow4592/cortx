@@ -1,8 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ClaudeEventProcessor, type ClaudeEventProcessorContext } from '../../../src/components/claude/claudeEventProcessor';
+import {
+  ClaudeEventProcessor,
+  type ClaudeEventProcessorContext,
+} from '../../../src/components/claude/claudeEventProcessor';
 import type { Message } from '../../../src/components/claude/types';
 
-function makeCtx(): { ctx: ClaudeEventProcessorContext; messages: Message[]; errors: string[]; sessionRef: { current: string } } {
+function makeCtx(): {
+  ctx: ClaudeEventProcessorContext;
+  messages: Message[];
+  errors: string[];
+  sessionRef: { current: string };
+} {
   const messages: Message[] = [];
   const errors: string[] = [];
   const sessionRef = { current: '' };
@@ -10,6 +18,7 @@ function makeCtx(): { ctx: ClaudeEventProcessorContext; messages: Message[]; err
     taskId: 't1',
     reqId: 'req-1',
     activityId: 'req-1-activity',
+    cwd: '/tmp/test-cwd',
     setMessages: (action) => {
       const next = typeof action === 'function' ? action(messages) : action;
       messages.length = 0;
