@@ -56,6 +56,7 @@ export function GuardrailsSettings() {
   const [liveEvents, setLiveEvents] = useState<GuardrailEvent[]>(() => getRecentEvents(100));
   const [loading, setLoading] = useState(false);
   const [pulseId, setPulseId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,24 +166,56 @@ export function GuardrailsSettings() {
             Guardrail 이벤트 대기 중... 앱 사용 시 여기 실시간으로 표시됩니다.
           </div>
         ) : (
-          <div style={{ maxHeight: 100, overflowY: 'auto', fontSize: 10, fontFamily: "'Fira Code', monospace" }}>
-            {liveEvents.slice(0, 8).map((e) => (
-              <div
-                key={e.id}
-                style={{
-                  padding: '2px 4px',
-                  background: pulseId === e.id ? 'rgba(16,185,129,0.15)' : 'transparent',
-                  transition: 'background 0.4s ease',
-                  display: 'flex',
-                  gap: 6,
-                }}
-              >
-                <span style={{ color: 'var(--fg-dim)' }}>{formatTime(e.timestamp)}</span>
-                <span style={{ color: EVENT_META[e.name]?.color || 'var(--fg-muted)' }}>
-                  {EVENT_META[e.name]?.label || e.name}
-                </span>
-              </div>
-            ))}
+          <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 10, fontFamily: "'Fira Code', monospace" }}>
+            {liveEvents.slice(0, 20).map((e) => {
+              const isExpanded = expandedId === e.id;
+              return (
+                <div key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : e.id)}
+                    style={{
+                      padding: '2px 4px',
+                      background: pulseId === e.id ? 'rgba(16,185,129,0.15)' : 'transparent',
+                      transition: 'background 0.4s ease',
+                      display: 'flex',
+                      gap: 6,
+                      cursor: 'pointer',
+                      border: 'none',
+                      width: '100%',
+                      textAlign: 'left',
+                      font: 'inherit',
+                      color: 'inherit',
+                    }}
+                  >
+                    <span style={{ color: 'var(--fg-dim)' }}>{isExpanded ? '▼' : '▶'}</span>
+                    <span style={{ color: 'var(--fg-dim)' }}>{formatTime(e.timestamp)}</span>
+                    <span style={{ color: EVENT_META[e.name]?.color || 'var(--fg-muted)' }}>
+                      {EVENT_META[e.name]?.label || e.name}
+                    </span>
+                  </button>
+                  {isExpanded && e.data && (
+                    <pre
+                      style={{
+                        margin: '4px 16px 8px',
+                        padding: 8,
+                        background: 'var(--bg-app)',
+                        border: '1px solid var(--border-muted)',
+                        borderRadius: 4,
+                        fontSize: 10,
+                        color: 'var(--fg-secondary)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        maxHeight: 200,
+                        overflow: 'auto',
+                      }}
+                    >
+                      {JSON.stringify(e.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
