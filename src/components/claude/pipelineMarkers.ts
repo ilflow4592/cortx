@@ -50,6 +50,11 @@ export function parsePipelineMarkers(text: string): {
     }
     cleaned = cleaned.replace(fullMatch, '');
   }
+
+  // 사용자 글로벌 SessionStart hook이 Claude CLI subprocess에 주입한
+  // <system-reminder>...</system-reminder> 블록 제거 — Claude 응답이 아님.
+  cleaned = cleaned.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
+
   return { cleaned, updates };
 }
 
