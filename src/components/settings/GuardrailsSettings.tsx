@@ -84,17 +84,33 @@ export function GuardrailsSettings() {
     });
   }, []);
 
+  // DB 이벤트 + Live bus 이벤트 합산 — ID 기준 중복 제거
   const counts = useMemo<EventCounts>(() => {
     const now = Date.now();
     const DAY = 24 * 60 * 60 * 1000;
     const byName: Record<string, number> = {};
+    const seenIds = new Set<string>();
     let last24h = 0;
+    let total = 0;
+
+    // DB 이벤트 (영구 기록)
     for (const e of events) {
+      if (seenIds.has(e.id)) continue;
+      seenIds.add(e.id);
       byName[e.name] = (byName[e.name] || 0) + 1;
+      total++;
       if (now - new Date(e.timestamp).getTime() < DAY) last24h++;
     }
-    return { total: events.length, last24h, byName };
-  }, [events]);
+    // Live bus 이벤트 (세션 메모리) — telemetry OFF일 때도 집계
+    for (const e of liveEvents) {
+      if (seenIds.has(e.id)) continue;
+      seenIds.add(e.id);
+      byName[e.name] = (byName[e.name] || 0) + 1;
+      total++;
+      if (now - new Date(e.timestamp).getTime() < DAY) last24h++;
+    }
+    return { total, last24h, byName };
+  }, [events, liveEvents]);
 
   return (
     <div style={{ padding: 20 }}>
