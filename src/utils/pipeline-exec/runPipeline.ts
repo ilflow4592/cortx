@@ -65,31 +65,52 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   messageCache.set(taskId, [...msgs]);
   loadingCache.set(taskId, true);
 
-  // Resolve slash command from .claude/commands/ files.
-  // 주의: 더블쿼트 안에서 `~`는 확장되지 않으므로 `$HOME`로 치환해 shell이 풀도록 한다.
-  // 이 fallback이 깨지면 Claude CLI가 슬래시 명령을 받아 Skill 툴로 스킬을 로드하게 되고,
-  // 스킬 로드 + 내부 실행이 한 tool_use 안에서 네스티드되어 "Using Skill..." 상태로 수분간
-  // 멈춘 것처럼 보인다. Project-local → $HOME 순으로 조회한다.
+  // Resolve slash command.
+  // 우선순위:
+  //  1. /pipeline:* 계열은 **Cortx 바이너리 내장** 스킬 사용 (프로젝트/글로벌 무시).
+  //     이유: 프로젝트·글로벌에 오래된 스킬(Obsidian 저장 등)이 있으면 Cortx 앱
+  //     기대 동작과 어긋남. /pipeline:* 은 Cortx가 소유한 워크플로우이므로 항상
+  //     내장 버전이 진실이다.
+  //  2. 그 외(`/git:*`, `/sc:*` 등)는 project-local → $HOME 순 파일 조회.
+  //     (`~`는 큰따옴표 안에서 확장되지 않으므로 `$HOME` 사용.)
   let resolvedPrompt = `${command} ${args}`;
   const cmdName = command.slice(1);
-  const skillKey = cmdName.replace(/:/g, '/') + '.md';
-  const skillBases = [`${cwd}/.claude/commands`, '$HOME/.claude/commands'];
-  for (const base of skillBases) {
+  const skillFileKey = cmdName.replace(/:/g, '/') + '.md';
+  const skillLookupKey = cmdName.replace(/:/g, '/'); // 내장 조회는 .md 없이
+  const substitute = (prompt: string): string =>
+    prompt
+      .replace(/\$ARGUMENTS/g, args)
+      .replace(/\{TASK_ID\}/g, branch)
+      .replace(/\{TASK_NAME\}/g, title);
+
+  let builtinUsed = false;
+  if (command.startsWith('/pipeline:')) {
     try {
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat "${base}/${skillKey}" 2>/dev/null`,
-      });
-      if (result.success && result.output.trim()) {
-        let prompt = result.output;
-        prompt = prompt.replace(/\$ARGUMENTS/g, args);
-        prompt = prompt.replace(/\{TASK_ID\}/g, branch);
-        prompt = prompt.replace(/\{TASK_NAME\}/g, title);
-        resolvedPrompt = prompt;
-        break;
+      const builtin = await invoke<string | null>('get_builtin_pipeline_skill', { name: skillLookupKey });
+      if (builtin && builtin.trim()) {
+        resolvedPrompt = substitute(builtin);
+        builtinUsed = true;
       }
     } catch {
-      /* continue */
+      /* builtin 조회 실패 시 파일 fallback */
+    }
+  }
+
+  if (!builtinUsed) {
+    const skillBases = [`${cwd}/.claude/commands`, '$HOME/.claude/commands'];
+    for (const base of skillBases) {
+      try {
+        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+          cwd: '/',
+          command: `cat "${base}/${skillFileKey}" 2>/dev/null`,
+        });
+        if (result.success && result.output.trim()) {
+          resolvedPrompt = substitute(result.output);
+          break;
+        }
+      } catch {
+        /* continue */
+      }
     }
   }
 

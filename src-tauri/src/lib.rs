@@ -98,6 +98,7 @@ pub fn run() {
             commands::claude::slash::read_slash_command,
             commands::claude::slash::write_slash_command,
             commands::claude::slash::delete_slash_command,
+            commands::claude::builtin_skills::get_builtin_pipeline_skill,
             commands::claude::window::open_task_window,
             commands::claude::spawn::claude_spawn,
             commands::claude::spawn::claude_stop,
