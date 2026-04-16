@@ -236,7 +236,6 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   let currentMsgId = '';
   const activityId = `${reqId}-activity`;
 
-  type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
   // Streaming 시 Asking 상태 트래킹. donePromise보다 먼저 UI 반영.
   let isAskingNow = false;
   const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
