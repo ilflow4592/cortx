@@ -22,6 +22,7 @@ import { recordEvent } from '../../services/telemetry';
 import { scanForSecrets } from './secretScanner';
 import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
+import { getOrCreateCanary, buildCanaryDirective, detectCanaryLeak, maskCanary, clearCanary } from './canaryGuard';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -292,6 +293,7 @@ export function useClaudeSession(
     claudeSessionIdRef.current = '';
     setLoading(false);
     resetViolations(taskId);
+    clearCanary(taskId);
     // Reset task status to waiting, clear pipeline, and reset timer
     useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
   };
@@ -440,6 +442,9 @@ export function useClaudeSession(
           '  5. NEVER output a new Q number until user explicitly approves',
           '- Violating this rule invalidates the entire Grill-me session.',
         ].join('\n');
+
+        // Canary: prompt injection 감지용 honeypot 토큰 삽입
+        contextSummary += '\n' + buildCanaryDirective(getOrCreateCanary(taskId));
       }
 
       // Only send full context on first message (no existing session)
@@ -558,6 +563,19 @@ export function useClaudeSession(
         setError(`⚠️ ${warning}`);
       }
 
+      // Audit log — 모든 spawn 기록 (pipeline/일반 구분, resume 여부 등)
+      void recordEvent('action', 'claude_spawn', {
+        reqId,
+        taskId,
+        model: selectedModel ?? 'default',
+        isPipeline,
+        isResume: !!claudeSessionIdRef.current,
+        messageLength: resolvedText.length,
+        contextSummaryLength: contextSummary.length,
+        contextFileCount: contextFiles.length,
+        phase: task?.pipeline?.phases && isGrillMe ? 'grill_me' : undefined,
+      });
+
       await invoke('claude_spawn', {
         id: reqId,
         cwd: cwd || '/',
@@ -599,21 +617,41 @@ export function useClaudeSession(
         }
       }
 
-      // Secret scanner: Claude 응답에 API key/token/private key 있으면 마스킹
+      // Secret scanner + Canary: 응답에 API key/token/canary 있으면 마스킹
       if (processor.hasContent()) {
         const allMsgs = messagesRef.current;
         const assistantMsgs = allMsgs.filter((m) => m.role === 'assistant');
         const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
         if (lastAssistant) {
-          const scan = scanForSecrets(lastAssistant.content);
+          let content = lastAssistant.content;
+          let modified = false;
+
+          // Canary leak 검출 (prompt injection 성공 신호)
+          if (detectCanaryLeak(content, taskId)) {
+            content = maskCanary(content, taskId);
+            modified = true;
+            void recordEvent('error', 'canary_leak_detected', { taskId });
+            sendNotification(
+              'Cortx — Prompt Injection 감지',
+              'Claude가 내부 canary 토큰을 유출했습니다. 응답이 차단되었습니다.',
+            );
+          }
+
+          // Secret/마커 마스킹
+          const scan = scanForSecrets(content);
           if (scan.found) {
-            const targetId = lastAssistant.id;
-            setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, content: scan.masked } : m)));
+            content = scan.masked;
+            modified = true;
             void recordEvent('metric', 'secret_leak_masked', {
               taskId,
               types: scan.matches.map((x) => x.type),
               count: scan.matches.length,
             });
+          }
+
+          if (modified) {
+            const targetId = lastAssistant.id;
+            setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, content } : m)));
           }
         }
       }

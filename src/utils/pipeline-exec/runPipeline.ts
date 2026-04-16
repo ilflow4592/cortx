@@ -434,6 +434,17 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     disallowedTools = tools.length > 0 ? tools : null;
   }
 
+  void recordEvent('action', 'claude_spawn', {
+    reqId,
+    taskId,
+    via: 'runPipeline',
+    isPipeline: true,
+    isResume: false,
+    messageLength: resolvedPrompt.length,
+    contextSummaryLength: contextSummary.length,
+    contextFileCount: contextFiles.length,
+  });
+
   await invoke('claude_spawn', {
     id: reqId,
     cwd: cwd || '/',

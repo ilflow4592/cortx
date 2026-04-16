@@ -1,6 +1,7 @@
 import { useContextPackStore } from '../../stores/contextPackStore';
 import type { ContextItem } from '../../types/contextPack';
 import { GitHubIcon, SlackIcon, NotionIcon, PinIcon } from '../SourceIcons';
+import { deriveTrustLevel, scanForInjection } from '../../services/contextSanitizer';
 
 interface ContextItemCardProps {
   taskId: string;
@@ -32,6 +33,61 @@ function FullTextBadge({ item }: { item: ContextItem }) {
   return <span className="cp-badge missing">no body</span>;
 }
 
+/** Trust level badge — Provenance marking (공격 표면 가시화) */
+function TrustBadge({ sourceType }: { sourceType: string }) {
+  const level = deriveTrustLevel(sourceType);
+  const color = level === 'high' ? 'var(--accent-bright)' : level === 'medium' ? 'var(--fg-muted)' : '#f87171';
+  const label = level === 'high' ? 'trusted' : level === 'medium' ? 'team' : 'untrusted';
+  return (
+    <span
+      title={`Trust level: ${level}`}
+      style={{
+        fontSize: 9,
+        color,
+        border: `1px solid ${color}`,
+        borderRadius: 3,
+        padding: '0 4px',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Prompt injection 경고 배지 — fullText에 의심 패턴 있을 때만 표시 */
+function InjectionWarningBadge({ item }: { item: ContextItem }) {
+  const ft = item.metadata?.fullText;
+  if (!ft) return null;
+  const findings = scanForInjection(ft);
+  if (findings.length === 0) return null;
+  const worst = findings.reduce(
+    (acc, f) => (severityRank(f.severity) > severityRank(acc) ? f.severity : acc),
+    'low' as 'low' | 'medium' | 'high',
+  );
+  return (
+    <span
+      title={`Possible prompt injection (${findings.length}): ${findings.map((f) => f.pattern).join(', ')}`}
+      style={{
+        fontSize: 9,
+        color: worst === 'high' ? '#ef4444' : '#f59e0b',
+        border: `1px solid ${worst === 'high' ? '#ef4444' : '#f59e0b'}`,
+        borderRadius: 3,
+        padding: '0 4px',
+        fontWeight: 600,
+      }}
+    >
+      ⚠ injection?
+    </span>
+  );
+}
+
+function severityRank(s: 'low' | 'medium' | 'high'): number {
+  return s === 'high' ? 3 : s === 'medium' ? 2 : 1;
+}
+
 export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProps) {
   return (
     <div className="cp-item" style={{ position: 'relative' }}>
@@ -61,6 +117,8 @@ export function ContextItemCard({ taskId, item, onPreview }: ContextItemCardProp
             <span className="cp-name">{item.title}</span>
           )}
           {item.isNew && <span className="cp-new">NEW</span>}
+          <TrustBadge sourceType={item.sourceType} />
+          <InjectionWarningBadge item={item} />
           <FullTextBadge item={item} />
           {item.url && (
             <a
