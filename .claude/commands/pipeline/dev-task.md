@@ -70,7 +70,7 @@ pre-load된 내용에서 확인:
 
 Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 
-- Context Pack에는 Notion, Github, Obsidian, Slack과 더불어 Pinned title과 url이 존재할 수 있다.
+- Context Pack에는 Notion, GitHub, Slack과 더불어 Pinned title과 url이 존재할 수 있다.
 - Context Pack의 fullText가 이미 있으면 **해당 소스의 MCP 도구 재호출 금지** (`mcp__notion__*`, `mcp__slack__*`, `mcp__github__*`). 본문이 누락된 경우에만 MCP로 **한 번** fetch 후 진행 (cortx가 차단 상태를 자동 조절).
 - ⛔ **첫 질문(`**Q1.**`) 출력 전까지 Grep/Glob/Read/Bash 호출 금지.** project-context.md(시스템 프롬프트 pre-load) + Context Pack fullText 만으로 Q1을 생성합니다.
 - Context Pack에 충분한 정보가 없으면 사용자에게 보충을 요청
@@ -97,7 +97,10 @@ Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 ### Step 2: Grill-me 결과 정리
 
 [PIPELINE:grill_me:done]
-[PIPELINE:obsidian_save:in_progress]
+[PIPELINE:save:in_progress]
+
+⚠️ **이 단계는 메모리 내 요약**입니다. Obsidian이나 외부 파일 저장 아님.
+응답에 "Obsidian" 같은 단어 쓰지 마세요.
 
 대화 결과를 구조화하여 정리합니다:
 
@@ -109,7 +112,7 @@ Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 
 사용자에게 정리된 내용을 보여줍니다.
 
-[PIPELINE:obsidian_save:done]
+[PIPELINE:save:done]
 
 ### Step 3: 다음 단계 안내
 

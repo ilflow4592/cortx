@@ -14,7 +14,7 @@
  *     "implement": "Opus",
  *     "dev_plan": "Sonnet"
  *   },
- *   "hidden": ["obsidian_save"]
+ *   "hidden": ["save"]
  * }
  *
  * Any fields left unset fall back to the global defaults from

@@ -4,15 +4,7 @@ import { PHASE_KEYS, PHASE_ORDER, PHASE_NAMES, PHASE_MODELS } from '../../src/co
 describe('pipeline constants', () => {
   it('PHASE_ORDER has all 7 phases', () => {
     expect(PHASE_ORDER).toHaveLength(7);
-    expect(PHASE_ORDER).toEqual([
-      'grill_me',
-      'obsidian_save',
-      'dev_plan',
-      'implement',
-      'commit_pr',
-      'review_loop',
-      'done',
-    ]);
+    expect(PHASE_ORDER).toEqual(['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
   });
 
   it('PHASE_KEYS set contains all order entries', () => {

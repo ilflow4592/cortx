@@ -38,15 +38,8 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-/** 개발 파이프라인 단계 이름 (grill_me → obsidian_save → ... → done) */
-export type PipelinePhase =
-  | 'grill_me'
-  | 'obsidian_save'
-  | 'dev_plan'
-  | 'implement'
-  | 'commit_pr'
-  | 'review_loop'
-  | 'done';
+/** 개발 파이프라인 단계 이름 (grill_me → save → ... → done) */
+export type PipelinePhase = 'grill_me' | 'save' | 'dev_plan' | 'implement' | 'commit_pr' | 'review_loop' | 'done';
 
 /** 각 파이프라인 단계의 진행 상태 */
 export type PhaseStatus = 'pending' | 'in_progress' | 'done' | 'skipped';

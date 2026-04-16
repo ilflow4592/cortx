@@ -35,6 +35,20 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+/**
+ * Pipeline schema migration.
+ * 이전 phase key `obsidian_save`를 `save`로 rename. localStorage에 저장된 기존
+ * 태스크가 있으면 앱 시작 시 한 번 변환된 후 다시 저장됨.
+ */
+function migratePipeline<T extends { phases?: Record<string, unknown> }>(pipeline: T | undefined): T | undefined {
+  if (!pipeline?.phases) return pipeline;
+  if (!('obsidian_save' in pipeline.phases)) return pipeline;
+  const phases = { ...pipeline.phases } as Record<string, unknown>;
+  if (!phases.save) phases.save = phases.obsidian_save;
+  delete phases.obsidian_save;
+  return { ...pipeline, phases } as T;
+}
+
 /** 초기 state — 테스트 reset + 신규 필드 추가 시 단일 진실 공급원 */
 export const TASK_INITIAL_STATE: Pick<TaskState, 'tasks' | 'activeTaskId'> = {
   tasks: [],
@@ -189,7 +203,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       elapsedSeconds: t.elapsedSeconds || 0,
       chatHistory: Array.isArray(t.chatHistory) ? t.chatHistory : [],
       interrupts: Array.isArray(t.interrupts) ? t.interrupts : [],
-      pipeline: t.pipeline || undefined,
+      pipeline: migratePipeline(t.pipeline),
       createdAt: t.createdAt || new Date().toISOString(),
       updatedAt: t.updatedAt || new Date().toISOString(),
     }));

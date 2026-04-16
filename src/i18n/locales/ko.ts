@@ -116,7 +116,7 @@ export const ko: Translations = {
 
   // Pipeline
   'pipeline.grill_me': 'Grill-me',
-  'pipeline.obsidian_save': '저장',
+  'pipeline.save': '저장',
   'pipeline.dev_plan': '개발 계획',
   'pipeline.implement': '구현',
   'pipeline.commit_pr': 'PR',

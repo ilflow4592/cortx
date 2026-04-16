@@ -43,7 +43,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       enabled: true,
       phases: {
         grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
-        obsidian_save: { status: 'pending' },
+        save: { status: 'pending' },
         dev_plan: { status: 'pending' },
         implement: { status: 'pending' },
         commit_pr: { status: 'pending' },
@@ -133,15 +133,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     let match;
     while ((match = markerRegex.exec(text)) !== null) {
       const [fullMatch, phase, status, memo] = match;
-      const PHASE_KEYS = new Set([
-        'grill_me',
-        'obsidian_save',
-        'dev_plan',
-        'implement',
-        'commit_pr',
-        'review_loop',
-        'done',
-      ]);
+      const PHASE_KEYS = new Set(['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
       const VALID_STATUSES = new Set(['in_progress', 'done', 'skipped', 'pending']);
       if (PHASE_KEYS.has(phase) && VALID_STATUSES.has(status)) {
         const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
@@ -173,7 +165,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
               if ('Notification' in window && Notification.permission === 'granted') {
                 const PHASE_NAMES: Record<string, string> = {
                   grill_me: 'Grill-me',
-                  obsidian_save: 'Save',
+                  save: 'Save',
                   dev_plan: 'Dev Plan',
                   implement: 'Implement',
                   commit_pr: 'PR',
@@ -308,7 +300,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
           const phases = { ...t.pipeline.phases };
           const PHASE_ORDER: PipelinePhase[] = [
             'grill_me',
-            'obsidian_save',
+            'save',
             'dev_plan',
             'implement',
             'commit_pr',
@@ -358,7 +350,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     '## CORTX_PIPELINE_TRACKING',
     'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
     'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-    'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+    'Valid phases: grill_me, save, dev_plan, implement, commit_pr, review_loop, done',
     'Valid statuses: in_progress, done, skipped',
     'Examples:',
     '- When starting grill-me: emit [PIPELINE:grill_me:in_progress]',
@@ -368,8 +360,8 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
     '',
     '## CORTX_RULES (MUST FOLLOW)',
-    '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json.',
-    '- Do NOT search for dev-plan.md files. Obsidian is not used.',
+    '- Cortx does NOT use Obsidian. NEVER mention "Obsidian" in your responses. Never read/write dev-plan.md, _dashboard.md, or _pipeline-state.json.',
+    '- The "Save" phase (internal key: save) is NOT Obsidian save — it just means finalize/summarize the grill-me outcome in memory.',
     '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
     '- NEVER run git commit, git push, or gh pr create without asking the user first.',
     '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
@@ -392,10 +384,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
     summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
     summaryParts.push(
-      'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.',
+      'Use the Context Pack data provided below as the task specification. Do NOT look for or reference any external dev-plan file.',
     );
     summaryParts.push(
-      'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.',
+      'Skip external file lookups (dev-plan.md, _pipeline-state.json, anything Obsidian-flavored) — the Context Pack IS your source of truth.',
     );
     summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
     const sourceLabels: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pinned' };
@@ -430,13 +422,13 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Sonnet은 기존 동작 유지.
   const selectedEffort = selectedModel === null ? 'medium' : null;
 
-  // grill-me / obsidian-save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
+  // grill-me / save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
   // 로직: "fullText가 이미 있는 소스만 차단". fullText가 없는 소스는 Claude가 필요 시
   // MCP로 fetch 폴백을 탈 수 있게 허용 — eager fetch 실패 / MCP 미연결 케이스 커버.
   //
   // 예: Notion Pin에 fullText가 있으면 mcp__notion__* 차단 (재조회 낭비 제거).
   //     fullText가 없으면 mcp__notion__* 허용 (Claude가 한 번 fetch해서 진행).
-  const GRILLME_PHASES: ReadonlyArray<string> = ['grill_me', 'obsidian_save', 'dev_plan'];
+  const GRILLME_PHASES: ReadonlyArray<string> = ['grill_me', 'save', 'dev_plan'];
   const phases = currentPipeline?.phases;
   const activePhase = phases
     ? (Object.keys(phases) as Array<keyof typeof phases>).find((p) => phases[p]?.status === 'in_progress')

@@ -419,7 +419,7 @@ export function useClaudeSession(
           '## CORTX_PIPELINE_TRACKING',
           'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
           'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-          'Valid phases: grill_me, obsidian_save, dev_plan, implement, commit_pr, review_loop, done',
+          'Valid phases: grill_me, save, dev_plan, implement, commit_pr, review_loop, done',
           'Valid statuses: in_progress, done, skipped',
           'Examples:',
           '  [PIPELINE:dev_plan:in_progress]',
@@ -436,8 +436,8 @@ export function useClaudeSession(
           '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
           '',
           '## CORTX_RULES (MUST FOLLOW)',
-          '- Do NOT update Obsidian _dashboard.md or _pipeline-state.json.',
-          '- Do NOT search for dev-plan.md files. Obsidian is not used.',
+          '- Cortx does NOT use Obsidian. NEVER mention "Obsidian" in your responses. Never read/write dev-plan.md, _dashboard.md, or _pipeline-state.json.',
+          '- The "Save" phase (internal key: save) is NOT Obsidian save — it just means finalize/summarize the grill-me outcome in memory.',
           '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
           '- NEVER run git commit, git push, or gh pr create without asking the user first.',
           '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
@@ -536,7 +536,7 @@ export function useClaudeSession(
         if (currentTask && !currentTask.pipeline?.enabled) {
           const defaultPhases: Record<PipelinePhase, PipelinePhaseEntry> = {
             grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
-            obsidian_save: { status: 'pending' },
+            save: { status: 'pending' },
             dev_plan: { status: 'pending' },
             implement: { status: 'pending' },
             commit_pr: { status: 'pending' },

@@ -7,7 +7,7 @@ export interface PipelineConfigEditorProps {
 export const TEMPLATE = `{
   "names": {
     "grill_me": "Grill-me",
-    "obsidian_save": "Save",
+    "save": "Save",
     "dev_plan": "Dev Plan",
     "implement": "Implement",
     "commit_pr": "PR",
@@ -16,7 +16,7 @@ export const TEMPLATE = `{
   },
   "models": {
     "grill_me": "Opus",
-    "obsidian_save": "Opus",
+    "save": "Opus",
     "dev_plan": "Opus",
     "implement": "Sonnet",
     "commit_pr": "Sonnet",

@@ -110,7 +110,7 @@ export const en = {
 
   // Pipeline
   'pipeline.grill_me': 'Grill-me',
-  'pipeline.obsidian_save': 'Save',
+  'pipeline.save': 'Save',
   'pipeline.dev_plan': 'Dev Plan',
   'pipeline.implement': 'Implement',
   'pipeline.commit_pr': 'PR',

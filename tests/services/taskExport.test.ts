@@ -112,7 +112,7 @@ describe('taskToMarkdown', () => {
         enabled: true,
         phases: {
           grill_me: { status: 'done', inputTokens: 1000, outputTokens: 500, costUsd: 0.01 },
-          obsidian_save: { status: 'pending' },
+          save: { status: 'pending' },
           dev_plan: { status: 'done', inputTokens: 2000, outputTokens: 1500, costUsd: 0.04 },
           implement: { status: 'in_progress' },
           commit_pr: { status: 'pending' },
@@ -137,7 +137,7 @@ describe('taskToMarkdown', () => {
         enabled: true,
         phases: {
           grill_me: { status: 'done' },
-          obsidian_save: { status: 'pending' },
+          save: { status: 'pending' },
           dev_plan: { status: 'pending' },
           implement: { status: 'pending' },
           commit_pr: { status: 'done' },
@@ -215,7 +215,7 @@ describe('tasksToJson', () => {
         enabled: true,
         phases: {
           grill_me: { status: 'done', inputTokens: 100 },
-          obsidian_save: { status: 'pending' },
+          save: { status: 'pending' },
           dev_plan: { status: 'pending' },
           implement: { status: 'pending' },
           commit_pr: { status: 'pending' },

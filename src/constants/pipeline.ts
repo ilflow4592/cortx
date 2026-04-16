@@ -2,7 +2,7 @@ import type { PipelinePhase } from '../types/task';
 
 export const PHASE_KEYS = new Set<PipelinePhase>([
   'grill_me',
-  'obsidian_save',
+  'save',
   'dev_plan',
   'implement',
   'commit_pr',
@@ -12,7 +12,7 @@ export const PHASE_KEYS = new Set<PipelinePhase>([
 
 export const PHASE_ORDER: PipelinePhase[] = [
   'grill_me',
-  'obsidian_save',
+  'save',
   'dev_plan',
   'implement',
   'commit_pr',
@@ -22,7 +22,7 @@ export const PHASE_ORDER: PipelinePhase[] = [
 
 export const PHASE_NAMES: Record<PipelinePhase, string> = {
   grill_me: 'Grill-me',
-  obsidian_save: 'Save',
+  save: 'Save',
   dev_plan: 'Dev Plan',
   implement: 'Implement',
   commit_pr: 'PR',
@@ -32,7 +32,7 @@ export const PHASE_NAMES: Record<PipelinePhase, string> = {
 
 export const PHASE_MODELS: Record<PipelinePhase, string> = {
   grill_me: 'Opus',
-  obsidian_save: 'Opus',
+  save: 'Opus',
   dev_plan: 'Opus',
   implement: 'Sonnet',
   commit_pr: 'Sonnet',
