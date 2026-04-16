@@ -398,6 +398,7 @@ export function useClaudeSession(
           '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
           '- 한국어로만 대화합니다.',
           '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
+          '- When user asks a counter-question instead of answering: answer their question, then ask "이렇게 진행해도 될까요?". Only advance to next Q number after user confirms.',
         ].join('\n');
       }
 

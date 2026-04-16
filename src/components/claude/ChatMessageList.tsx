@@ -1,5 +1,4 @@
 import { memo, useEffect, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { Paperclip } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -16,10 +15,10 @@ interface ChatMessageListProps {
 }
 
 /**
- * Virtualized chat message list with memoized message rendering.
- * - @tanstack/react-virtual handles windowing — only visible messages mount.
- * - MessageItem is memoized so streaming updates only re-render the changing message.
- * - Auto-scrolls to bottom when new messages arrive (unless user has scrolled up).
+ * Chat message list with memoized message rendering.
+ * Uses simple scroll container instead of virtualizer to avoid
+ * absolute-positioning issues during streaming content updates.
+ * Auto-scrolls to bottom when new messages arrive (unless user has scrolled up).
  */
 export function ChatMessageList({
   messages,
@@ -32,18 +31,6 @@ export function ChatMessageList({
   const parentRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
   const t = useT();
-
-  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual returns memoized fns by design
-  const virtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 80,
-    overscan: 8,
-    measureElement:
-      typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1
-        ? (element) => element?.getBoundingClientRect().height
-        : undefined,
-  });
 
   // Track whether user has scrolled away from the bottom
   useEffect(() => {
@@ -63,7 +50,7 @@ export function ChatMessageList({
     const el = parentRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages.length, loading]);
+  }, [messages, loading]);
 
   if (messages.length === 0 && !loading) {
     return (
@@ -109,34 +96,17 @@ export function ChatMessageList({
     );
   }
 
-  const items = virtualizer.getVirtualItems();
-  const totalSize = virtualizer.getTotalSize();
+  // Show thinking indicator when loading and last message is from user (waiting for response)
+  const lastMsg = messages[messages.length - 1];
+  const showThinking = loading && (!lastMsg || lastMsg.role === 'user');
 
   return (
     <div ref={parentRef} className="chat-messages" style={{ overflowY: 'auto' }}>
-      <div style={{ height: totalSize, position: 'relative', width: '100%' }}>
-        {items.map((virtualItem) => {
-          const msg = messages[virtualItem.index];
-          return (
-            <div
-              key={msg.id}
-              data-index={virtualItem.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualItem.start}px)`,
-              }}
-            >
-              <MessageItem msg={msg} />
-            </div>
-          );
-        })}
-      </div>
+      {messages.map((msg) => (
+        <MessageItem key={msg.id} msg={msg} />
+      ))}
 
-      {loading && !messages.some((m) => m.role === 'assistant' || m.role === 'activity') && (
+      {showThinking && (
         <div className="msg">
           <div className="msg-avatar ai">C</div>
           <div className="msg-body" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
