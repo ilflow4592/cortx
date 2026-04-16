@@ -17,6 +17,9 @@ import {
   extractHighestQNumber,
 } from './counterQuestionGuard';
 import { recordViolation, resetViolations } from './violationTracker';
+import { sanitizeExternalContent } from '../../services/contextSanitizer';
+import { recordEvent } from '../../services/telemetry';
+import { scanForSecrets } from './secretScanner';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -38,7 +41,7 @@ const CORTX_DESCRIPTIONS: Record<string, string> = {
   'pipeline:dev-resume': '중단된 파이프라인 재개',
 };
 
-function serializeContextItems(items: ContextItem[]): string {
+function serializeContextItems(items: ContextItem[], taskId?: string): string {
   if (items.length === 0) return '';
 
   const sections: string[] = [];
@@ -63,7 +66,19 @@ function serializeContextItems(items: ContextItem[]): string {
       const parts = [`- **${item.title}**`];
       if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
       if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
-      if (item.metadata?.fullText) parts.push(`\n${item.metadata.fullText}`);
+      if (item.metadata?.fullText) {
+        // Indirect injection 방어: 외부 콘텐츠를 trust boundary로 감싸고 패턴 스캔
+        const { wrapped, findings } = sanitizeExternalContent(item.metadata.fullText, source);
+        if (findings.length > 0) {
+          void recordEvent('metric', 'context_injection_detected', {
+            source,
+            taskId,
+            patternCount: findings.length,
+            severities: findings.map((f) => f.severity),
+          });
+        }
+        parts.push(`\n${wrapped}`);
+      }
       return parts.join('\n');
     });
     sections.push(`## ${label}\n${lines.join('\n')}`);
@@ -443,7 +458,7 @@ export function useClaudeSession(
         const nonFileItems = contextItems.filter(
           (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin',
         );
-        const itemsSummary = serializeContextItems(nonFileItems);
+        const itemsSummary = serializeContextItems(nonFileItems, taskId);
 
         if (isPipeline && contextItems.length > 0) {
           contextSummary +=
@@ -564,6 +579,25 @@ export function useClaudeSession(
               taskId,
               violationType: guardResult.violationType,
               violationDetail: guardResult.violationDetail,
+            });
+          }
+        }
+      }
+
+      // Secret scanner: Claude 응답에 API key/token/private key 있으면 마스킹
+      if (processor.hasContent()) {
+        const allMsgs = messagesRef.current;
+        const assistantMsgs = allMsgs.filter((m) => m.role === 'assistant');
+        const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
+        if (lastAssistant) {
+          const scan = scanForSecrets(lastAssistant.content);
+          if (scan.found) {
+            const targetId = lastAssistant.id;
+            setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, content: scan.masked } : m)));
+            void recordEvent('metric', 'secret_leak_masked', {
+              taskId,
+              types: scan.matches.map((x) => x.type),
+              count: scan.matches.length,
             });
           }
         }
