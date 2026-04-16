@@ -526,12 +526,17 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     disallowedTools = tools.length > 0 ? tools : null;
   }
 
+  // Continuation 시 이전 Claude 세션을 --resume 으로 이어 grill-me 컨텍스트 보존.
+  // 세션이 캐시에 없으면(앱 재시작 등) null → 새 세션. 사용자가 직접 이전 대화를
+  // 다시 올릴 수 없으므로 여기서 누락되면 Claude가 컨텍스트를 잃는다.
+  const resumeSessionId = !isFreshStart ? sessionCache.get(taskId) || null : null;
+
   void recordEvent('action', 'claude_spawn', {
     reqId,
     taskId,
     via: 'runPipeline',
     isPipeline: true,
-    isResume: false,
+    isResume: !!resumeSessionId,
     messageLength: resolvedPrompt.length,
     contextSummaryLength: contextSummary.length,
     contextFileCount: contextFiles.length,
@@ -544,7 +549,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     contextFiles: contextFiles.length > 0 ? contextFiles : null,
     contextSummary,
     allowAllTools: true,
-    sessionId: null,
+    sessionId: resumeSessionId,
     model: selectedModel,
     effort: selectedEffort,
     disallowedTools,
