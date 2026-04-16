@@ -398,7 +398,15 @@ export function useClaudeSession(
           '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
           '- 한국어로만 대화합니다.',
           '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-          '- When user asks a counter-question instead of answering: answer their question, then ask "이렇게 진행해도 될까요?". Only advance to next Q number after user confirms.',
+          '',
+          '## ⛔ COUNTER-QUESTION RULE (CRITICAL — NEVER SKIP)',
+          '- When user asks YOU a question instead of answering (e.g. "너는 어떻게 생각해?", "왜?", "다른 방법은?"):',
+          '  1. Answer their question with reasoning',
+          '  2. MUST ask "이 방향으로 진행할까요?" — NEVER skip this confirmation',
+          '  3. Wait for user approval before moving to next Q number',
+          '  4. If user gives more input, incorporate and re-confirm',
+          '  5. NEVER output a new Q number until user explicitly approves',
+          '- Violating this rule invalidates the entire Grill-me session.',
         ].join('\n');
       }
 
