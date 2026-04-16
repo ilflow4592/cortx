@@ -408,11 +408,11 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     listen(`claude-done-${reqId}`, () => resolve());
   });
 
-  // Pre-load project-context.md so Claude doesn't need a separate Read tool call
-  // Saves 1 tool round-trip (~2-3s) per pipeline invocation. The scanner output
-  // already contains full CLAUDE.md/AGENTS.md bodies since the embed refactor.
+  // Pre-load project-context.md so Claude doesn't need a separate Read tool call.
+  // Continuation(--resume)일 때는 이미 이전 세션 시스템 프롬프트에 포함돼 있으므로
+  // skip. 중복 주입 시 Claude 가 동일 17KB 를 재파싱해 TTFB 가 크게 늘어난다.
   let projectContextMd = '';
-  if (cwd) {
+  if (cwd && isFreshStart) {
     try {
       const ctxRes = await invoke<{ success: boolean; output: string }>('run_shell_command', {
         cwd: '/',
@@ -426,8 +426,14 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     }
   }
 
-  // Build context summary
-  const summaryParts = [
+  // Build context summary.
+  //
+  // Fresh start(/pipeline:dev-task): 전체 컨텍스트 주입 (RULES + project-context.md +
+  //   Context Pack fullText).
+  // Continuation(/pipeline:dev-implement 등): --resume 이 이전 시스템 프롬프트와
+  //   대화를 복원하므로 PIPELINE_TRACKING (phase 마커 리마인더)만 남기고 나머지는
+  //   skip. 중복 주입 시 동일 17KB+ 블록을 Claude 가 재파싱해 TTFB 가 크게 늘어난다.
+  const summaryParts: string[] = [
     '## CORTX_PIPELINE_TRACKING',
     'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
     'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
@@ -439,58 +445,68 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     '- When dev plan starts: emit [PIPELINE:dev_plan:in_progress]',
     '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
     '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
-    '',
-    '## CORTX_RULES (MUST FOLLOW)',
-    '- Cortx stores state in memory/localStorage only. No external file writes. NEVER read/write dev-plan.md, _dashboard.md, _pipeline-state.json, or any vault/notes file.',
-    '- The "Save" phase means: output the grill-me summary as chat text. Nothing is written to disk. Do not describe fake file writes.',
-    '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
-    '- NEVER run git commit, git push, or gh pr create without asking the user first.',
-    '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
-    '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
-    '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
-    '- 한국어로만 대화합니다.',
-    '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-    '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Read/Bash 호출 금지. project-context.md와 Context Pack fullText만 사용.',
-    '- Context Pack에 Notion/Slack/GitHub fullText가 있으면 해당 MCP 도구 재호출 금지 (mcp__notion__*, mcp__slack__*, mcp__github__*).',
   ];
 
-  if (projectContextMd) {
-    summaryParts.push('', '---', '', '## CORTX_PROJECT_CONTEXT (pre-loaded)');
-    summaryParts.push('project-context.md가 이미 아래에 포함돼 있습니다. 같은 파일을 Read 도구로 다시 읽지 마세요.');
-    summaryParts.push('Tech Stack, Rule Files, 임베드된 CLAUDE.md/AGENTS.md 본문이 모두 포함됨.');
-    summaryParts.push('', projectContextMd);
-  }
+  if (isFreshStart) {
+    summaryParts.push(
+      '',
+      '## CORTX_RULES (MUST FOLLOW)',
+      '- Cortx stores state in memory/localStorage only. No external file writes. NEVER read/write dev-plan.md, _dashboard.md, _pipeline-state.json, or any vault/notes file.',
+      '- The "Save" phase means: output the grill-me summary as chat text. Nothing is written to disk. Do not describe fake file writes.',
+      '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
+      '- NEVER run git commit, git push, or gh pr create without asking the user first.',
+      '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
+      '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
+      '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
+      '- 한국어로만 대화합니다.',
+      '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
+      '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Read/Bash 호출 금지. project-context.md와 Context Pack fullText만 사용.',
+      '- Context Pack에 Notion/Slack/GitHub fullText가 있으면 해당 MCP 도구 재호출 금지 (mcp__notion__*, mcp__slack__*, mcp__github__*).',
+    );
 
-  if (contextItems.length > 0) {
-    summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
-    summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
-    summaryParts.push(
-      'Use the Context Pack data below as the task specification. Do NOT look for or reference any dev-plan file.',
-    );
-    summaryParts.push(
-      'Skip all external file lookups (dev-plan.md, _pipeline-state.json, notes, vaults) — the Context Pack IS your source of truth.',
-    );
-    summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
-    const sourceLabels: Record<string, string> = { github: 'GitHub', slack: 'Slack', notion: 'Notion', pin: 'Pinned' };
-    const bySource: Record<string, typeof contextItems> = {};
-    for (const item of contextItems) {
-      const key = item.sourceType || 'other';
-      (bySource[key] ??= []).push(item);
+    if (projectContextMd) {
+      summaryParts.push('', '---', '', '## CORTX_PROJECT_CONTEXT (pre-loaded)');
+      summaryParts.push('project-context.md가 이미 아래에 포함돼 있습니다. 같은 파일을 Read 도구로 다시 읽지 마세요.');
+      summaryParts.push('Tech Stack, Rule Files, 임베드된 CLAUDE.md/AGENTS.md 본문이 모두 포함됨.');
+      summaryParts.push('', projectContextMd);
     }
-    for (const [source, items] of Object.entries(bySource)) {
-      const label = sourceLabels[source] || source;
-      const lines = items.map((item) => {
-        const parts = [`- **${item.title}**`];
-        if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
-        const hasFullText = !!item.metadata?.fullText;
-        // fullText가 있으면 URL은 감춤 — Claude가 원본 URL을 보고 MCP로 재조회하는 유인 제거
-        if (item.url && item.url.startsWith('http') && !hasFullText) parts.push(`  ${item.url}`);
-        if (hasFullText) {
-          parts.push(`\n<!-- 본문 이미 포함됨 — ${label} MCP로 재조회 금지 -->\n${item.metadata!.fullText}`);
-        }
-        return parts.join('\n');
-      });
-      summaryParts.push('', `## ${label}`, ...lines);
+
+    if (contextItems.length > 0) {
+      summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
+      summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
+      summaryParts.push(
+        'Use the Context Pack data below as the task specification. Do NOT look for or reference any dev-plan file.',
+      );
+      summaryParts.push(
+        'Skip all external file lookups (dev-plan.md, _pipeline-state.json, notes, vaults) — the Context Pack IS your source of truth.',
+      );
+      summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
+      const sourceLabels: Record<string, string> = {
+        github: 'GitHub',
+        slack: 'Slack',
+        notion: 'Notion',
+        pin: 'Pinned',
+      };
+      const bySource: Record<string, typeof contextItems> = {};
+      for (const item of contextItems) {
+        const key = item.sourceType || 'other';
+        (bySource[key] ??= []).push(item);
+      }
+      for (const [source, items] of Object.entries(bySource)) {
+        const label = sourceLabels[source] || source;
+        const lines = items.map((item) => {
+          const parts = [`- **${item.title}**`];
+          if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
+          const hasFullText = !!item.metadata?.fullText;
+          // fullText가 있으면 URL은 감춤 — Claude가 원본 URL을 보고 MCP로 재조회하는 유인 제거
+          if (item.url && item.url.startsWith('http') && !hasFullText) parts.push(`  ${item.url}`);
+          if (hasFullText) {
+            parts.push(`\n<!-- 본문 이미 포함됨 — ${label} MCP로 재조회 금지 -->\n${item.metadata!.fullText}`);
+          }
+          return parts.join('\n');
+        });
+        summaryParts.push('', `## ${label}`, ...lines);
+      }
     }
   }
 
