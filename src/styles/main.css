@@ -38,6 +38,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .mh-badge.active {
   background: rgba(90, 165, 165, 0.08);
