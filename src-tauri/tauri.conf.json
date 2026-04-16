@@ -15,7 +15,7 @@
         "title": "Cortx",
         "width": 1280,
         "height": 800,
-        "minWidth": 900,
+        "minWidth": 1000,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
@@ -31,21 +31,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "createUpdaterArtifacts": true
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGQ0QyQ0Q5RTNGMUYyRQpSV1F1SHorZXpkTDhBVkxwRkFtTEtRQzg5bm0wSE1IWEd2cDNMbWk1QVJTU1k1aGs2TXdYclBwMwo=",
-      "endpoints": [
-        "https://github.com/ilflow4592/cortx/releases/latest/download/latest.json"
-      ]
+      "endpoints": ["https://github.com/ilflow4592/cortx/releases/latest/download/latest.json"]
     }
   }
 }
