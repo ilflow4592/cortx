@@ -1,17 +1,25 @@
-# dev-implement — 개발 계획 수립 + 구현 + 테스트 + 커밋/PR
+# dev-implement — 개발 계획 + 구현 + 테스트 + **승인 후** 커밋/PR
 
 ⛔ **prod 브랜치 절대 접근 금지**
 
-Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및 테스트 후 PR까지 생성합니다.
+Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및 테스트까지 수행합니다.
+커밋·push·PR은 **각 단계마다 사용자 승인이 있어야만** 진행합니다 (자동 완주 금지).
 
 ## 절대 규칙 (반드시 준수)
 
 ### 컨텍스트
 
-- **이전 대화(Grill-me)에서 이미 스펙과 코드 구조를 파악했으므로 다시 탐색하지 마세요.**
+- **이전 대화(Grill-me) 컨텍스트를 우선 활용**하여 바로 개발 계획을 수립합니다.
+- 단, 구현 대상 파일의 정확한 시그니처·최신 상태 확인을 위한 **최소 범위 Read/Grep은 허용**합니다.
+- **광범위한 재탐색(무관 모듈 탐색, 코드베이스 전체 스캔)은 금지**합니다.
 - dev-plan.md 파일을 찾지 마세요. Cortx는 어떤 파일도 외부에 저장하지 않습니다 (memory/localStorage만 사용).
-- 이전 대화의 컨텍스트를 그대로 활용하여 바로 개발 계획을 수립합니다.
-- **현재 작업 브랜치({TASK_ID})만 사용.** 다른 브랜치 참조 금지.
+
+### 브랜치
+
+- Cortx가 task 생성 시점에 `.worktrees/<branch>/`에 **`feat/{TASK_ID}` 브랜치를 이미 생성**해둡니다. 이 스킬 실행 시점에 해당 브랜치에서 작업 중이어야 정상입니다.
+- ⛔ **브랜치 조작 명령 절대 금지**: `git checkout -b`, `git switch`, `git branch -D`, `git checkout <다른-브랜치>` 등.
+- **확인은 읽기 명령만** 허용: `git branch --show-current`, `git status`.
+- 현재 브랜치가 `feat/{TASK_ID}`가 아니면 **사용자에게 보고하고 중단**. 임의 복구 시도 금지.
 
 ### 구현 승인
 
@@ -82,20 +90,25 @@ Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및
 
 [PIPELINE:dev_plan:done]
 
-### Step 1.5: 브랜치 생성
+### Step 1.5: 브랜치 확인 (생성 금지, 확인만)
 
 [PIPELINE:implement:in_progress]
 
+Cortx가 task 생성 시점에 `.worktrees/<branch>/`에 `feat/{TASK_ID}` 브랜치를 이미 만들어둔 상태입니다. 이 스킬 실행 시점에는 해당 브랜치에서 작업 중이어야 합니다.
+
+**읽기 전용 검증만** 수행:
+
 ```bash
-git fetch origin develop
-git checkout -b feat/{TASK_ID} origin/develop
+git branch --show-current    # → feat/{TASK_ID}
+git status                   # 작업 트리 상태 확인
 ```
 
-**항상 origin/develop 기준.** 이미 존재하면 base 확인.
+- 현재 브랜치가 `feat/{TASK_ID}`가 **아니면**: 상황을 사용자에게 보고하고 **중단**. 임의로 checkout/switch/branch 명령 실행 금지.
+- 현재 브랜치가 맞으면: 그대로 Step 2로 진행.
 
 ### Step 2: 구현
 
-**Simple**: 메인 컨텍스트에서 직접 구현. 각 파일 최대 1회 Read.
+**Simple**: 메인 컨텍스트에서 직접 구현. **불필요한 반복 Read는 최소화** (수정 전 확인 1회 + 수정 후 검증 1회 정도는 허용).
 **Medium/Complex**: Agent(subagent_type="general-purpose", isolation="worktree") 위임.
 
 구현 중간에 컴파일 확인: `./gradlew compileJava`
@@ -116,7 +129,10 @@ git checkout -b feat/{TASK_ID} origin/develop
 | 4   | 하드코딩된 토큰/시크릿          | 변경 파일에서 패턴 Grep              |
 | 5   | unused import                   | 변경 파일에서 확인                   |
 
-⚠️ 항목은 자동 수정 후 재검증 (최대 2회).
+⚠️ 자동 수정 범위:
+
+- **정적 이슈만 자동 수정** (unused import 제거, import 정리, 세미콜론 등 스타일 이슈) — 수정 후 재검증 (최대 2회).
+- **설계 변경이 필요한 항목**(`@Transactional` 추가, `Clock` 주입, 시크릿 외부화 등)은 **사용자에게 보고 후 결정**. 임의로 구조 변경 금지.
 
 ### Step 3: 테스트 실행 및 통과
 
@@ -137,14 +153,20 @@ git checkout -b feat/{TASK_ID} origin/develop
 **⚠️ 중요: 커밋, push, PR 생성을 자동으로 하지 않습니다.**
 
 **4-1. 커밋 확인**
-구현이 완료되면 변경 파일 목록을 보여주고 사용자에게 물어봅니다:
+구현이 완료되면 변경 파일 목록 + 테스트 결과 요약을 보여주고 사용자에게 물어봅니다:
 "커밋해도 될까요?"
-사용자가 승인하면 `/git:commit` 스킬 기반으로 커밋 + push를 진행합니다.
+사용자가 승인하면 커밋 + push 진행:
+
+- 우선 `/git:commit` 스킬 사용 (존재 시).
+- 스킬이 없거나 실행 실패 시 **수동 fallback**: `git add <변경파일>` → Conventional Commit 메시지로 `git commit -m "..."` → `git push origin HEAD`.
 
 **4-2. PR 생성 확인**
 커밋 + push가 완료되면 사용자에게 물어봅니다:
 "PR을 생성할까요?"
-사용자가 승인하면 `/git:pr` 스킬 기반으로 PR을 생성합니다.
+사용자가 승인하면:
+
+- 우선 `/git:pr` 스킬 사용 (존재 시).
+- 스킬이 없거나 실행 실패 시 **수동 fallback**: `gh pr create --base develop --title "..." --body "..."` 실행.
 
 PR 생성 후: [PIPELINE:commit_pr:done:PR #{번호}]
 PR 번호/URL 캡처: [PIPELINE:pr:{번호}:{URL}]
