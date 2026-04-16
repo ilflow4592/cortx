@@ -60,15 +60,17 @@ Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및
 
 파일 수 **와** 변경 성격을 함께 보고 판정. 둘 중 더 높은 기준을 적용.
 
-| 복잡도      | 파일 수 | 변경 성격                                                                                          | 구현 전략                             |
-| ----------- | ------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| **Simple**  | 1~5     | 단순 로직/뷰/문구 수정, rename, 단일 레이어 내 변경                                                | 에이전트 사용 금지. 직접 Read + Grep. |
-| **Medium**  | 6~15    | 여러 레이어 병행(service+repository+controller+test), DTO 추가·변경, 기존 패턴 확장                | Explorer Agent 1개 사용.              |
-| **Complex** | 15+     | 데이터 모델 변경, 트랜잭션·동시성·비동기 도입, 외부 시스템 연동, 광범위 테스트 영향, 아키텍처 변경 | Explorer Agent 최대 3개 병렬 사용.    |
+| 복잡도      | 파일 수 | 변경 성격                                                                                          |
+| ----------- | ------- | -------------------------------------------------------------------------------------------------- |
+| **Simple**  | 1~5     | 단순 로직/뷰/문구 수정, rename, 단일 레이어 내 변경                                                |
+| **Medium**  | 6~15    | 여러 레이어 병행(service+repository+controller+test), DTO 추가·변경, 기존 패턴 확장                |
+| **Complex** | 15+     | 데이터 모델 변경, 트랜잭션·동시성·비동기 도입, 외부 시스템 연동, 광범위 테스트 영향, 아키텍처 변경 |
 
 파일 수는 적어도 **변경 성격이 Complex**면 Complex로 판정. 예: 파일 3개만 바꿔도 트랜잭션 경계/도메인 이벤트 신설이면 Complex. 반대로 파일 10개라도 전부 단순 string replace면 Simple.
 
 복잡도 판별 후: [PIPELINE:complexity:{Simple|Medium|Complex}]
+
+**⛔ Step 1 에서 Agent 사용 절대 금지.** 코드 탐색용 Agent(Explorer Agent 포함)는 계획 단계에서 쓰지 마세요. grill-me 결과 + 최소 Read(1~2개)만으로 계획서를 작성합니다. Agent 는 Step 2(구현)에서만 사용합니다.
 
 **필수 준수 원칙**: SOLID, Null Safety, 유지보수성, 기존 패턴 준수
 
@@ -118,8 +120,11 @@ git status                   # 작업 트리 상태 확인
 
 ### Step 2: 구현
 
-**Simple**: 메인 컨텍스트에서 직접 구현. **불필요한 반복 Read는 최소화** (수정 전 확인 1회 + 수정 후 검증 1회 정도는 허용).
-**Medium/Complex**: Agent(subagent_type="general-purpose", isolation="worktree") 위임.
+**복잡도별 구현 전략**:
+
+- **Simple (1~5 파일)**: 메인 컨텍스트에서 직접 구현. 에이전트 사용 금지. 불필요한 반복 Read 최소화 (수정 전 확인 1회 + 수정 후 검증 1회 허용).
+- **Medium (6~15 파일)**: Explorer Agent 1개로 변경 대상 파일 구조 파악 후 직접 구현, 또는 Agent(subagent_type="general-purpose", isolation="worktree") 위임.
+- **Complex (15+ 파일)**: Explorer Agent 최대 3개 병렬(계층별 분배) 후 Implementer Agent 위임.
 
 **빌드 확인**: project-context.md의 `## Build & Test Commands` 섹션에 명시된 Build 명령 사용 (Tech Stack 감지 결과 기반 자동 생성됨).
 
