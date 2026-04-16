@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 use ts_rs::TS;
 
+mod build_commands;
 mod context_md;
 mod fallback;
 mod grader;

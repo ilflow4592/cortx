@@ -6,6 +6,7 @@
 //! 프로젝트에 강요하지 않기 위해 전체 본문을 포함하고, 다운스트림 파이프라인이
 //! 필요한 부분만 골라 쓰도록 한다.
 
+use super::build_commands::compose_build_commands_section;
 use super::grader::{grade_label, quality_label, DocEntry, DocGrade};
 use super::{ProjectQuality, SotStatus, SCANNER_VERSION};
 
@@ -67,6 +68,10 @@ pub fn compose_context_md(
             out.push_str(&format!("- {}\n", t));
         }
     }
+    out.push('\n');
+
+    // Build & Test Commands — tech_stack 기반 동적 생성
+    out.push_str(&compose_build_commands_section(tech_stack));
     out.push('\n');
 
     // Rule Files (metadata)

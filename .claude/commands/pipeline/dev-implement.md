@@ -111,23 +111,26 @@ git status                   # 작업 트리 상태 확인
 **Simple**: 메인 컨텍스트에서 직접 구현. **불필요한 반복 Read는 최소화** (수정 전 확인 1회 + 수정 후 검증 1회 정도는 허용).
 **Medium/Complex**: Agent(subagent_type="general-purpose", isolation="worktree") 위임.
 
-구현 중간에 컴파일 확인: `./gradlew compileJava`
+**빌드 확인**: project-context.md의 `## Build & Test Commands` 섹션에 명시된 Build 명령 사용 (Tech Stack 감지 결과 기반 자동 생성됨).
 
 **코드 품질 규칙**:
 
-- `List<Object[]>` 금지 — JPQL 집계 쿼리는 적절한 DTO/Projection 또는 `Map`으로 반환.
-- Repository 반환 타입은 엔티티 또는 명시적 타입을 사용. raw Object 배열 사용 금지.
-- 기존 프로젝트의 코드 패턴과 네이밍 컨벤션을 반드시 따를 것.
+- **기존 프로젝트의 코드 패턴과 네이밍 컨벤션을 반드시 따를 것** — CLAUDE.md/AGENTS.md에 명시된 규칙이 최우선.
+- Null Safety, SOLID, 유지보수성 준수.
+- 프로젝트별 특수 규칙(JPQL 집계 반환, Repository 타입 등)은 해당 프로젝트 CLAUDE.md 참조.
 
 ### Step 2.5: Quality Gate
 
-| #   | 검증 항목                       | 검증 방법                            |
-| --- | ------------------------------- | ------------------------------------ |
-| 1   | 빌드 성공                       | `./gradlew compileJava`              |
-| 2   | `LocalDateTime.now()` 직접 호출 | 변경 파일에서 Grep                   |
-| 3   | Service에 `@Transactional` 누락 | 새로 추가/수정된 Service 메서드 확인 |
-| 4   | 하드코딩된 토큰/시크릿          | 변경 파일에서 패턴 Grep              |
-| 5   | unused import                   | 변경 파일에서 확인                   |
+**공통 (언어 독립)**:
+
+| #   | 검증 항목              | 검증 방법                                |
+| --- | ---------------------- | ---------------------------------------- |
+| 1   | 빌드 성공              | project-context.md의 Build 명령 실행     |
+| 2   | 하드코딩된 토큰/시크릿 | 변경 파일에서 패턴 Grep (sk-, ghp\_, 등) |
+| 3   | unused import          | 변경 파일에서 확인                       |
+
+**프로젝트별 추가 규칙**: CLAUDE.md/AGENTS.md의 "Quality Gate" 또는 "Immediate Rules" 섹션에 정의된 항목 추가 검사.
+예: Java/Spring 프로젝트면 `LocalDateTime.now()` 직접 호출 금지, Service `@Transactional` 누락 등 — **해당 프로젝트 CLAUDE.md에 명시돼 있을 때만** 검사.
 
 ⚠️ 자동 수정 범위:
 
@@ -138,12 +141,19 @@ git status                   # 작업 트리 상태 확인
 
 **반드시 테스트를 실행하고, 전체 통과할 때까지 반복합니다.**
 
-1. 기존 테스트 패턴과 동일 스타일로 테스트 코드 작성/수정
-2. `@DisplayName`으로 한국어 테스트명 작성
-3. 테스트 실행: `./gradlew :{module}:test --tests "{TestClass}"`
-4. **실패하면 코드를 수정하고 다시 실행. 모든 테스트가 통과할 때까지 반복합니다.**
-5. 관련 모듈 전체 테스트도 실행하여 기존 테스트가 깨지지 않았는지 확인: `./gradlew :{module}:test`
-6. **테스트가 전부 통과한 후에만 Step 4로 진행합니다.** 테스트를 건너뛰지 마세요.
+1. 기존 테스트 패턴과 동일 스타일로 테스트 코드 작성/수정 (Java/Spring이면 `@DisplayName` 한국어 등, 프로젝트 관례 유지).
+2. 테스트 실행: **project-context.md의 `## Build & Test Commands` 섹션 참조.** 예:
+   - Gradle: `./gradlew :{module}:test --tests "{TestClass}"`
+   - npm: `npm test` 또는 `npx vitest run {path}`
+   - pytest: `pytest {path}::{Class}::{method}`
+   - cargo: `cargo test {name}`
+   - go: `go test ./{pkg}`
+
+   `{module}` 결정 가이드: settings 파일(`settings.gradle`, `pom.xml`, `package.json` workspaces 등)에서 **실제 변경 파일이 속한** 모듈 이름을 확인해 사용. 추측 금지.
+
+3. **실패하면 코드를 수정하고 다시 실행. 모든 테스트가 통과할 때까지 반복합니다.**
+4. 관련 모듈 전체 테스트도 실행하여 기존 테스트가 깨지지 않았는지 확인 (Build & Test Commands의 "Test (all)" 명령).
+5. **테스트가 전부 통과한 후에만 Step 4로 진행합니다.** 테스트를 건너뛰지 마세요.
 
 ### Step 4: 커밋 & PR 생성
 
