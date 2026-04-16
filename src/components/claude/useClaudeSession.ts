@@ -608,8 +608,20 @@ export function useClaudeSession(
           });
           if (guardResult) {
             const targetId = lastAssistant.id;
+            const markType = guardResult.violationType === 'premature_q' ? 'q_trimmed' : 'confirmation_added';
             setMessages((prev) =>
-              prev.map((m) => (m.id === targetId ? { ...m, content: guardResult.correctedText } : m)),
+              prev.map((m) =>
+                m.id === targetId
+                  ? {
+                      ...m,
+                      content: guardResult.correctedText,
+                      guardrailMarks: [
+                        ...(m.guardrailMarks || []),
+                        { type: markType, detail: guardResult.violationDetail },
+                      ],
+                    }
+                  : m,
+              ),
             );
             // 위반 기록 + anomaly 감지 (3회 이상 시 UI 알림)
             recordViolation({
@@ -628,12 +640,12 @@ export function useClaudeSession(
         const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
         if (lastAssistant) {
           let content = lastAssistant.content;
-          let modified = false;
+          const newMarks: { type: 'canary_blocked' | 'secret_masked'; detail?: string }[] = [];
 
           // Canary leak 검출 (prompt injection 성공 신호)
           if (detectCanaryLeak(content, taskId)) {
             content = maskCanary(content, taskId);
-            modified = true;
+            newMarks.push({ type: 'canary_blocked' });
             void recordAndPublish('canary_leak_detected', { taskId });
             sendNotification(
               'Cortx — Prompt Injection 감지',
@@ -645,7 +657,7 @@ export function useClaudeSession(
           const scan = scanForSecrets(content);
           if (scan.found) {
             content = scan.masked;
-            modified = true;
+            newMarks.push({ type: 'secret_masked', detail: scan.matches.map((x) => x.type).join(', ') });
             void recordAndPublish('secret_leak_masked', {
               taskId,
               types: scan.matches.map((x) => x.type),
@@ -653,9 +665,13 @@ export function useClaudeSession(
             });
           }
 
-          if (modified) {
+          if (newMarks.length > 0) {
             const targetId = lastAssistant.id;
-            setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, content } : m)));
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === targetId ? { ...m, content, guardrailMarks: [...(m.guardrailMarks || []), ...newMarks] } : m,
+              ),
+            );
           }
         }
       }

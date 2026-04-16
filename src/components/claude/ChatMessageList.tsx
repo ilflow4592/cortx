@@ -163,7 +163,10 @@ const MessageItem = memo(
       <div className="msg">
         <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>{msg.role === 'user' ? 'U' : 'C'}</div>
         <div className="msg-body">
-          <div className="msg-name">{msg.role === 'user' ? 'You' : 'Claude Code'}</div>
+          <div className="msg-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>{msg.role === 'user' ? 'You' : 'Claude Code'}</span>
+            <GuardrailMarks marks={msg.guardrailMarks} />
+          </div>
           <div className="msg-text" style={{ wordBreak: 'break-word' }}>
             {msg.role === 'assistant' ? (
               <Markdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>{msg.content}</Markdown>
@@ -176,5 +179,43 @@ const MessageItem = memo(
     );
   },
   (prev, next) =>
-    prev.msg.id === next.msg.id && prev.msg.content === next.msg.content && prev.msg.role === next.msg.role,
+    prev.msg.id === next.msg.id &&
+    prev.msg.content === next.msg.content &&
+    prev.msg.role === next.msg.role &&
+    (prev.msg.guardrailMarks?.length || 0) === (next.msg.guardrailMarks?.length || 0),
 );
+
+const MARK_LABEL: Record<string, { label: string; color: string }> = {
+  secret_masked: { label: '🛡 secret masked', color: '#ef4444' },
+  q_trimmed: { label: '🛡 Q trimmed', color: '#f59e0b' },
+  confirmation_added: { label: '🛡 confirmation added', color: '#f59e0b' },
+  canary_blocked: { label: '🛡 injection blocked', color: '#dc2626' },
+};
+
+function GuardrailMarks({ marks }: { marks?: { type: string; detail?: string }[] }) {
+  if (!marks || marks.length === 0) return null;
+  return (
+    <span style={{ display: 'inline-flex', gap: 4 }}>
+      {marks.map((m, i) => {
+        const meta = MARK_LABEL[m.type];
+        if (!meta) return null;
+        return (
+          <span
+            key={i}
+            title={m.detail ? `${meta.label}: ${m.detail}` : meta.label}
+            style={{
+              fontSize: 9,
+              color: meta.color,
+              border: `1px solid ${meta.color}`,
+              borderRadius: 3,
+              padding: '0 4px',
+              fontWeight: 600,
+            }}
+          >
+            {meta.label}
+          </span>
+        );
+      })}
+    </span>
+  );
+}

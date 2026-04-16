@@ -74,6 +74,23 @@ export function countEventsSince(sinceMs: number): number {
   return count;
 }
 
+/** 특정 task의 시간 범위 내 이벤트 수 (task badge용) */
+export function countTaskEventsSince(taskId: string, sinceMs: number): number {
+  const cutoff = Date.now() - sinceMs;
+  let count = 0;
+  for (let i = buffer.length - 1; i >= 0; i--) {
+    const e = buffer[i];
+    if (new Date(e.timestamp).getTime() < cutoff) break;
+    if (e.taskId === taskId) count++;
+  }
+  return count;
+}
+
+/** 모든 이벤트 스냅샷 (Review Queue 용) */
+export function getAllEvents(): GuardrailEvent[] {
+  return buffer.slice().reverse();
+}
+
 /** 테스트용 */
 export function clearEventBus(): void {
   buffer.length = 0;

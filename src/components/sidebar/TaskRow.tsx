@@ -1,6 +1,48 @@
-import { useState } from 'react';
-import { X, CheckSquare, Square } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, CheckSquare, Square, Shield } from 'lucide-react';
 import { formatTime } from '../../utils/time';
+import { subscribeGuardrailEvents, countTaskEventsSince } from '../../services/guardrailEventBus';
+
+const TASK_BADGE_WINDOW_MS = 30 * 60 * 1000; // 30분
+
+function TaskGuardrailBadge({ taskId }: { taskId: string }) {
+  const [count, setCount] = useState(() => countTaskEventsSince(taskId, TASK_BADGE_WINDOW_MS));
+
+  useEffect(() => {
+    const unsub = subscribeGuardrailEvents((e) => {
+      if (e.taskId === taskId) {
+        setCount(countTaskEventsSince(taskId, TASK_BADGE_WINDOW_MS));
+      }
+    });
+    const interval = setInterval(() => {
+      setCount(countTaskEventsSince(taskId, TASK_BADGE_WINDOW_MS));
+    }, 30_000);
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [taskId]);
+
+  if (count === 0) return null;
+  const color = count >= 5 ? '#ef4444' : '#f59e0b';
+  return (
+    <span
+      title={`최근 30분간 guardrail ${count}건`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 2,
+        fontSize: 9,
+        color,
+        fontWeight: 700,
+        marginLeft: 4,
+      }}
+    >
+      <Shield size={9} />
+      {count}
+    </span>
+  );
+}
 
 export function TaskRow({
   task,
@@ -101,6 +143,7 @@ export function TaskRow({
             <span className="sb-task-name" title={task.title}>
               {task.title}
             </span>
+            <TaskGuardrailBadge taskId={task.id} />
           </div>
           <span className="sb-timer">{task.status === 'waiting' ? '--:--' : formatTime(task.elapsedSeconds)}</span>
         </div>
