@@ -12,6 +12,8 @@ import { PHASE_KEYS, PHASE_ORDER } from '../../constants/pipeline';
 import { recordEvent } from '../../services/telemetry';
 import { sendNotification } from '../../utils/notification';
 import { scanDangerousCommand, extractBashCommand } from './dangerousCommandGuard';
+import { isAllowedInSession } from './dangerousCommandAlert';
+import { requestDangerDecision } from './dangerousCommandQueue';
 import type { Message } from './types';
 
 interface ContentBlock {
@@ -151,18 +153,27 @@ export class ClaudeEventProcessor {
         const matches = scanDangerousCommand(cmd);
         if (matches.length === 0) continue;
 
-        dangerLabel = matches[0].description;
+        // 세션 allowlist 체크 — 사용자가 이전에 허용한 패턴 필터링
+        const newMatches = matches.filter((m) => !isAllowedInSession(this.ctx.taskId, m.pattern));
+        if (newMatches.length === 0) continue;
+
+        dangerLabel = newMatches[0].description;
         void recordEvent('metric', 'dangerous_command_detected', {
           taskId: this.ctx.taskId,
-          patterns: matches.map((m) => m.pattern),
-          severities: matches.map((m) => m.severity),
+          patterns: newMatches.map((m) => m.pattern),
+          severities: newMatches.map((m) => m.severity),
         });
-        // Critical severity만 데스크톱 알림 (high/medium은 telemetry만)
-        if (matches.some((m) => m.severity === 'critical')) {
-          sendNotification(
-            'Cortx — 위험 명령 감지',
-            `Claude가 실행하려는 명령: ${matches[0].description}. 터미널에서 확인하세요.`,
-          );
+
+        // Critical → HITL 다이얼로그 (비동기, 스트리밍 블록 안 함)
+        if (newMatches.some((m) => m.severity === 'critical')) {
+          const taskId = this.ctx.taskId;
+          void requestDangerDecision({ taskId, command: cmd, matches: newMatches }).then((choice) => {
+            if (choice === 'stop') {
+              // 사용자가 중지 선택 → Claude 프로세스 즉시 종료
+              import('@tauri-apps/api/core').then((mod) => mod.invoke('claude_stop_task', { taskId })).catch(() => {});
+            }
+          });
+          sendNotification('Cortx — 위험 명령 감지', `${newMatches[0].description} — 확인 필요`);
         }
       }
 

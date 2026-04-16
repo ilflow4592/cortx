@@ -23,6 +23,7 @@ import { scanForSecrets } from './secretScanner';
 import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
 import { getOrCreateCanary, buildCanaryDirective, detectCanaryLeak, maskCanary, clearCanary } from './canaryGuard';
+import { clearAllowlist } from './dangerousCommandAlert';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -294,6 +295,7 @@ export function useClaudeSession(
     setLoading(false);
     resetViolations(taskId);
     clearCanary(taskId);
+    clearAllowlist(taskId);
     // Reset task status to waiting, clear pipeline, and reset timer
     useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
   };

@@ -7,8 +7,9 @@ const IntegrationsSettings = lazy(() =>
 );
 const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
 const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
+const GuardrailsSettings = lazy(() => import('./GuardrailsSettings').then((m) => ({ default: m.GuardrailsSettings })));
 
-type STab = 'integrations' | 'appearance' | 'telemetry';
+type STab = 'integrations' | 'appearance' | 'telemetry' | 'guardrails';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<STab>('integrations');
@@ -38,12 +39,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <button className={`modal-tab ${tab === 'telemetry' ? 'active' : ''}`} onClick={() => setTab('telemetry')}>
           📊 Telemetry
         </button>
+        <button className={`modal-tab ${tab === 'guardrails' ? 'active' : ''}`} onClick={() => setTab('guardrails')}>
+          🛡️ Guardrails
+        </button>
       </div>
       <div className="modal-body">
         <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
           {tab === 'integrations' && <IntegrationsSettings />}
           {tab === 'appearance' && <AppearanceSettings />}
           {tab === 'telemetry' && <TelemetrySettings />}
+          {tab === 'guardrails' && <GuardrailsSettings />}
         </Suspense>
       </div>
     </ModalBackdrop>

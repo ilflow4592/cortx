@@ -3,6 +3,7 @@ import { Dock } from './components/Dock';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { MainPanel } from './components/MainPanel';
 import { StatusBar } from './components/StatusBar';
+import { DangerousCommandHost } from './components/DangerousCommandHost';
 import { useTaskStore } from './stores/taskStore';
 import { useProjectStore } from './stores/projectStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -247,6 +248,7 @@ function ModalRenderer() {
       {modal.report && <DailyReport onClose={() => modal.close('report')} />}
       {modal.onboarding && <Onboarding onComplete={modal.completeOnboarding} />}
       {modal.editProjectId && <ProjectSettings projectId={modal.editProjectId} onClose={modal.closeEditProject} />}
+      <DangerousCommandHost />
     </Suspense>
   );
 }

@@ -36,15 +36,27 @@ interface InjectionPattern {
  * - base64/rot13 인코딩 의심
  */
 const INJECTION_PATTERNS: InjectionPattern[] = [
-  // 지시 오버라이드
+  // 지시 오버라이드 — 근접 매칭으로 변형 허용
   {
-    regex: /ignore\s+(previous|prior|all|above)\s+(instructions?|directives?|rules?)/i,
+    regex: /ignore\b.{0,30}?\b(previous|prior|all|above|everything|earlier|prompt|instruction|rule|directive)/i,
     severity: 'high',
     label: 'ignore_previous',
   },
-  { regex: /disregard\s+(previous|prior|all|above)/i, severity: 'high', label: 'disregard_previous' },
-  { regex: /이전\s*(지시|명령|규칙)\s*(을|는|는)?\s*(무시|잊)/i, severity: 'high', label: 'ignore_previous_ko' },
-  { regex: /forget\s+(everything|all|previous)/i, severity: 'high', label: 'forget_all' },
+  {
+    regex: /disregard\b.{0,30}?\b(previous|prior|all|above|everything|earlier|instruction|rule)/i,
+    severity: 'high',
+    label: 'disregard_previous',
+  },
+  {
+    regex: /이전.{0,30}?(지시|명령|규칙|역할|프롬프트).{0,30}?(무시|잊)/,
+    severity: 'high',
+    label: 'ignore_previous_ko',
+  },
+  {
+    regex: /forget\b.{0,20}?\b(everything|all|previous|prior|instruction|prompt)/i,
+    severity: 'high',
+    label: 'forget_all',
+  },
 
   // 시스템 역할 가장
   { regex: /^\s*(SYSTEM|ASSISTANT|USER)\s*:/im, severity: 'medium', label: 'role_impersonation' },
