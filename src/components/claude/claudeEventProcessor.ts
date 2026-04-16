@@ -226,7 +226,9 @@ export class ClaudeEventProcessor {
         }
       }
 
-      const displayContent = dangerLabel ? `⚠️ Using ${toolLabel}... (${dangerLabel})` : `Using ${toolLabel}...`;
+      // Activity 라벨 생성 — 가시성 위해 Bash/Read/Edit의 실제 인자를 요약 표시.
+      // 사용자가 "Using Bash..." 앞에서 hang 했는지 파악 가능하도록.
+      const displayContent = formatToolActivity(toolBlocks, toolLabel, dangerLabel);
       this.ctx.setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== this.ctx.activityId);
         return [
@@ -316,4 +318,63 @@ export class ClaudeEventProcessor {
       return [...filtered, { id: msgId, role: 'assistant', content }];
     });
   }
+}
+
+/**
+ * Activity 라벨 생성. Bash/Read/Edit/Grep 의 핵심 인자를 요약해 표시.
+ * 사용자가 "Using Bash..."에서 어느 명령이 걸렸는지 파악 가능하도록.
+ */
+function formatToolActivity(toolBlocks: ContentBlock[], toolLabel: string, dangerLabel: string | null): string {
+  const summaries: string[] = [];
+  for (const block of toolBlocks) {
+    const name = block.name || 'tool';
+    const input = block.input as Record<string, unknown> | undefined;
+    if (!input) {
+      summaries.push(name);
+      continue;
+    }
+    const command = typeof input.command === 'string' ? input.command : undefined;
+    const filePath = typeof input.file_path === 'string' ? input.file_path : undefined;
+    const path = typeof input.path === 'string' ? input.path : undefined;
+    const pattern = typeof input.pattern === 'string' ? input.pattern : undefined;
+
+    if (name === 'Bash' || name === 'bash') {
+      summaries.push(command ? `Bash: ${truncate(command, 100)}` : 'Bash');
+    } else if (name === 'Read') {
+      summaries.push(filePath ? `Read ${shortPath(filePath)}` : 'Read');
+    } else if (name === 'Edit' || name === 'Write') {
+      summaries.push(filePath ? `${name} ${shortPath(filePath)}` : name);
+    } else if (name === 'Glob') {
+      summaries.push(pattern ? `Glob ${pattern}` : 'Glob');
+    } else if (name === 'Grep') {
+      summaries.push(pattern ? `Grep ${truncate(pattern, 60)}` : 'Grep');
+    } else if (name === 'Agent') {
+      const description = typeof input.description === 'string' ? input.description : undefined;
+      summaries.push(description ? `Agent: ${truncate(description, 80)}` : 'Agent');
+    } else {
+      summaries.push(name);
+    }
+
+    // path fallback
+    if (!filePath && path && !summaries[summaries.length - 1].includes(path)) {
+      summaries[summaries.length - 1] = `${name} ${shortPath(path)}`;
+    }
+  }
+  const body = summaries.join(', ');
+  const prefix = dangerLabel ? `⚠️ Using ${body}... (${dangerLabel})` : `Using ${body}...`;
+  // toolLabel fallback (summary가 비었을 때)
+  return body ? prefix : `Using ${toolLabel}...`;
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) + '…' : s;
+}
+
+function shortPath(p: string): string {
+  // 프로젝트 내부 상대경로는 그대로, 절대경로는 마지막 2~3 segment만
+  if (p.startsWith('/')) {
+    const parts = p.split('/').filter(Boolean);
+    if (parts.length > 3) return '…/' + parts.slice(-3).join('/');
+  }
+  return p;
 }
