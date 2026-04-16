@@ -6,6 +6,7 @@
  */
 import { sendNotification } from '../../utils/notification';
 import { recordEvent } from '../../services/telemetry';
+import { publishGuardrailEvent } from '../../services/guardrailEventBus';
 import type { ViolationType } from './counterQuestionGuard';
 
 /** 태스크별 위반 카운트. taskId → count */
@@ -31,13 +32,16 @@ export function recordViolation(params: { taskId: string; violationType: Violati
 
   const isAnomaly = count >= ANOMALY_THRESHOLD;
 
-  // Telemetry (사용자가 opt-in 한 경우만 실제 저장)
-  void recordEvent('metric', 'counter_question_violation', {
+  // Telemetry (사용자가 opt-in 한 경우만 실제 저장) + live bus
+  const eventData = {
+    taskId: params.taskId,
     violationType: params.violationType,
     violationDetail: params.violationDetail,
     count,
     isAnomaly,
-  });
+  };
+  void recordEvent('metric', 'counter_question_violation', eventData);
+  publishGuardrailEvent('counter_question_violation', eventData);
 
   // Anomaly 발생 시 1회만 UI 알림
   if (isAnomaly && !notifiedTasks.has(params.taskId)) {

@@ -9,7 +9,7 @@ import type { Dispatch, SetStateAction, MutableRefObject } from 'react';
 import { sessionCache } from '../../utils/chatState';
 import { useTaskStore } from '../../stores/taskStore';
 import { PHASE_KEYS, PHASE_ORDER } from '../../constants/pipeline';
-import { recordEvent } from '../../services/telemetry';
+import { recordAndPublish } from '../../services/guardrailEventBus';
 import { sendNotification } from '../../utils/notification';
 import { scanDangerousCommand, extractBashCommand } from './dangerousCommandGuard';
 import { isAllowedInSession } from './dangerousCommandAlert';
@@ -154,7 +154,7 @@ export class ClaudeEventProcessor {
         for (const p of paths) {
           const sensitive = scanSensitivePath(p);
           if (sensitive.length > 0) {
-            void recordEvent('metric', 'sensitive_file_access', {
+            void recordAndPublish('sensitive_file_access', {
               taskId: this.ctx.taskId,
               tool: block.name,
               path: p,
@@ -170,7 +170,7 @@ export class ClaudeEventProcessor {
           }
           // Workspace boundary check
           if (this.ctx.cwd && isPathOutsideWorkspace(p, this.ctx.cwd)) {
-            void recordEvent('metric', 'workspace_boundary_violation', {
+            void recordAndPublish('workspace_boundary_violation', {
               taskId: this.ctx.taskId,
               tool: block.name,
               path: p,
@@ -186,7 +186,7 @@ export class ClaudeEventProcessor {
         if (!cmd) continue;
         const exfilMatches = scanNetworkExfil(cmd);
         if (exfilMatches.length > 0) {
-          void recordEvent('metric', 'network_exfil_detected', {
+          void recordAndPublish('network_exfil_detected', {
             taskId: this.ctx.taskId,
             hosts: exfilMatches.map((e) => e.host),
             tools: exfilMatches.map((e) => e.tool),
@@ -207,7 +207,7 @@ export class ClaudeEventProcessor {
         if (newMatches.length === 0) continue;
 
         dangerLabel = newMatches[0].description;
-        void recordEvent('metric', 'dangerous_command_detected', {
+        void recordAndPublish('dangerous_command_detected', {
           taskId: this.ctx.taskId,
           patterns: newMatches.map((m) => m.pattern),
           severities: newMatches.map((m) => m.severity),

@@ -36,3 +36,17 @@
 .cortx-scan-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Guardrail badge pulse — 새 이벤트 도착 시 시각적 피드백 */
+@keyframes guardrail-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

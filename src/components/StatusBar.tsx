@@ -1,6 +1,7 @@
 import { useTaskStore } from '../stores/taskStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useT } from '../i18n';
+import { GuardrailBadge } from './GuardrailBadge';
 
 export function StatusBar() {
   const { tasks, activeTaskId } = useTaskStore();
@@ -54,6 +55,7 @@ export function StatusBar() {
         <span>⌘K {t('status.palette')}</span>
         <span>⌘⇧P {t('status.pause')}</span>
         <span>⌘⇧R {t('status.resume')}</span>
+        <GuardrailBadge />
       </div>
     </div>
   );

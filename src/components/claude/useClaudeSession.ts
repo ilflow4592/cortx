@@ -19,6 +19,7 @@ import {
 import { recordViolation, resetViolations } from './violationTracker';
 import { sanitizeExternalContent } from '../../services/contextSanitizer';
 import { recordEvent } from '../../services/telemetry';
+import { recordAndPublish } from '../../services/guardrailEventBus';
 import { scanForSecrets } from './secretScanner';
 import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
@@ -74,7 +75,7 @@ function serializeContextItems(items: ContextItem[], taskId?: string): string {
         // Indirect injection 방어: 외부 콘텐츠를 trust boundary로 감싸고 패턴 스캔
         const { wrapped, findings } = sanitizeExternalContent(item.metadata.fullText, source);
         if (findings.length > 0) {
-          void recordEvent('metric', 'context_injection_detected', {
+          void recordAndPublish('context_injection_detected', {
             source,
             taskId,
             patternCount: findings.length,
@@ -557,7 +558,7 @@ export function useClaudeSession(
       const budgetCheck = checkTokenBudget([resolvedText, contextSummary]);
       if (budgetCheck.overBudget) {
         const warning = formatBudgetWarning(budgetCheck);
-        void recordEvent('metric', 'token_budget_exceeded', {
+        void recordAndPublish('token_budget_exceeded', {
           taskId,
           estimatedTokens: budgetCheck.estimatedTokens,
           limit: budgetCheck.limit,
@@ -633,7 +634,7 @@ export function useClaudeSession(
           if (detectCanaryLeak(content, taskId)) {
             content = maskCanary(content, taskId);
             modified = true;
-            void recordEvent('error', 'canary_leak_detected', { taskId });
+            void recordAndPublish('canary_leak_detected', { taskId });
             sendNotification(
               'Cortx — Prompt Injection 감지',
               'Claude가 내부 canary 토큰을 유출했습니다. 응답이 차단되었습니다.',
@@ -645,7 +646,7 @@ export function useClaudeSession(
           if (scan.found) {
             content = scan.masked;
             modified = true;
-            void recordEvent('metric', 'secret_leak_masked', {
+            void recordAndPublish('secret_leak_masked', {
               taskId,
               types: scan.matches.map((x) => x.type),
               count: scan.matches.length,
