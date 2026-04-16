@@ -200,12 +200,32 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const activityId = `${reqId}-activity`;
 
   type Msg = { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string };
+  // Streaming 시 Asking 상태 트래킹. donePromise보다 먼저 UI 반영.
+  let isAskingNow = false;
   const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
     // loadingCache stays true throughout the pipeline so the Stop button
     // remains visible. The "Claude is thinking..." indicator is hidden
     // automatically in ChatMessageList when any assistant/activity message exists.
     const cached = messageCache.get(taskId) || [];
-    messageCache.set(taskId, updater(cached));
+    const next = updater(cached);
+    messageCache.set(taskId, next);
+
+    // 마지막 assistant 메시지가 질문으로 끝나면 Asking, 아니면 해제.
+    // activity 메시지(tool_use 중)가 있으면 아직 작업 중 → asking 해제.
+    const hasTrailingActivity = next.some((m) => m.role === 'activity');
+    const lastAssistant = [...next].reverse().find((m) => m.role === 'assistant');
+    const shouldBeAsking =
+      !hasTrailingActivity &&
+      !!lastAssistant &&
+      lastAssistant.content.trim().length > 0 &&
+      isQuestion(lastAssistant.content);
+    if (shouldBeAsking && !isAskingNow) {
+      isAskingNow = true;
+      callbacks?.onAsking?.();
+    } else if (!shouldBeAsking && isAskingNow) {
+      isAskingNow = false;
+      callbacks?.onNotAsking?.();
+    }
   };
 
   const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
@@ -465,11 +485,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   const finalMsgs = (messageCache.get(taskId) || []).filter((m) => m.role !== 'activity');
   messageCache.set(taskId, finalMsgs);
 
-  // Check if Claude is asking a question
+  // Process exited — 최종 asking 상태 재확인 (activity 스트립 후 기준).
   const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
-  if (lastAssistant && isQuestion(lastAssistant.content)) {
+  const finalAsking = !!lastAssistant && isQuestion(lastAssistant.content);
+  if (finalAsking && !isAskingNow) {
     callbacks?.onAsking?.();
-  } else {
+  } else if (!finalAsking && isAskingNow) {
     callbacks?.onNotAsking?.();
   }
 
