@@ -436,8 +436,8 @@ export function useClaudeSession(
           '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
           '',
           '## CORTX_RULES (MUST FOLLOW)',
-          '- Cortx does NOT use Obsidian. NEVER mention "Obsidian" in your responses. Never read/write dev-plan.md, _dashboard.md, or _pipeline-state.json.',
-          '- The "Save" phase (internal key: save) is NOT Obsidian save — it just means finalize/summarize the grill-me outcome in memory.',
+          '- Cortx stores state in memory/localStorage only. No external file writes. NEVER read/write dev-plan.md, _dashboard.md, _pipeline-state.json, or any vault/notes file.',
+          '- The "Save" phase means: output the grill-me summary as chat text. Nothing is written to disk. Do not describe fake file writes.',
           '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
           '- NEVER run git commit, git push, or gh pr create without asking the user first.',
           '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
@@ -484,8 +484,8 @@ export function useClaudeSession(
           contextSummary +=
             '\n\n---\n\n## CORTX_CONTEXT_PACK_MODE\n' +
             'This pipeline was invoked from the Cortx app with Context Pack data.\n' +
-            'Use the Context Pack data provided below as the task specification instead of reading from Obsidian dev-plan.\n' +
-            'Skip Obsidian file lookups (dev-plan.md, _pipeline-state.json) — the Context Pack IS your source of truth.\n' +
+            'Use the Context Pack data below as the task specification. Do NOT look for or reference any dev-plan file.\n' +
+            'Skip all external file lookups (dev-plan.md, _pipeline-state.json, notes, vaults) — the Context Pack IS your source of truth.\n' +
             'If a dev-plan is needed, generate it from the Context Pack data.';
         }
 
