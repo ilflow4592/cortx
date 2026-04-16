@@ -20,6 +20,8 @@ import { recordViolation, resetViolations } from './violationTracker';
 import { sanitizeExternalContent } from '../../services/contextSanitizer';
 import { recordEvent } from '../../services/telemetry';
 import { scanForSecrets } from './secretScanner';
+import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
+import { sendNotification } from '../../utils/notification';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -541,6 +543,19 @@ export function useClaudeSession(
           selectedModel = 'claude-sonnet-4-6'; // Implementation: Sonnet (cost-effective)
         }
         // Grill-me, Dev Plan, Review: Opus (default)
+      }
+
+      // Token budget 사전 체크 — 초과 시 경고 (차단 아님)
+      const budgetCheck = checkTokenBudget([resolvedText, contextSummary]);
+      if (budgetCheck.overBudget) {
+        const warning = formatBudgetWarning(budgetCheck);
+        void recordEvent('metric', 'token_budget_exceeded', {
+          taskId,
+          estimatedTokens: budgetCheck.estimatedTokens,
+          limit: budgetCheck.limit,
+        });
+        sendNotification('Cortx — 토큰 한도 초과', warning);
+        setError(`⚠️ ${warning}`);
       }
 
       await invoke('claude_spawn', {

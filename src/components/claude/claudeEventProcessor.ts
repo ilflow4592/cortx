@@ -9,12 +9,16 @@ import type { Dispatch, SetStateAction, MutableRefObject } from 'react';
 import { sessionCache } from '../../utils/chatState';
 import { useTaskStore } from '../../stores/taskStore';
 import { PHASE_KEYS, PHASE_ORDER } from '../../constants/pipeline';
+import { recordEvent } from '../../services/telemetry';
+import { sendNotification } from '../../utils/notification';
+import { scanDangerousCommand, extractBashCommand } from './dangerousCommandGuard';
 import type { Message } from './types';
 
 interface ContentBlock {
   type: string;
   text?: string;
   name?: string;
+  input?: unknown;
 }
 
 interface ClaudeSystemEvent {
@@ -138,11 +142,36 @@ export class ClaudeEventProcessor {
       // 도구 블록 이후의 텍스트는 새 턴으로 분리
       this.currentMsgId = '';
       const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+
+      // 파괴적 명령 감지 — Bash tool_use에 대해 패턴 검사
+      let dangerLabel: string | null = null;
+      for (const block of toolBlocks) {
+        const cmd = extractBashCommand(block.name || '', block.input);
+        if (!cmd) continue;
+        const matches = scanDangerousCommand(cmd);
+        if (matches.length === 0) continue;
+
+        dangerLabel = matches[0].description;
+        void recordEvent('metric', 'dangerous_command_detected', {
+          taskId: this.ctx.taskId,
+          patterns: matches.map((m) => m.pattern),
+          severities: matches.map((m) => m.severity),
+        });
+        // Critical severity만 데스크톱 알림 (high/medium은 telemetry만)
+        if (matches.some((m) => m.severity === 'critical')) {
+          sendNotification(
+            'Cortx — 위험 명령 감지',
+            `Claude가 실행하려는 명령: ${matches[0].description}. 터미널에서 확인하세요.`,
+          );
+        }
+      }
+
+      const displayContent = dangerLabel ? `⚠️ Using ${toolLabel}... (${dangerLabel})` : `Using ${toolLabel}...`;
       this.ctx.setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== this.ctx.activityId);
         return [
           ...filtered,
-          { id: this.ctx.activityId, role: 'activity', content: `Using ${toolLabel}...`, toolName: toolLabel },
+          { id: this.ctx.activityId, role: 'activity', content: displayContent, toolName: toolLabel },
         ];
       });
     }
