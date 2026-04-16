@@ -19,6 +19,8 @@ export interface Settings {
   telemetryEnabled: boolean;
   /** Optional remote endpoint for flushing collected events. Empty = local only. */
   telemetryEndpoint: string;
+  /** Opt-in Verifier LLM for complex rule evaluation (uses Haiku, costs tokens). Default OFF. */
+  verifierLlmEnabled: boolean;
 }
 
 /** Settings + 액션을 합친 스토어 전체 타입 */
@@ -38,6 +40,7 @@ export const SETTINGS_INITIAL_STATE: Settings = {
   language: initialLang,
   telemetryEnabled: false,
   telemetryEndpoint: '',
+  verifierLlmEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -54,6 +57,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
           language: next.language,
           telemetryEnabled: next.telemetryEnabled,
           telemetryEndpoint: next.telemetryEndpoint,
+          verifierLlmEnabled: next.verifierLlmEnabled,
         }),
       );
       return next;

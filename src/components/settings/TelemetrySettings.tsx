@@ -9,6 +9,7 @@ import { AlertTriangle, Trash2, Upload, RefreshCw } from 'lucide-react';
 export function TelemetrySettings() {
   const enabled = useSettingsStore((s) => s.telemetryEnabled);
   const endpoint = useSettingsStore((s) => s.telemetryEndpoint);
+  const verifierLlmEnabled = useSettingsStore((s) => s.verifierLlmEnabled);
   const setSettings = useSettingsStore((s) => s.setSettings);
 
   const [events, setEvents] = useState<TelemetryEvent[]>([]);
@@ -109,6 +110,22 @@ export function TelemetrySettings() {
         </label>
         <div style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 4, marginLeft: 24 }}>
           When enabled, crashes and key actions are recorded locally. Events are viewable below.
+        </div>
+      </div>
+
+      {/* Verifier LLM toggle */}
+      <div className="field" style={{ marginBottom: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={verifierLlmEnabled}
+            onChange={(e) => setSettings({ verifierLlmEnabled: e.target.checked })}
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <span style={{ fontSize: 13, color: 'var(--fg-primary)', fontWeight: 500 }}>Enable Verifier LLM</span>
+        </label>
+        <div style={{ fontSize: 10, color: 'var(--fg-muted)', marginTop: 4, marginLeft: 24 }}>
+          복잡한 규칙(예: 근거 제시 여부) 평가에 소형 Haiku 모델 사용. 호출당 약 1-2K 토큰 비용 발생.
         </div>
       </div>
 

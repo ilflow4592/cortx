@@ -172,9 +172,11 @@ describe('applyCounterQuestionGuard', () => {
       currentQNumber: 1,
     });
     expect(result).not.toBeNull();
-    expect(result).not.toContain('**Q2.**');
-    expect(result).toContain('이 방향으로 진행할까요?');
-    expect(result).toContain('B가 맞다고 봅니다.');
+    expect(result!.correctedText).not.toContain('**Q2.**');
+    expect(result!.correctedText).toContain('이 방향으로 진행할까요?');
+    expect(result!.correctedText).toContain('B가 맞다고 봅니다.');
+    expect(result!.violationType).toBe('premature_q');
+    expect(result!.violationDetail).toBe('**Q2.**');
   });
 
   it('appends confirmation when counter-question but no Q and no confirmation', () => {
@@ -184,8 +186,9 @@ describe('applyCounterQuestionGuard', () => {
       currentQNumber: 1,
     });
     expect(result).not.toBeNull();
-    expect(result).toContain('이유는 이것입니다.');
-    expect(result).toContain('이 방향으로 진행할까요?');
+    expect(result!.correctedText).toContain('이유는 이것입니다.');
+    expect(result!.correctedText).toContain('이 방향으로 진행할까요?');
+    expect(result!.violationType).toBe('missing_confirmation');
   });
 
   it('returns null when counter-question response already has confirmation', () => {

@@ -16,6 +16,7 @@ import {
   applyCounterQuestionGuard,
   extractHighestQNumber,
 } from './counterQuestionGuard';
+import { recordViolation, resetViolations } from './violationTracker';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -273,6 +274,7 @@ export function useClaudeSession(
     sessionCache.delete(taskId);
     claudeSessionIdRef.current = '';
     setLoading(false);
+    resetViolations(taskId);
     // Reset task status to waiting, clear pipeline, and reset timer
     useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
   };
@@ -547,14 +549,22 @@ export function useClaudeSession(
         if (lastAssistant) {
           const prevMsgs = assistantMsgs.slice(0, -1);
           const currentQNumber = prevMsgs.reduce((max, m) => Math.max(max, extractHighestQNumber(m.content)), 0);
-          const corrected = applyCounterQuestionGuard({
+          const guardResult = applyCounterQuestionGuard({
             userText: text,
             responseText: lastAssistant.content,
             currentQNumber,
           });
-          if (corrected) {
+          if (guardResult) {
             const targetId = lastAssistant.id;
-            setMessages((prev) => prev.map((m) => (m.id === targetId ? { ...m, content: corrected } : m)));
+            setMessages((prev) =>
+              prev.map((m) => (m.id === targetId ? { ...m, content: guardResult.correctedText } : m)),
+            );
+            // 위반 기록 + anomaly 감지 (3회 이상 시 UI 알림)
+            recordViolation({
+              taskId,
+              violationType: guardResult.violationType,
+              violationDetail: guardResult.violationDetail,
+            });
           }
         }
       }

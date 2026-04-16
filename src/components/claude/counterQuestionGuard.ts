@@ -142,6 +142,14 @@ export function wrapCounterQuestion(userText: string): string {
 
 // ─── Combined guard (code-level enforcement) ───
 
+export type ViolationType = 'premature_q' | 'missing_confirmation';
+
+export interface GuardResult {
+  correctedText: string;
+  violationType: ViolationType;
+  violationDetail?: string;
+}
+
 export interface CounterQuestionGuardParams {
   userText: string;
   responseText: string;
@@ -149,21 +157,28 @@ export interface CounterQuestionGuardParams {
 }
 
 /**
- * 역질문 응답 검증. 위반 시 교정된 텍스트 반환, 정상이면 null.
+ * 역질문 응답 검증. 위반 시 교정 결과 반환, 정상이면 null.
  * - premature Q번호 → 잘라내고 확인 질문 삽입
  * - Q번호 없지만 확인 문구도 없음 → 확인 질문만 추가
  */
-export function applyCounterQuestionGuard(params: CounterQuestionGuardParams): string | null {
+export function applyCounterQuestionGuard(params: CounterQuestionGuardParams): GuardResult | null {
   if (!isCounterQuestion(params.userText)) return null;
 
   const violation = findViolation(params.responseText, params.currentQNumber);
   if (violation) {
-    return stripPrematureQuestion(params.responseText, violation.position);
+    return {
+      correctedText: stripPrematureQuestion(params.responseText, violation.position),
+      violationType: 'premature_q',
+      violationDetail: violation.qLabel,
+    };
   }
 
   // Q번호 없지만 확인 문구도 없는 경우 → 확인 추가
   if (needsConfirmationAppend(params.responseText)) {
-    return params.responseText.trimEnd() + CONFIRMATION_SUFFIX;
+    return {
+      correctedText: params.responseText.trimEnd() + CONFIRMATION_SUFFIX,
+      violationType: 'missing_confirmation',
+    };
   }
 
   return null;
