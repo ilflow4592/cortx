@@ -36,7 +36,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGQ0QyQ0Q5RTNGMUYyRQpSV1F1SHorZXpkTDhBVkxwRkFtTEtRQzg5bm0wSE1IWEd2cDNMbWk1QVJTU1k1aGs2TXdYclBwMwo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQyODQyMDcyRUVFQ0U4NApSV1NFenU0dUIwSW9CT24xcTQ2UkpoZTQ4WCt2bXB4N2JURTRRd2F0N25ITzgxMWZ2VU1VQ2NpTwo=",
       "endpoints": ["https://github.com/ilflow4592/cortx/releases/latest/download/latest.json"]
     }
   }
