@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useModalStore } from '../../stores/modalStore';
@@ -47,27 +48,28 @@ export function Sidebar() {
 
   const resetSelectedTasks = useResetSelectedTasks();
 
-  // Clear asking state when user has responded (last message is from 'user')
-  if (askingTasks.size > 0) {
-    const runnerStore = usePipelineRunnerStore.getState();
-    [...askingTasks].forEach((id) => {
-      const msgs = messageCache.get(id);
-      if (!msgs || msgs.length === 0 || msgs[msgs.length - 1].role === 'user') {
-        runnerStore.unsetAsking(id);
-      }
-    });
-  }
-
-  // Clear running indicator when pipeline is reset
-  if (runningPipelines.size > 0) {
-    const runnerStore = usePipelineRunnerStore.getState();
-    [...runningPipelines].forEach((id) => {
-      const t = tasks.find((task) => task.id === id);
-      if (!t || !t.pipeline?.enabled || t.status === 'waiting') {
-        runnerStore.setNotRunning(id);
-      }
-    });
-  }
+  // Clear stale asking/running state — render 중 store 업데이트는 React warning을
+  // 발생시키므로 effect로 옮김.
+  useEffect(() => {
+    if (askingTasks.size > 0) {
+      const runnerStore = usePipelineRunnerStore.getState();
+      [...askingTasks].forEach((id) => {
+        const msgs = messageCache.get(id);
+        if (!msgs || msgs.length === 0 || msgs[msgs.length - 1].role === 'user') {
+          runnerStore.unsetAsking(id);
+        }
+      });
+    }
+    if (runningPipelines.size > 0) {
+      const runnerStore = usePipelineRunnerStore.getState();
+      [...runningPipelines].forEach((id) => {
+        const t = tasks.find((task) => task.id === id);
+        if (!t || !t.pipeline?.enabled || t.status === 'waiting') {
+          runnerStore.setNotRunning(id);
+        }
+      });
+    }
+  }, [askingTasks, runningPipelines, tasks]);
 
   const nonDone = tasks.filter((t) => t.status !== 'done');
   const doneList = tasks.filter((t) => t.status === 'done');

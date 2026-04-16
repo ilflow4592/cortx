@@ -69,6 +69,43 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     });
   }
 
+  // Command → phase 즉시 전환. Claude의 마커 emit을 기다리지 않고 앱이 먼저
+  // 선행 phase를 done 처리하고 대응 phase를 in_progress 로 켠다. 사용자가
+  // /pipeline:dev-implement 입력하면 PROGRESS 바에서 즉시 Dev Plan 스피너 돌아감.
+  const phaseByCommand: Record<string, { done: string[]; activate: string }> = {
+    '/pipeline:dev-implement': { done: ['grill_me', 'save'], activate: 'dev_plan' },
+    '/pipeline:dev-review-loop': {
+      done: ['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr'],
+      activate: 'review_loop',
+    },
+    '/pipeline:pr-review-fu': {
+      done: ['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr'],
+      activate: 'review_loop',
+    },
+  };
+  const baseCmd = command.split(/\s+/)[0];
+  const phaseTransition = phaseByCommand[baseCmd];
+  if (phaseTransition) {
+    const t2 = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
+    if (t2?.pipeline?.enabled) {
+      const now = new Date().toISOString();
+      const phases = { ...t2.pipeline.phases };
+      for (const p of phaseTransition.done) {
+        const key = p as keyof typeof phases;
+        if (phases[key] && phases[key].status !== 'done') {
+          phases[key] = { ...phases[key], status: 'done', completedAt: now };
+        }
+      }
+      const activateKey = phaseTransition.activate as keyof typeof phases;
+      phases[activateKey] = {
+        ...(phases[activateKey] || {}),
+        status: 'in_progress',
+        startedAt: now,
+      };
+      useTaskStore.getState().updateTask(taskId, { pipeline: { ...t2.pipeline, phases } });
+    }
+  }
+
   // Add user message + show loading indicator (green dot "Claude is thinking...")
   // Fresh start에서는 messageCache가 비어있고, continuation(/pipeline:dev-implement 등)에서는
   // 이전 대화가 남아있어 새 user msg를 **append** 한다.
