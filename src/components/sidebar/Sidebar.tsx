@@ -4,6 +4,7 @@ import { useModalStore } from '../../stores/modalStore';
 import { ProjectGroup } from './ProjectGroup';
 import { TaskRow } from './TaskRow';
 import { usePipelineRunner } from './usePipelineRunner';
+import { usePipelineRunnerStore } from '../../stores/pipelineRunnerStore';
 import { useSidebarSelection } from './useSidebarSelection';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { SidebarHeader } from './SidebarHeader';
@@ -42,40 +43,30 @@ export function Sidebar() {
     setDeleteProjectTarget,
   } = useSidebarSelection();
 
-  const { runningPipelines, setRunningPipelines, askingTasks, setAskingTasks, runSelectedPipelines, countRunnable } =
-    usePipelineRunner();
+  const { runningPipelines, askingTasks, runSelectedPipelines, countRunnable } = usePipelineRunner();
 
   const resetSelectedTasks = useResetSelectedTasks();
 
   // Clear asking state when user has responded (last message is from 'user')
   if (askingTasks.size > 0) {
-    const toRemove = [...askingTasks].filter((id) => {
+    const runnerStore = usePipelineRunnerStore.getState();
+    [...askingTasks].forEach((id) => {
       const msgs = messageCache.get(id);
-      if (!msgs || msgs.length === 0) return true;
-      return msgs[msgs.length - 1].role === 'user';
+      if (!msgs || msgs.length === 0 || msgs[msgs.length - 1].role === 'user') {
+        runnerStore.unsetAsking(id);
+      }
     });
-    if (toRemove.length > 0) {
-      setAskingTasks((prev) => {
-        const n = new Set(prev);
-        toRemove.forEach((id) => n.delete(id));
-        return n;
-      });
-    }
   }
 
   // Clear running indicator when pipeline is reset
   if (runningPipelines.size > 0) {
-    const toRemove = [...runningPipelines].filter((id) => {
+    const runnerStore = usePipelineRunnerStore.getState();
+    [...runningPipelines].forEach((id) => {
       const t = tasks.find((task) => task.id === id);
-      return !t || !t.pipeline?.enabled || t.status === 'waiting';
+      if (!t || !t.pipeline?.enabled || t.status === 'waiting') {
+        runnerStore.setNotRunning(id);
+      }
     });
-    if (toRemove.length > 0) {
-      setRunningPipelines((prev) => {
-        const n = new Set(prev);
-        toRemove.forEach((id) => n.delete(id));
-        return n;
-      });
-    }
   }
 
   const nonDone = tasks.filter((t) => t.status !== 'done');

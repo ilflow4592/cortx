@@ -17,6 +17,7 @@ import {
   extractHighestQNumber,
 } from './counterQuestionGuard';
 import { recordViolation, resetViolations } from './violationTracker';
+import { usePipelineRunnerStore } from '../../stores/pipelineRunnerStore';
 import { sanitizeExternalContent } from '../../services/contextSanitizer';
 import { recordEvent } from '../../services/telemetry';
 import { recordAndPublish } from '../../services/guardrailEventBus';
@@ -327,7 +328,15 @@ export function useClaudeSession(
     // pipelineExec also sets loadingCache at start and clears it on completion.
     if (text.startsWith('/pipeline:')) {
       setLoading(true);
-      runPipeline(taskId, text);
+      // sidebar와 동일한 running/asking 상태를 공유 — Run Pipeline 버튼 경로와
+      // 채팅 입력 경로가 같은 UI 반응을 보이도록.
+      const runnerStore = usePipelineRunnerStore.getState();
+      runnerStore.setRunning(taskId);
+      runPipeline(taskId, text, {
+        onAsking: () => runnerStore.setAsking(taskId),
+        onNotAsking: () => runnerStore.unsetAsking(taskId),
+        onDone: () => runnerStore.setNotRunning(taskId),
+      });
       return;
     }
 
