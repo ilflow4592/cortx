@@ -29,29 +29,35 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   callbacks?.onRunning?.();
   recordEvent('action', 'pipeline.start', { command, hasProject: !!proj });
 
-  // Clear previous messages and session — fresh start
-  messageCache.delete(taskId);
-  sessionCache.delete(taskId);
+  // /pipeline:dev-task = 새 파이프라인 시작 → 메시지/세션/상태 모두 fresh reset
+  // /pipeline:dev-implement, dev-resume, dev-review-loop, pr-review-fu 등 =
+  //   기존 파이프라인의 다음 단계 → 메시지/세션 유지 (Claude가 --resume으로 이어가도록)
+  const isFreshStart = command === '/pipeline:dev-task' || command.startsWith('/pipeline:dev-task ');
+  if (isFreshStart) {
+    messageCache.delete(taskId);
+    sessionCache.delete(taskId);
+    useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
+  } else {
+    useTaskStore.getState().updateTask(taskId, { status: 'active' as const });
+  }
 
-  // Reset timer + set active
-  useTaskStore.getState().updateTask(taskId, { elapsedSeconds: 0, status: 'active' as const });
-
-  // Initialize pipeline state — 매번 fresh reset. 이전 run이 남긴 상태를 이어받으면
-  // Progress/Phase UI가 잘못 표시되고 markers 전환 로직이 깨짐.
-  useTaskStore.getState().updateTask(taskId, {
-    pipeline: {
-      enabled: true,
-      phases: {
-        grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
-        save: { status: 'pending' },
-        dev_plan: { status: 'pending' },
-        implement: { status: 'pending' },
-        commit_pr: { status: 'pending' },
-        review_loop: { status: 'pending' },
-        done: { status: 'pending' },
+  // Initialize pipeline state.
+  if (isFreshStart || !task.pipeline?.enabled) {
+    useTaskStore.getState().updateTask(taskId, {
+      pipeline: {
+        enabled: true,
+        phases: {
+          grill_me: { status: isFreshStart ? 'in_progress' : 'pending', startedAt: new Date().toISOString() },
+          save: { status: 'pending' },
+          dev_plan: { status: 'pending' },
+          implement: { status: 'pending' },
+          commit_pr: { status: 'pending' },
+          review_loop: { status: 'pending' },
+          done: { status: 'pending' },
+        },
       },
-    },
-  });
+    });
+  }
 
   // Add user message + show loading indicator (green dot "Claude is thinking...")
   const msgs: { id: string; role: 'user' | 'assistant' | 'activity'; content: string; toolName?: string }[] = [];
