@@ -7,9 +7,9 @@
  */
 import { create } from 'zustand';
 
-const MIN_SIDEBAR_WIDTH = 160;
+const MIN_SIDEBAR_WIDTH = 285;
 const MAX_SIDEBAR_WIDTH = 400;
-const DEFAULT_SIDEBAR_WIDTH = 260;
+const DEFAULT_SIDEBAR_WIDTH = 285;
 
 interface LayoutState {
   showSidebar: boolean;

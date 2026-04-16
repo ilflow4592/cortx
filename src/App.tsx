@@ -185,10 +185,10 @@ function MainApp() {
             onKeyDown={(e) => {
               if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                layout.setSidebarWidth(Math.max(180, layout.sidebarWidth - 20));
+                layout.setSidebarWidth(Math.max(285, layout.sidebarWidth - 20));
               } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                layout.setSidebarWidth(Math.min(600, layout.sidebarWidth + 20));
+                layout.setSidebarWidth(Math.min(400, layout.sidebarWidth + 20));
               }
             }}
             style={{

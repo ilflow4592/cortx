@@ -7,21 +7,21 @@ describe('useLayoutStore', () => {
   });
 
   describe('setSidebarWidth clamps', () => {
-    it('clamps below minimum (160)', () => {
+    it('clamps below minimum (285)', () => {
       useLayoutStore.getState().setSidebarWidth(50);
-      expect(useLayoutStore.getState().sidebarWidth).toBe(160);
+      expect(useLayoutStore.getState().sidebarWidth).toBe(285);
     });
     it('clamps above maximum (400)', () => {
       useLayoutStore.getState().setSidebarWidth(999);
       expect(useLayoutStore.getState().sidebarWidth).toBe(400);
     });
     it('preserves values in range', () => {
-      useLayoutStore.getState().setSidebarWidth(300);
-      expect(useLayoutStore.getState().sidebarWidth).toBe(300);
+      useLayoutStore.getState().setSidebarWidth(350);
+      expect(useLayoutStore.getState().sidebarWidth).toBe(350);
     });
     it('accepts exact min/max', () => {
-      useLayoutStore.getState().setSidebarWidth(160);
-      expect(useLayoutStore.getState().sidebarWidth).toBe(160);
+      useLayoutStore.getState().setSidebarWidth(285);
+      expect(useLayoutStore.getState().sidebarWidth).toBe(285);
       useLayoutStore.getState().setSidebarWidth(400);
       expect(useLayoutStore.getState().sidebarWidth).toBe(400);
     });

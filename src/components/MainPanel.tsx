@@ -40,6 +40,8 @@ export function MainPanel() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorFile, setEditorFile] = useState<{ path: string; content: string; original?: string } | null>(null);
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
+  const RIGHT_PANEL_MIN = 300;
+  const RIGHT_PANEL_MAX = 700;
   const [claudeResetKey, setClaudeResetKey] = useState(0);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
@@ -163,7 +165,9 @@ export function MainPanel() {
 
       <div
         className="content-split"
-        style={{ gridTemplateColumns: showRightPanel ? `1fr ${rightPanelWidth}px` : '1fr' }}
+        style={{
+          gridTemplateColumns: showRightPanel ? `minmax(350px, 1fr) ${rightPanelWidth}px` : 'minmax(350px, 1fr)',
+        }}
       >
         <div className="chat">
           <div style={{ display: activeTab === 'claude' ? 'contents' : 'none' }}>
@@ -230,16 +234,16 @@ export function MainPanel() {
               aria-label="Resize right panel"
               aria-orientation="vertical"
               aria-valuenow={rightPanelWidth}
-              aria-valuemin={250}
-              aria-valuemax={700}
+              aria-valuemin={RIGHT_PANEL_MIN}
+              aria-valuemax={RIGHT_PANEL_MAX}
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowLeft') {
                   e.preventDefault();
-                  setRightPanelWidth(Math.min(700, rightPanelWidth + 20));
+                  setRightPanelWidth(Math.min(RIGHT_PANEL_MAX, rightPanelWidth + 20));
                 } else if (e.key === 'ArrowRight') {
                   e.preventDefault();
-                  setRightPanelWidth(Math.max(250, rightPanelWidth - 20));
+                  setRightPanelWidth(Math.max(RIGHT_PANEL_MIN, rightPanelWidth - 20));
                 }
               }}
               onMouseDown={(e) => {
@@ -247,7 +251,7 @@ export function MainPanel() {
                 const startWidth = rightPanelWidth;
                 const onMove = (ev: MouseEvent) => {
                   const delta = startX - ev.clientX;
-                  setRightPanelWidth(Math.max(250, Math.min(700, startWidth + delta)));
+                  setRightPanelWidth(Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, startWidth + delta)));
                 };
                 const onUp = () => {
                   document.removeEventListener('mousemove', onMove);
