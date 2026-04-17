@@ -189,7 +189,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       elapsedSeconds: t.elapsedSeconds || 0,
       chatHistory: Array.isArray(t.chatHistory) ? t.chatHistory : [],
       interrupts: Array.isArray(t.interrupts) ? t.interrupts : [],
-      pipeline: t.pipeline || undefined,
+      // pipeline 마이그레이션: pipelineMode 누락 시 'builtin' 으로 간주 (기존 task 호환).
+      // activeCustomPipeline 은 undefined 유지 (커스텀 모드 켜질 때만 초기화).
+      pipeline: t.pipeline
+        ? { ...t.pipeline, pipelineMode: t.pipeline.pipelineMode || ('builtin' as const) }
+        : undefined,
       createdAt: t.createdAt || new Date().toISOString(),
       updatedAt: t.updatedAt || new Date().toISOString(),
     }));

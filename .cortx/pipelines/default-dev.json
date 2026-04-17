@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "default-dev",
+  "name": "개발 (기본)",
+  "description": "Cortx 내장 7단계 파이프라인을 커스텀 형식으로 복사한 기본 템플릿. 'Duplicate' 로 복사 후 자유롭게 편집하세요.",
+  "source": "project",
+  "createdAt": "2026-04-17T22:00:00Z",
+  "updatedAt": "2026-04-17T22:00:00Z",
+  "phases": [
+    {
+      "id": "grill_me",
+      "label": "Grill-me",
+      "skills": [{ "kind": "builtin", "id": "pipeline:dev-task" }],
+      "model": "Opus",
+      "effort": "medium",
+      "permissionMode": "bypassPermissions"
+    },
+    {
+      "id": "dev_plan",
+      "label": "Dev Plan",
+      "skills": [{ "kind": "builtin", "id": "pipeline:dev-implement" }],
+      "model": "Sonnet",
+      "effort": "medium",
+      "permissionMode": "plan"
+    },
+    {
+      "id": "implement",
+      "label": "Implement",
+      "skills": [{ "kind": "builtin", "id": "pipeline:dev-implement" }],
+      "model": "Sonnet",
+      "effort": "medium",
+      "permissionMode": "bypassPermissions",
+      "auto": true
+    },
+    {
+      "id": "commit_pr",
+      "label": "PR",
+      "skills": [
+        { "kind": "builtin", "id": "git:commit" },
+        { "kind": "builtin", "id": "git:pr" }
+      ],
+      "model": "Sonnet",
+      "effort": "medium",
+      "permissionMode": "bypassPermissions"
+    },
+    {
+      "id": "review_loop",
+      "label": "Review",
+      "skills": [{ "kind": "builtin", "id": "pipeline:dev-review-loop" }],
+      "model": "Sonnet",
+      "effort": "medium",
+      "permissionMode": "bypassPermissions"
+    }
+  ]
+}
