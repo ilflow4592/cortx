@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { ArrowLeft } from 'lucide-react';
+import { resolveThemeColors } from '../utils/monacoTheme';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -213,7 +214,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
                 // Regex
                 { token: 'regexp', foreground: '6a8759' },
               ],
-              colors: {
+              colors: resolveThemeColors({
                 'editor.background': 'var(--bg-app)',
                 'editor.foreground': 'var(--fg-secondary)',
                 'editorLineNumber.foreground': 'var(--fg-dim)',
@@ -223,7 +224,7 @@ export function CodeEditor({ filePath, content, readOnly = false, onBack, cwd }:
                 'editor.selectionBackground': 'var(--accent-bg)',
                 'editorCursor.foreground': 'var(--accent)',
                 'editorIndentGuide.background': 'var(--border-strong)',
-              },
+              }),
             });
           }}
         />

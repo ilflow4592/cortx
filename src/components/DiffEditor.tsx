@@ -1,5 +1,6 @@
 import { DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
 import { ArrowLeft } from 'lucide-react';
+import { resolveThemeColors } from '../utils/monacoTheme';
 
 const EXT_LANG: Record<string, string> = {
   java: 'java',
@@ -119,7 +120,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
                 { token: 'delimiter', foreground: 'a9b7c6' },
                 { token: 'constant', foreground: '9876aa' },
               ],
-              colors: {
+              colors: resolveThemeColors({
                 'editor.background': 'var(--bg-app)',
                 'editor.foreground': 'var(--fg-secondary)',
                 'editorLineNumber.foreground': 'var(--fg-dim)',
@@ -134,7 +135,7 @@ export function DiffEditorView({ filePath, original, modified, onBack, cwd }: Pr
                 'diffEditorGutter.removedLineBackground': '#3b1a1f',
                 'diffEditor.insertedLineBackground': '#1e3326',
                 'diffEditor.removedLineBackground': '#3b1a1f',
-              },
+              }),
             });
           }}
         />

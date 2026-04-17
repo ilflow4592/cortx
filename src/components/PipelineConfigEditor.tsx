@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { type OnMount } from '@monaco-editor/react';
 import { invalidatePipelineConfig } from '../services/pipelineConfig';
+import { resolveThemeColors } from '../utils/monacoTheme';
 import { type PipelineConfigEditorProps, TEMPLATE, validateJson } from './pipeline-config/types';
 import { readPipelineConfig, writePipelineConfig } from './pipeline-config/api';
 import { YamlEditor } from './pipeline-config/YamlEditor';
@@ -68,14 +69,14 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Pipe
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {
+      colors: resolveThemeColors({
         'editor.background': 'var(--bg-surface)',
         'editor.foreground': 'var(--fg-secondary)',
         'editorLineNumber.foreground': 'var(--fg-dim)',
         'editorCursor.foreground': 'var(--accent-bright)',
         'editor.selectionBackground': 'var(--border-strong)',
         'editor.lineHighlightBackground': 'var(--bg-surface-hover)',
-      },
+      }),
     });
     monaco.editor.setTheme('cortx-dark');
   };

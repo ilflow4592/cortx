@@ -1,5 +1,6 @@
 import Editor from '@monaco-editor/react';
 import { getLanguageFromPath } from './lang';
+import { resolveThemeColors } from '../../utils/monacoTheme';
 
 interface FileEditorProps {
   filePath: string;
@@ -47,7 +48,7 @@ export function FileEditor({ filePath, content }: FileEditorProps) {
                 { token: 'operator', foreground: 'a9b7c6' },
                 { token: 'constant', foreground: '9876aa' },
               ],
-              colors: {
+              colors: resolveThemeColors({
                 'editor.background': 'var(--bg-app)',
                 'editor.foreground': 'var(--fg-secondary)',
                 'editorLineNumber.foreground': 'var(--fg-dim)',
@@ -57,7 +58,7 @@ export function FileEditor({ filePath, content }: FileEditorProps) {
                 'editor.selectionBackground': 'var(--accent-bg)',
                 'editorCursor.foreground': 'var(--accent)',
                 'editorIndentGuide.background': 'var(--border-strong)',
-              },
+              }),
             });
           }
         }}

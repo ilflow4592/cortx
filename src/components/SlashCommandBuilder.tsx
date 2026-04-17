@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { Plus, Save, RotateCw, AlertCircle, Slash, FileCode } from 'lucide-react';
+import { resolveThemeColors } from '../utils/monacoTheme';
 import {
   listSlashCommands,
   readSlashCommand,
@@ -136,14 +137,14 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {
+      colors: resolveThemeColors({
         'editor.background': 'var(--bg-surface)',
         'editor.foreground': 'var(--fg-secondary)',
         'editorLineNumber.foreground': 'var(--fg-dim)',
         'editorCursor.foreground': 'var(--accent-bright)',
         'editor.selectionBackground': 'var(--border-strong)',
         'editor.lineHighlightBackground': 'var(--bg-surface-hover)',
-      },
+      }),
     });
     monaco.editor.setTheme('cortx-dark');
   };
