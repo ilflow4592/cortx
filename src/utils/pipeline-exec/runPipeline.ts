@@ -558,6 +558,19 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     contextFileCount: contextFiles.length,
   });
 
+  // Diagnostic — helps debug "dev-implement stuck" issues by logging session
+  // resume state and cwd at spawn time. Remove once the chat-vs-button parity
+  // issue is confirmed fixed.
+  console.log('[runPipeline] spawn', {
+    taskId,
+    command,
+    isFreshStart,
+    cwd,
+    resumeSessionId: resumeSessionId || '(none)',
+    messageCacheLength: (messageCache.get(taskId) || []).length,
+    contextSummaryLength: contextSummary.length,
+  });
+
   await invoke('claude_spawn', {
     id: reqId,
     cwd: cwd || '/',
