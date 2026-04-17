@@ -130,6 +130,7 @@ export function RightPanel({
               cwd={cwd}
               onResetClick={() => setShowResetModal(true)}
               config={pipelineConfig}
+              taskId={task?.id ?? ''}
             />
           )}
           {lowerTab === 'worktree' && <WorktreeTab task={task} taskProject={taskProject} />}

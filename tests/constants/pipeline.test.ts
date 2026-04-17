@@ -31,8 +31,15 @@ describe('pipeline constants', () => {
     expect(PHASE_MODELS.implement).toBe('Sonnet');
   });
 
-  it('grill_me and dev_plan use Opus', () => {
+  it('grill_me/save use Opus (대화·요약 품질)', () => {
     expect(PHASE_MODELS.grill_me).toBe('Opus');
-    expect(PHASE_MODELS.dev_plan).toBe('Opus');
+    expect(PHASE_MODELS.save).toBe('Opus');
+  });
+
+  it('dev_plan / implement / commit_pr / review_loop use Sonnet', () => {
+    expect(PHASE_MODELS.dev_plan).toBe('Sonnet');
+    expect(PHASE_MODELS.implement).toBe('Sonnet');
+    expect(PHASE_MODELS.commit_pr).toBe('Sonnet');
+    expect(PHASE_MODELS.review_loop).toBe('Sonnet');
   });
 });
