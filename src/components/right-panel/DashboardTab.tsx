@@ -102,10 +102,26 @@ export function DashboardTab({
       <div
         style={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           padding: '4px 8px 0',
+          gap: 6,
         }}
       >
+        <span
+          style={{
+            fontSize: 9,
+            padding: '2px 6px',
+            borderRadius: 3,
+            fontWeight: 500,
+            color: isCustomMode ? 'var(--accent-bright)' : 'var(--fg-dim)',
+            background: isCustomMode ? 'var(--accent-bg)' : 'var(--bg-chip)',
+            border: `1px solid ${isCustomMode ? 'var(--accent-bg)' : 'var(--border-muted)'}`,
+          }}
+          title={isCustomMode ? '커스텀 파이프라인 실행 중/완료' : '내장 파이프라인 (grill-me → ... → done)'}
+        >
+          {isCustomMode ? '⚡ Custom Pipeline' : '📦 Built-in Pipeline'}
+        </span>
         <button
           onClick={() => setShowBuilder(true)}
           style={{
@@ -120,9 +136,13 @@ export function DashboardTab({
             alignItems: 'center',
             gap: 3,
           }}
-          title="Edit or pick a custom pipeline"
+          title={
+            isCustomMode
+              ? '현재 커스텀 파이프라인 편집/실행'
+              : '커스텀 파이프라인으로 전환 (빨간 ■ 로 현재 중단 후 사용 권장)'
+          }
         >
-          <Settings size={10} /> {isCustomMode ? 'Edit' : 'Customize'}
+          <Settings size={10} /> {isCustomMode ? 'Edit' : 'Customize / Switch'}
         </button>
       </div>
       {isCustomMode ? (

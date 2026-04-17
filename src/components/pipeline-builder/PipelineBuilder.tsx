@@ -293,21 +293,25 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
       setStatus(dirty ? '먼저 저장하세요 (Ctrl+S)' : 'No pipeline loaded');
       return;
     }
-    onClose();
-    const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-    if (!task?.pipeline) {
-      useTaskStore.getState().updateTask(taskId, {
-        pipeline: {
-          enabled: true,
-          phases: {} as never, // builtin phases 는 unused. activeCustomPipeline 이 실제 상태
-          pipelineMode: 'custom',
-        },
-      });
-    } else {
-      useTaskStore.getState().updateTask(taskId, {
-        pipeline: { ...task.pipeline, enabled: true, pipelineMode: 'custom' },
-      });
+    // 이전에 돌고 있던 Claude 프로세스(내장 파이프라인 등) 가 있으면 먼저 kill.
+    // 같은 taskId 로 새 spawn 을 시도하면 UI 가 잠금 + 이전 이벤트와 충돌.
+    try {
+      const mod = await import('@tauri-apps/api/core');
+      await mod.invoke('claude_stop_task', { taskId });
+    } catch {
+      /* 진행 중 없음 — 정상 */
     }
+    onClose();
+    // 태스크 파이프라인 상태 재초기화 — 내장 phase 흔적 제거, 커스텀 모드 활성화.
+    // activeCustomPipeline 은 runCustomPipeline 내부 initState 에서 세팅됨.
+    useTaskStore.getState().updateTask(taskId, {
+      pipeline: {
+        enabled: true,
+        phases: {} as never,
+        pipelineMode: 'custom',
+        activeCustomPipeline: undefined,
+      },
+    });
     await runCustomPipeline(taskId, { id: cfg.id, source: cfg.source });
   };
 
