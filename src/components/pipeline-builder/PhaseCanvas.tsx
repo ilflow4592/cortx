@@ -1,5 +1,5 @@
 /** 중앙 캔버스 — phase 노드 세로 나열, 스킬 드래그 드롭, phase 간 재정렬. */
-import { useState } from 'react';
+import { useRef } from 'react';
 import { PhaseNode } from './PhaseNode';
 import { DND_SKILL_MIME, DND_PHASE_MIME } from './dragTypes';
 import type { CustomPhase, CustomPipelineConfig, CustomSkillRef } from '../../types/customPipeline';
@@ -35,23 +35,52 @@ export function PhaseCanvas({
   onCreateWithSkill,
   disabled,
 }: Props) {
-  const [trailingHover, setTrailingHover] = useState(false);
-  const [emptyHover, setEmptyHover] = useState(false);
+  // 드롭 존 호버 피드백은 ref 로 DOM 직접 조작.
+  // 이유: onDragOver 가 연속 발화할 때 setState → React 리렌더가 drop event 자체를
+  // 무효화하는 WebKit 버그를 우회.
+  const emptyRef = useRef<HTMLDivElement>(null);
+  const setEmptyHoverDOM = (on: boolean) => {
+    const el = emptyRef.current;
+    if (!el) return;
+    el.style.borderColor = on ? 'var(--green, #34d399)' : 'var(--border-strong)';
+    el.style.background = on ? 'rgba(52,211,153,0.06)' : 'transparent';
+    el.style.color = on ? 'var(--green, #34d399)' : 'var(--fg-dim)';
+  };
+  const trailingRef = useRef<HTMLDivElement>(null);
+  const setTrailingHoverDOM = (on: boolean) => {
+    const el = trailingRef.current;
+    if (!el) return;
+    el.style.borderColor = on ? 'var(--green, #34d399)' : 'var(--border-strong)';
+    el.style.background = on ? 'rgba(52,211,153,0.03)' : 'transparent';
+    el.style.color = on ? 'var(--green, #34d399)' : 'var(--fg-dim)';
+  };
 
   if (!cfg) {
     // 빈 상태 — 스킬을 여기로 드롭하면 새 파이프라인 자동 생성
     return (
       <div
+        ref={emptyRef}
+        onDragEnter={(e) => {
+          if (disabled) return;
+          e.preventDefault();
+          setEmptyHoverDOM(true);
+        }}
         onDragOver={(e) => {
           if (disabled) return;
           e.preventDefault();
+          e.stopPropagation();
           e.dataTransfer.dropEffect = 'copy';
-          setEmptyHover(true);
+          // setState 하지 않음 — ref 로만 시각 피드백
         }}
-        onDragLeave={() => setEmptyHover(false)}
+        onDragLeave={(e) => {
+          // 자식 요소 간 이동 시 dragleave 가 튀는 것을 방지
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setEmptyHoverDOM(false);
+        }}
         onDrop={(e) => {
           e.preventDefault();
-          setEmptyHover(false);
+          e.stopPropagation();
+          setEmptyHoverDOM(false);
           if (disabled) return;
           const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
           if (!raw) return;
@@ -72,9 +101,9 @@ export function PhaseCanvas({
           height: '100%',
           padding: 40,
           gap: 12,
-          color: emptyHover ? 'var(--green, #34d399)' : 'var(--fg-dim)',
-          background: emptyHover ? 'rgba(52,211,153,0.03)' : 'transparent',
-          border: `3px dashed ${emptyHover ? 'var(--green, #34d399)' : 'var(--border-strong)'}`,
+          color: 'var(--fg-dim)',
+          background: 'transparent',
+          border: `3px dashed var(--border-strong)`,
           borderRadius: 12,
           margin: 24,
           transition: 'all 0.15s',
@@ -116,13 +145,16 @@ export function PhaseCanvas({
 
   const onTrailingDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setTrailingHover(false);
+    e.stopPropagation();
+    setTrailingHoverDOM(false);
     if (disabled) return;
     const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
     if (!raw) return;
     try {
       const ref = JSON.parse(raw) as CustomSkillRef;
-      appendPhaseFromSkill(ref);
+      if (ref && typeof ref === 'object' && 'kind' in ref) {
+        appendPhaseFromSkill(ref);
+      }
     } catch {
       // ignore — text/plain 페이로드가 JSON 이 아닌 일반 드래그일 수 있음
     }
@@ -162,28 +194,35 @@ export function PhaseCanvas({
           </div>
         ))}
 
-        {/* Trailing drop zone — skill 드롭 시 새 phase 자동 생성 */}
+        {/* Trailing drop zone — skill 드롭 시 새 phase 자동 생성. ref 기반 호버 (drop 안정성) */}
         <div
-          onDragOver={(e) => {
-            // WebKit 은 dragover 중 custom MIME 을 types 에 노출하지 않음 — type 체크 없이 항상 허용.
-            // drop 핸들러가 getData 결과로 최종 판정.
+          ref={trailingRef}
+          onDragEnter={(e) => {
             if (disabled) return;
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-            setTrailingHover(true);
+            setTrailingHoverDOM(true);
           }}
-          onDragLeave={() => setTrailingHover(false)}
+          onDragOver={(e) => {
+            if (disabled) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setTrailingHoverDOM(false);
+          }}
           onDrop={onTrailingDrop}
           style={{
             marginTop: 10,
             padding: 14,
-            border: `2px dashed ${trailingHover ? 'var(--green, #34d399)' : 'var(--border-strong)'}`,
+            border: `2px dashed var(--border-strong)`,
             borderRadius: 6,
             textAlign: 'center',
-            color: trailingHover ? 'var(--green, #34d399)' : 'var(--fg-dim)',
+            color: 'var(--fg-dim)',
             fontSize: 10,
             fontStyle: 'italic',
-            background: trailingHover ? 'rgba(52,211,153,0.03)' : 'transparent',
+            background: 'transparent',
           }}
         >
           {disabled ? 'read-only' : '⊕  Drop a skill here to create a new phase'}

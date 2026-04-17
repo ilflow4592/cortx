@@ -1,5 +1,5 @@
 /** Phase 1개 시각화 — skill stack 드래그앤드랍. */
-import { useState } from 'react';
+import { useRef } from 'react';
 import { X, GripVertical } from 'lucide-react';
 import type { CustomPhase, CustomSkillRef } from '../../types/customPipeline';
 import { DND_SKILL_MIME, DND_STACKED_SKILL_MIME, DND_PHASE_MIME } from './dragTypes';
@@ -39,12 +39,29 @@ function skillColor(ref: CustomSkillRef): string {
 }
 
 export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange, onReorder, onRemove }: Props) {
-  const [dropHover, setDropHover] = useState(false);
-  const [phaseDropHover, setPhaseDropHover] = useState(false);
+  // 호버 피드백은 ref 로 직접 DOM 조작 — React 리렌더가 drop event 를 무효화하는
+  // WebKit 버그 회피
+  const stackRef = useRef<HTMLDivElement>(null);
+  const phaseRef = useRef<HTMLDivElement>(null);
+
+  const setStackHover = (on: boolean) => {
+    const el = stackRef.current;
+    if (!el) return;
+    el.style.border = on ? '2px dashed var(--green, #34d399)' : '2px dashed transparent';
+    el.style.background = on ? 'rgba(52,211,153,0.03)' : 'transparent';
+  };
+
+  const setPhaseHover = (on: boolean) => {
+    const el = phaseRef.current;
+    if (!el) return;
+    const baseColor = selected ? 'var(--accent)' : 'var(--border-muted)';
+    el.style.borderColor = on ? 'var(--green, #34d399)' : baseColor;
+  };
 
   const onStackDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setDropHover(false);
+    e.stopPropagation();
+    setStackHover(false);
     if (disabled) return;
     const skillRaw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
     if (skillRaw) {
@@ -79,6 +96,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
 
   return (
     <div
+      ref={phaseRef}
       draggable={!disabled}
       onDragStart={(e) => {
         if (disabled) return;
@@ -86,17 +104,24 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
         e.dataTransfer.setData('text/plain', `phase:${phase.id}`);
         e.dataTransfer.effectAllowed = 'move';
       }}
+      onDragEnter={(e) => {
+        if (disabled) return;
+        if (!e.dataTransfer.types.includes(DND_PHASE_MIME)) return;
+        e.preventDefault();
+        setPhaseHover(true);
+      }}
       onDragOver={(e) => {
-        // WebKit dragover 제약 — 항상 preventDefault 하고 drop 에서 최종 판정.
         if (disabled) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        setPhaseDropHover(true);
       }}
-      onDragLeave={() => setPhaseDropHover(false)}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setPhaseHover(false);
+      }}
       onDrop={(e) => {
+        setPhaseHover(false);
         const fromId = e.dataTransfer.getData(DND_PHASE_MIME);
-        setPhaseDropHover(false);
         if (fromId && fromId !== phase.id) {
           e.preventDefault();
           e.stopPropagation();
@@ -105,9 +130,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
       }}
       style={{
         background: 'var(--bg-surface)',
-        border: `1px solid ${
-          phaseDropHover ? 'var(--green, #34d399)' : selected ? 'var(--accent)' : 'var(--border-muted)'
-        }`,
+        border: `1px solid ${selected ? 'var(--accent)' : 'var(--border-muted)'}`,
         borderRadius: 6,
         marginBottom: 4,
       }}
@@ -199,30 +222,34 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
         </button>
       </div>
 
-      {/* Skill stack */}
+      {/* Skill stack — ref 기반 호버 피드백 (drop 안정성) */}
       <div
+        ref={stackRef}
+        onDragEnter={(e) => {
+          if (disabled) return;
+          e.preventDefault();
+          setStackHover(true);
+        }}
         onDragOver={(e) => {
-          // WebKit dragover 제약 — type 체크 없이 항상 허용, drop 에서 구분.
           if (disabled) return;
           e.preventDefault();
           e.stopPropagation();
           e.dataTransfer.dropEffect = 'copy';
-          setDropHover(true);
         }}
-        onDragLeave={() => setDropHover(false)}
-        onDrop={(e) => {
-          e.stopPropagation();
-          onStackDrop(e);
+        onDragLeave={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setStackHover(false);
         }}
+        onDrop={onStackDrop}
         style={{
           padding: phase.skills.length === 0 ? 0 : '6px 10px 8px',
           minHeight: 36,
           display: 'flex',
           flexDirection: 'column',
           gap: 3,
-          border: dropHover ? '2px dashed var(--green, #34d399)' : '2px dashed transparent',
+          border: '2px dashed transparent',
           borderRadius: 4,
-          background: dropHover ? 'rgba(52,211,153,0.03)' : 'transparent',
+          background: 'transparent',
         }}
       >
         {phase.skills.length === 0 ? (
