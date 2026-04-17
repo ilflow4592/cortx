@@ -8,7 +8,7 @@
  *
  * 프로젝트 우선 머지 정책은 Rust `list_custom_pipelines` 에서 처리.
  */
-import type { CustomPipelineConfig, CustomPipelineMeta } from '../types/customPipeline';
+import type { CustomPipelineConfig, CustomPipelineMeta, PipelineSource } from '../types/customPipeline';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -45,7 +45,7 @@ export function invalidateList(cwd: string | undefined): void {
  */
 export async function readCustomPipeline(
   id: string,
-  source: 'user' | 'project',
+  source: PipelineSource,
   cwd: string | undefined,
 ): Promise<CustomPipelineConfig> {
   const raw = await invoke<string>('read_custom_pipeline', {
@@ -55,6 +55,7 @@ export async function readCustomPipeline(
   });
   const parsed = JSON.parse(raw) as CustomPipelineConfig;
   // source 필드는 런타임 결정 — 파일에 저장된 값이 있어도 현재 로딩 경로로 덮어씀
+  // (builtin 도 원본 JSON 에는 source:"project" 로 적혀있을 수 있으니 덮어쓰기)
   parsed.source = source;
   return parsed;
 }
@@ -71,18 +72,14 @@ export async function writeCustomPipeline(config: CustomPipelineConfig, cwd: str
   invalidateList(cwd);
 }
 
-export async function deleteCustomPipeline(
-  id: string,
-  source: 'user' | 'project',
-  cwd: string | undefined,
-): Promise<void> {
+export async function deleteCustomPipeline(id: string, source: PipelineSource, cwd: string | undefined): Promise<void> {
   await invoke<void>('delete_custom_pipeline', { id, source, projectCwd: cwd });
   invalidateList(cwd);
 }
 
 export async function exportCustomPipeline(
   id: string,
-  source: 'user' | 'project',
+  source: PipelineSource,
   destPath: string,
   cwd: string | undefined,
 ): Promise<void> {
@@ -96,7 +93,7 @@ export async function exportCustomPipeline(
 
 export async function importCustomPipeline(
   srcPath: string,
-  source: 'user' | 'project',
+  source: PipelineSource,
   cwd: string | undefined,
 ): Promise<CustomPipelineMeta> {
   const meta = await invoke<CustomPipelineMeta>('import_custom_pipeline', {
@@ -114,10 +111,10 @@ export async function importCustomPipeline(
  */
 export async function duplicateCustomPipeline(
   srcId: string,
-  srcSource: 'user' | 'project',
+  srcSource: PipelineSource,
   newId: string,
   newName: string,
-  targetSource: 'user' | 'project' = 'project',
+  targetSource: 'user' | 'project' = 'project', // builtin 은 쓰기 불가
   cwd: string | undefined = undefined,
 ): Promise<void> {
   const original = await readCustomPipeline(srcId, srcSource, cwd);

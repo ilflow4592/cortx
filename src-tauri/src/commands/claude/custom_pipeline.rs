@@ -117,23 +117,46 @@ fn scan_pipelines(source: &str, dir: &std::path::Path, out: &mut Vec<CustomPipel
     }
 }
 
-/// project 우선 머지. 동일 id 가 양쪽에 있으면 project 가 user 를 가린다.
+/// 우선순위: project > user > builtin. 동일 id 는 상위 레이어가 하위를 가린다.
+/// builtin 은 Cortx 바이너리 embed — 어느 cwd 에서든 항상 노출 (템플릿 용).
 #[tauri::command]
 pub fn list_custom_pipelines(project_cwd: Option<String>) -> Vec<CustomPipelineMeta> {
     let mut all: Vec<CustomPipelineMeta> = Vec::new();
 
+    // 1) builtin 템플릿 (embed)
+    for b in super::builtin_pipelines::BUILTIN_PIPELINES {
+        all.push(CustomPipelineMeta {
+            id: b.id.to_string(),
+            name: b.name.to_string(),
+            description: Some(b.description.to_string()),
+            source: "builtin".to_string(),
+            phase_count: b.phase_count,
+            updated_at: String::new(),
+        });
+    }
+
+    // 2) user (~/.cortx/pipelines)
     if let Some(home) = std::env::var_os("HOME") {
         let user_dir = std::path::Path::new(&home).join(".cortx").join("pipelines");
-        scan_pipelines("user", &user_dir, &mut all);
+        let mut user: Vec<CustomPipelineMeta> = Vec::new();
+        scan_pipelines("user", &user_dir, &mut user);
+        let user_ids: std::collections::HashSet<String> =
+            user.iter().map(|p| p.id.clone()).collect();
+        // user 가 builtin 가림
+        all.retain(|p| p.source != "builtin" || !user_ids.contains(&p.id));
+        all.extend(user);
     }
+
+    // 3) project (<cwd>/.cortx/pipelines) — 최상위 우선
     if let Some(cwd) = project_cwd.as_deref() {
         let proj_dir = std::path::Path::new(cwd).join(".cortx").join("pipelines");
         let mut proj: Vec<CustomPipelineMeta> = Vec::new();
         scan_pipelines("project", &proj_dir, &mut proj);
-        // project 우선: 동일 id 가 user 에 있으면 제거
         let proj_ids: std::collections::HashSet<String> =
             proj.iter().map(|p| p.id.clone()).collect();
-        all.retain(|p| p.source != "user" || !proj_ids.contains(&p.id));
+        all.retain(|p| {
+            (p.source == "project") || !proj_ids.contains(&p.id)
+        });
         all.extend(proj);
     }
 
@@ -146,6 +169,12 @@ pub fn read_custom_pipeline(
     source: String,
     project_cwd: Option<String>,
 ) -> Result<String, String> {
+    // builtin 은 embed 된 본문 반환 — 파일 경로 없음
+    if source == "builtin" {
+        return super::builtin_pipelines::get_builtin_pipeline(&id)
+            .map(|s| s.to_string())
+            .ok_or_else(|| format!("Builtin pipeline not found: {}", id));
+    }
     let path = resolve_pipeline_path(&id, &source, project_cwd.as_deref())?;
     std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))
 }
@@ -157,6 +186,9 @@ pub fn write_custom_pipeline(
     content: String,
     project_cwd: Option<String>,
 ) -> Result<(), String> {
+    if source == "builtin" {
+        return Err("builtin 템플릿은 편집 불가 — Duplicate 로 project 복사본을 만드세요".into());
+    }
     let path = resolve_pipeline_path(&id, &source, project_cwd.as_deref())?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("Mkdir failed: {}", e))?;
@@ -170,6 +202,9 @@ pub fn delete_custom_pipeline(
     source: String,
     project_cwd: Option<String>,
 ) -> Result<(), String> {
+    if source == "builtin" {
+        return Err("builtin 템플릿은 삭제 불가".into());
+    }
     let path = resolve_pipeline_path(&id, &source, project_cwd.as_deref())?;
     if !path.exists() {
         return Err(format!("File not found: {}", path.display()));

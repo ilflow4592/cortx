@@ -163,6 +163,7 @@ export function PhaseCanvas({
   return (
     <div
       style={{
+        flex: 1,
         overflowY: 'auto',
         padding: 20,
         background: 'radial-gradient(circle at 20% 20%, rgba(59,130,246,0.04), transparent 50%), var(--bg-app)',

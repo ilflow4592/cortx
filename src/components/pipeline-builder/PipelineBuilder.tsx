@@ -67,13 +67,15 @@ function createEmptyConfig(id: string, name: string): CustomPipelineConfig {
 export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   const [pipelines, setPipelines] = useState<CustomPipelineMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeSource, setActiveSource] = useState<'user' | 'project'>('project');
+  const [activeSource, setActiveSource] = useState<'user' | 'project' | 'builtin'>('project');
   const [cfg, setCfg] = useState<CustomPipelineConfig | null>(null);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<string>('');
 
-  const locked = isAnyPhaseInProgress(cfg, taskId);
+  const runtimeLock = isAnyPhaseInProgress(cfg, taskId);
+  const builtinLock = cfg?.source === 'builtin';
+  const locked = runtimeLock || builtinLock; // builtin 편집 차단
 
   // 최초 목록 로드 — 캐시 강제 무효화 후 재조회 (외부에서 파일 삭제/수정된 경우
   // 유령 항목이 드롭다운에 남지 않게).
@@ -162,20 +164,27 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   };
 
   const handleNew = () => {
+    const name = prompt('새 파이프라인 이름:', 'My Pipeline');
+    if (name === null) return; // 취소
+    const trimmed = name.trim() || 'Untitled Pipeline';
     const id = `custom-${Date.now().toString(36)}`;
-    const empty = createEmptyConfig(id, 'New Pipeline');
+    const empty = createEmptyConfig(id, trimmed);
     setCfg(empty);
     setActiveId(id);
     setActiveSource('project');
     setSelectedPhaseId(null);
     setDirty(true);
+    setStatus(`새 파이프라인 '${trimmed}' 생성됨 — Save 로 저장`);
   };
 
   // 빈 캔버스에 스킬 드롭 → 새 파이프라인 생성 + 첫 phase + 드롭된 스킬 추가.
   const handleCreateWithSkill = (skill: CustomSkillRef) => {
     if (locked) return;
+    const name = prompt('새 파이프라인 이름:', 'My Pipeline');
+    if (name === null) return;
+    const trimmed = name.trim() || 'Untitled Pipeline';
     const id = `custom-${Date.now().toString(36)}`;
-    const empty = createEmptyConfig(id, 'New Pipeline');
+    const empty = createEmptyConfig(id, trimmed);
     const firstPhase: CustomPhase = {
       id: 'phase_1',
       label: 'Phase 1',
@@ -190,7 +199,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
     setActiveSource('project');
     setSelectedPhaseId(firstPhase.id);
     setDirty(true);
-    setStatus('새 파이프라인 생성됨 — Save 로 저장');
+    setStatus(`새 파이프라인 '${trimmed}' 생성됨 — Save 로 저장`);
   };
 
   /**
@@ -230,14 +239,18 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
   const handleDuplicate = async () => {
     if (!cfg) return;
-    const newId = `${cfg.id}-copy-${Date.now().toString(36).slice(-4)}`;
+    const defaultName = `${cfg.name} (copy)`;
+    const newName = prompt('복사본 이름:', defaultName);
+    if (newName === null) return;
+    const trimmedName = newName.trim() || defaultName;
+    const newId = `custom-${Date.now().toString(36)}`;
     try {
-      await duplicateCustomPipeline(cfg.id, cfg.source, newId, `${cfg.name} (copy)`, 'project', cwd);
+      await duplicateCustomPipeline(cfg.id, cfg.source, newId, trimmedName, 'project', cwd);
       const list = await listCustomPipelines(cwd);
       setPipelines(list);
       setActiveId(newId);
       setActiveSource('project');
-      setStatus('Duplicated');
+      setStatus(`복사됨: ${trimmedName}`);
     } catch (e) {
       setStatus(`Duplicate failed: ${e}`);
     }
@@ -362,8 +375,14 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
           }}
         >
           <span style={{ fontWeight: 600, color: 'var(--accent-bright)', fontSize: 13 }}>⚙ Pipeline Builder</span>
-          <span style={{ fontSize: 10, color: 'var(--fg-dim)' }}>
-            {locked ? '🔒 실행 중 — read-only' : dirty ? '● 변경됨' : ''}
+          <span style={{ fontSize: 10, color: builtinLock ? 'var(--amber, #f59e0b)' : 'var(--fg-dim)' }}>
+            {runtimeLock
+              ? '🔒 실행 중 — read-only'
+              : builtinLock
+                ? '📦 builtin — Dup 으로 편집'
+                : dirty
+                  ? '● 변경됨'
+                  : ''}
           </span>
 
           <select
@@ -434,14 +453,68 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
           }}
         >
           <SkillLibrary cwd={cwd} disabled={locked} onAddSkill={handleAddSkillByClick} />
-          <PhaseCanvas
-            cfg={cfg}
-            selectedPhaseId={selectedPhaseId}
-            onSelectPhase={setSelectedPhaseId}
-            onPhasesChange={updatePhases}
-            onCreateWithSkill={handleCreateWithSkill}
-            disabled={locked}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+            {cfg && (
+              <div
+                style={{
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--border-muted)',
+                  background: 'var(--bg-surface)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 10, color: 'var(--fg-dim)', minWidth: 38 }}>이름</span>
+                <input
+                  type="text"
+                  value={cfg.name}
+                  onChange={(e) => !locked && updateCfg({ name: e.target.value })}
+                  readOnly={locked}
+                  placeholder="파이프라인 이름"
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    background: locked ? 'var(--bg-app)' : 'var(--bg-chip)',
+                    border: '1px solid var(--border-muted)',
+                    borderRadius: 4,
+                    color: 'var(--fg-primary)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    outline: 'none',
+                  }}
+                />
+                <span style={{ fontSize: 10, color: 'var(--fg-dim)', minWidth: 38 }}>설명</span>
+                <input
+                  type="text"
+                  value={cfg.description || ''}
+                  onChange={(e) => !locked && updateCfg({ description: e.target.value })}
+                  readOnly={locked}
+                  placeholder="(선택)"
+                  style={{
+                    flex: 2,
+                    padding: '4px 8px',
+                    background: locked ? 'var(--bg-app)' : 'var(--bg-chip)',
+                    border: '1px solid var(--border-muted)',
+                    borderRadius: 4,
+                    color: 'var(--fg-primary)',
+                    fontSize: 11,
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            )}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+              <PhaseCanvas
+                cfg={cfg}
+                selectedPhaseId={selectedPhaseId}
+                onSelectPhase={setSelectedPhaseId}
+                onPhasesChange={updatePhases}
+                onCreateWithSkill={handleCreateWithSkill}
+                disabled={locked}
+              />
+            </div>
+          </div>
           <PhaseDetail
             phase={selectedPhase}
             onChange={(patch) => selectedPhase && updatePhase(selectedPhase.id, patch)}

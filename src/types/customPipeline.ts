@@ -78,20 +78,23 @@ export interface CustomPipelineConfig {
   /** UI 표시 이름 */
   name: string;
   description?: string;
-  /** 런타임에 결정되는 소스 (파일 디렉토리 기반) */
-  source: 'user' | 'project';
+  /** 런타임에 결정되는 소스. builtin = Cortx 바이너리 embed (read-only) */
+  source: PipelineSource;
   /** 실행 순서대로의 phase 목록 */
   phases: CustomPhase[];
   createdAt: string;
   updatedAt: string;
 }
 
+/** 파이프라인 저장 위치 */
+export type PipelineSource = 'user' | 'project' | 'builtin';
+
 /** 목록 조회 시 사용하는 경량 메타 (본문 로드 없이 UI 리스트 구성) */
 export interface CustomPipelineMeta {
   id: string;
   name: string;
   description?: string;
-  source: 'user' | 'project';
+  source: PipelineSource;
   phaseCount: number;
   updatedAt: string;
 }
@@ -116,8 +119,8 @@ export interface CustomPhaseState {
 export interface ActiveCustomPipeline {
   /** CustomPipelineConfig.id */
   configId: string;
-  /** 어디서 로드됐는지 — 같은 id 라도 project 우선 머지 */
-  source: 'user' | 'project';
+  /** 어디서 로드됐는지 — 같은 id 라도 project > user > builtin 우선 머지 */
+  source: PipelineSource;
   currentPhaseIndex: number;
   currentSkillIndex: number;
   /** phase.id → 상태 */
