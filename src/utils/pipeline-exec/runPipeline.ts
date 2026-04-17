@@ -13,6 +13,7 @@ import { invoke, listen } from './tauri';
 import { fetchPinUrl } from './fetchPinUrl';
 import { formatToolActivity, type ContentBlock } from '../../components/claude/claudeEventProcessor';
 import type { PipelineCallbacks } from './types';
+import { stripMarkers as sharedStripMarkers, isQuestion as sharedIsQuestion, BUILTIN_PHASE_KEYS } from './_shared';
 
 export async function runPipeline(taskId: string, command: string, callbacks?: PipelineCallbacks) {
   const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
@@ -306,19 +307,18 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   }
   messageCache.set(taskId, [...msgs]);
 
-  // Strip pipeline markers from display text
-  const stripMarkers = (text: string) => text.replace(/\[PIPELINE:[^\]]*\]/g, '').trimStart();
+  // Strip pipeline markers from display text — 공유 유틸 사용 (_shared.ts)
+  const stripMarkers = sharedStripMarkers;
 
-  // Parse pipeline markers and update task store
+  // Parse pipeline markers and update task store (builtin phase 만 허용)
   const parsePipelineMarkers = (text: string): string => {
     let cleaned = text;
     const markerRegex = /\[PIPELINE:(\w+):(\w+)(?::([^\]]*))?\]/g;
     let match;
     while ((match = markerRegex.exec(text)) !== null) {
       const [fullMatch, phase, status, memo] = match;
-      const PHASE_KEYS = new Set(['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr', 'review_loop', 'done']);
       const VALID_STATUSES = new Set(['in_progress', 'done', 'skipped', 'pending']);
-      if (PHASE_KEYS.has(phase) && VALID_STATUSES.has(status)) {
+      if (BUILTIN_PHASE_KEYS.has(phase) && VALID_STATUSES.has(status)) {
         const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
         if (t?.pipeline?.enabled) {
           const phases = { ...t.pipeline.phases };
@@ -769,24 +769,5 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   callbacks?.onDone?.();
 }
 
-function isQuestion(text: string): boolean {
-  const t = text.trim();
-  if (t.endsWith('?') || t.endsWith('\uff1f')) return true;
-  if (
-    /(?:할까요|인가요|있나요|될까요|맞나요|괜찮을까요|건가요|하시나요|싶습니다|드릴까요|어떤가요|좋을까요|주세요|해줘)\s*[.?\uff1f]?\s*$/.test(
-      t,
-    )
-  )
-    return true;
-  if (
-    /(?:please confirm|what do you think|should we|would you|do you want|can you|is that correct|right\?|agree\?)\s*[.?]?\s*$/i.test(
-      t,
-    )
-  )
-    return true;
-  const tail = t.slice(-200);
-  // dev-task.md의 표준 질문 포맷: **Q1.** {질문}?
-  if (/\*\*Q\d+\.\*\*/.test(tail)) return true;
-  if (/(?:Q\d+[.:)]|질문\s*\d+\s*[:.)]).+[?\uff1f]/.test(tail)) return true;
-  return false;
-}
+// isQuestion 은 공유 유틸로 이동 (_shared.ts) — runCustomPipeline 도 동일 로직 사용
+const isQuestion = sharedIsQuestion;
