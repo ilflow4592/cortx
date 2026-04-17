@@ -190,28 +190,21 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       resolvedPrompt;
   }
 
-  // Grill-me Q&A 주입 (dev-implement continuation 전용):
-  // messageCache에 남아있는 이전 grill-me 대화를 resolvedPrompt 앞에 명시적으로 주입.
-  // --resume 세션 파일에만 의존하지 않고 Claude가 스펙을 직접 텍스트로 볼 수 있게 해
-  // "추가 탐색이 필요하다"는 오판을 원천 차단한다.
+  // Grill-me 최종 스펙 주입 (dev-implement continuation 전용):
+  // --resume 이 이미 전체 grill-me 대화를 세션 파일로 복원하므로 전체 Q&A 재주입은
+  // 컨텍스트를 2배로 늘려 API 호출을 느리게 만든다. 대신 마지막 어시스턴트 메시지
+  // (grill-me 최종 스펙 요약)만 주입해 Claude 가 스펙을 직접 볼 수 있게 한다.
   if (command.startsWith('/pipeline:dev-implement') && !isFreshStart) {
-    const grillMeMsgs = prevMsgs
-      .filter((m) => m.role !== 'activity' && m.content.trim())
-      .filter((m) => !m.content.startsWith('/pipeline:'));
+    const lastSpec = [...prevMsgs]
+      .filter((m) => m.role === 'assistant' && m.content.trim() && !m.content.startsWith('/pipeline:'))
+      .pop();
 
-    if (grillMeMsgs.length > 0) {
-      const grillMeText = grillMeMsgs
-        .map((m) => {
-          const label = m.role === 'user' ? '**[사용자]**' : '**[Claude]**';
-          return `${label}\n\n${m.content}`;
-        })
-        .join('\n\n---\n\n');
-
+    if (lastSpec) {
       resolvedPrompt =
-        `## 📋 GRILL-ME 결과 (Cortx 자동 주입 — 이전 단계에서 확정된 개발 스펙)\n\n` +
-        `아래 Q&A가 완전한 개발 스펙입니다. 이 내용만으로 개발 계획서를 작성하세요.\n` +
+        `## 📋 GRILL-ME 스펙 요약 (Cortx 자동 주입 — 이전 단계에서 확정된 개발 스펙)\n\n` +
+        `아래가 완전한 개발 스펙입니다. 이 내용만으로 개발 계획서를 작성하세요.\n` +
         `추가 코드베이스 탐색(Grep/Glob/Bash find/Agent) 없이 바로 계획서 템플릿을 작성합니다.\n\n` +
-        grillMeText +
+        lastSpec.content +
         `\n\n---\n\n` +
         resolvedPrompt;
     }
