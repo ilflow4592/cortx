@@ -191,8 +191,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   }
 
   // Pre-scan 주입 (dev-implement continuation 전용): git ls-files 로 워크트리의
-  // 실제 파일 경로 목록을 한번에 주입. Claude 가 `find` / Glob 으로 파일 위치를
-  // 탐색할 필요 없이 grill-me 에서 지목된 클래스명으로 경로를 바로 찾아 Read.
+  // 실제 파일 경로 목록을 한번에 주입. Claude 가 `find` / Glob / Bash ls 로
+  // 파일 위치를 탐색할 필요 없이 grill-me 에서 지목된 클래스명으로 경로를
+  // 바로 찾아 Read.
   if (command.startsWith('/pipeline:dev-implement') && cwd) {
     try {
       const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
@@ -204,7 +205,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
         resolvedPrompt =
           resolvedPrompt +
           `\n\n---\n\n## 📂 워크트리 파일 목록 (Cortx pre-scan, git ls-files 상위 500)\n\n` +
-          `파일 경로 탐색 시 \`find\` / Glob / Bash 로 스캔하지 말고 이 목록에서 직접 찾아 Read 하세요.\n\n` +
+          `파일 경로 탐색 시 \`find\` / Glob / \`ls\` / Bash 스캔 금지. 이 목록에서 직접 찾아 Read 하세요.\n\n` +
           '```\n' +
           fileList +
           '\n```\n';
