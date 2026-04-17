@@ -548,12 +548,6 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
     if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
     if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
-    // dev_plan/grill_me/save 단계에서 Claude 가 skill 지시를 무시하고
-    // 탐색 도구를 호출하는 케이스를 하드 차단. 이들 단계는 기획·대화 중심이고
-    // 첫 tool_use 가 MCP init 대기로 hang 되는 재현 케이스 존재. Read 는 허용
-    // (skill 에서 최대 2회). ToolSearch 도 차단해 Claude 가 추가 도구 발굴
-    // 우회 못 하도록.
-    tools.push('Task', 'Agent', 'Grep', 'Glob', 'ToolSearch', 'WebFetch', 'WebSearch');
     disallowedTools = tools.length > 0 ? tools : null;
   }
 
@@ -571,26 +565,6 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     messageLength: resolvedPrompt.length,
     contextSummaryLength: contextSummary.length,
     contextFileCount: contextFiles.length,
-  });
-
-  // Diagnostic — helps debug "dev-implement stuck" issues by logging session
-  // resume state and cwd at spawn time. Remove once the chat-vs-button parity
-  // issue is confirmed fixed.
-  const skillHead = resolvedPrompt.slice(0, 300);
-  const hasNewRule = resolvedPrompt.includes('Step 1 에서 Agent 사용 절대 금지');
-  const hasOldObsidian = resolvedPrompt.includes('Obsidian에 저장된 dev-plan');
-  console.log('[runPipeline] spawn', {
-    taskId,
-    command,
-    isFreshStart,
-    cwd,
-    resumeSessionId: resumeSessionId || '(none)',
-    messageCacheLength: (messageCache.get(taskId) || []).length,
-    contextSummaryLength: contextSummary.length,
-    builtinUsed,
-    skillHead,
-    hasNewRule,
-    hasOldObsidian,
   });
 
   await invoke('claude_spawn', {

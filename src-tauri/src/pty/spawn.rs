@@ -3,6 +3,12 @@ use tauri::{AppHandle, Emitter};
 
 /// Claude CLI 자식 프로세스를 실행하고 stdout을 라인 단위로 스트리밍.
 /// stderr는 별도 스레드로 수거해 프로세스 종료 시 에러 이벤트로 방출.
+///
+/// Unix 에서는 자식을 **자기 자신이 leader 인 새 process group** 으로 분리한다.
+/// 이렇게 해야 이후 `killpg(child_pid)` 가 Claude CLI + MCP subprocess 전체를
+/// 묶어 종료할 수 있다. 그렇지 않으면 SIGTERM 이 Claude 에만 전달되고 MCP 가
+/// orphan 으로 남아 stdio/socket 점유를 유지 → 다음 spawn 의 첫 tool 호출이
+/// hang 되는 재현 케이스 존재.
 pub fn spawn_and_stream(
     cwd: &str,
     cmd: &str,
@@ -11,13 +17,17 @@ pub fn spawn_and_stream(
     pid_holder: Arc<Mutex<Option<u32>>>,
 ) -> Result<(), String> {
     #[cfg(unix)]
-    let child = std::process::Command::new("zsh")
-        .args(["-l", "-c", cmd])
-        .current_dir(cwd)
-        .env("TERM", "dumb")
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn();
+    let child = {
+        use std::os::unix::process::CommandExt;
+        std::process::Command::new("zsh")
+            .args(["-l", "-c", cmd])
+            .current_dir(cwd)
+            .env("TERM", "dumb")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .process_group(0)
+            .spawn()
+    };
     #[cfg(windows)]
     let child = std::process::Command::new("cmd")
         .args(["/C", cmd])
