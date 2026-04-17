@@ -11,6 +11,7 @@ import { recordEvent } from '../../services/telemetry';
 import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
 import { invoke, listen } from './tauri';
 import { fetchPinUrl } from './fetchPinUrl';
+import { formatToolActivity, type ContentBlock } from '../../components/claude/claudeEventProcessor';
 import type { PipelineCallbacks } from './types';
 
 export async function runPipeline(taskId: string, command: string, callbacks?: PipelineCallbacks) {
@@ -370,9 +371,13 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
         if (toolBlocks.length > 0) {
           currentMsgId = '';
           const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
+          // useClaudeSession 과 동일하게 Read/Edit/Bash/Grep 의 실제 인자를 표시.
+          // "Using Read..." 만 뜨면 사용자가 어느 파일을 읽는지 몰라 hang 인지
+          // 진행 중인지 구분 불가.
+          const content = formatToolActivity(toolBlocks as ContentBlock[], toolLabel, null);
           updateCache((cached) => {
             const filtered = cached.filter((m) => m.id !== activityId);
-            return [...filtered, { id: activityId, role: 'activity' as const, content: `Using ${toolLabel}...` }];
+            return [...filtered, { id: activityId, role: 'activity' as const, content, toolName: toolLabel }];
           });
         }
       } else if (evt.type === 'content_block_delta' && evt.delta?.text) {

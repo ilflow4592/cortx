@@ -18,7 +18,7 @@ import { scanSensitivePath, extractToolPaths, isPathOutsideWorkspace } from './f
 import { scanNetworkExfil } from './networkExfilGuard';
 import type { Message } from './types';
 
-interface ContentBlock {
+export interface ContentBlock {
   type: string;
   text?: string;
   name?: string;
@@ -324,7 +324,7 @@ export class ClaudeEventProcessor {
  * Activity 라벨 생성. Bash/Read/Edit/Grep 의 핵심 인자를 요약해 표시.
  * 사용자가 "Using Bash..."에서 어느 명령이 걸렸는지 파악 가능하도록.
  */
-function formatToolActivity(toolBlocks: ContentBlock[], toolLabel: string, dangerLabel: string | null): string {
+export function formatToolActivity(toolBlocks: ContentBlock[], toolLabel: string, dangerLabel: string | null): string {
   const summaries: string[] = [];
   for (const block of toolBlocks) {
     const name = block.name || 'tool';
