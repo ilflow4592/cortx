@@ -577,10 +577,15 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
     if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
     if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
-    // Serena MCP 차단: dev_plan/grill_me/save 단계는 파일 Read 로 충분. Serena 의
-    // LSP 인덱싱이 대규모 프로젝트에서 수 분 걸리며, 첫 symbol 쿼리 시 hang
-    // 재현 원인. 구현(implement) 단계에선 필요할 수 있어 그때는 허용.
-    tools.push('mcp__serena__*');
+    // dev_plan/grill_me/save 단계 하드 차단 목록:
+    // - Serena MCP: LSP 인덱싱 수 분, 첫 symbol 쿼리 hang.
+    // - Glob/Grep: 모노레포 전체 스캔 시 수 분 소요 ("**/country/**/*.java"
+    //   같은 패턴이 4분 hang 되는 실측 케이스). grill-me 에서 이미 파일이
+    //   지목되므로 Read 로 충분.
+    // - Task/Agent: subagent spawn 오버헤드 30초+ 가 실제 작업보다 큼.
+    // Read 는 허용 — grill-me 지목 파일 내용 확인 용도. 구현(implement)
+    // 단계에선 모두 허용.
+    tools.push('mcp__serena__*', 'Glob', 'Grep', 'Task', 'Agent');
     disallowedTools = tools.length > 0 ? tools : null;
   }
 
