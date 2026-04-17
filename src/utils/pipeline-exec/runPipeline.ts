@@ -190,28 +190,30 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       resolvedPrompt;
   }
 
-  // Pre-scan 주입 (dev-implement continuation 전용): git ls-files 로 워크트리의
-  // 실제 파일 경로 목록을 한번에 주입. Claude 가 `find` / Glob / Bash ls 로
-  // 파일 위치를 탐색할 필요 없이 grill-me 에서 지목된 클래스명으로 경로를
-  // 바로 찾아 Read.
-  if (command.startsWith('/pipeline:dev-implement') && cwd) {
-    try {
-      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd,
-        command: 'git ls-files 2>/dev/null | head -500',
-      });
-      if (result.success && result.output.trim()) {
-        const fileList = result.output.trim();
-        resolvedPrompt =
-          resolvedPrompt +
-          `\n\n---\n\n## 📂 워크트리 파일 목록 (Cortx pre-scan, git ls-files 상위 500)\n\n` +
-          `파일 경로 탐색 시 \`find\` / Glob / \`ls\` / Bash 스캔 금지. 이 목록에서 직접 찾아 Read 하세요.\n\n` +
-          '```\n' +
-          fileList +
-          '\n```\n';
-      }
-    } catch {
-      /* git ls-files 실패 — skip */
+  // Grill-me Q&A 주입 (dev-implement continuation 전용):
+  // messageCache에 남아있는 이전 grill-me 대화를 resolvedPrompt 앞에 명시적으로 주입.
+  // --resume 세션 파일에만 의존하지 않고 Claude가 스펙을 직접 텍스트로 볼 수 있게 해
+  // "추가 탐색이 필요하다"는 오판을 원천 차단한다.
+  if (command.startsWith('/pipeline:dev-implement') && !isFreshStart) {
+    const grillMeMsgs = prevMsgs
+      .filter((m) => m.role !== 'activity' && m.content.trim())
+      .filter((m) => !m.content.startsWith('/pipeline:'));
+
+    if (grillMeMsgs.length > 0) {
+      const grillMeText = grillMeMsgs
+        .map((m) => {
+          const label = m.role === 'user' ? '**[사용자]**' : '**[Claude]**';
+          return `${label}\n\n${m.content}`;
+        })
+        .join('\n\n---\n\n');
+
+      resolvedPrompt =
+        `## 📋 GRILL-ME 결과 (Cortx 자동 주입 — 이전 단계에서 확정된 개발 스펙)\n\n` +
+        `아래 Q&A가 완전한 개발 스펙입니다. 이 내용만으로 개발 계획서를 작성하세요.\n` +
+        `추가 코드베이스 탐색(Grep/Glob/Bash find/Agent) 없이 바로 계획서 템플릿을 작성합니다.\n\n` +
+        grillMeText +
+        `\n\n---\n\n` +
+        resolvedPrompt;
     }
   }
 
