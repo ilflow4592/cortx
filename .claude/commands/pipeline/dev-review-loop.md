@@ -270,7 +270,7 @@ for attempt in 1 2 3; do
   LATEST=$(gh api repos/$OWNER_REPO/pulls/$PR_NUMBER/reviews --paginate \
     --jq '[.[] | select(
              .user.type == "Bot"
-             or (.body | test("AI Code Review|최종 판정|AI Code Review|최종 판정|Must Fix|Should Fix|PR 리뷰 결과|증분 리뷰|리뷰 결과"))
+             or (.body | test("AI Code Review|최종 판정|Must Fix|Should Fix|PR 리뷰 결과|증분 리뷰|리뷰 결과"))
            )] | last')
   REVIEW_STATE=$(echo "$LATEST" | jq -r '.state // empty')
   REVIEW_BODY=$(echo "$LATEST" | jq -r '.body // empty')
