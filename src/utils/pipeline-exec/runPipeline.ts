@@ -94,9 +94,16 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   };
   const baseCmd = command.split(/\s+/)[0];
   const phaseTransition = phaseByCommand[baseCmd];
+  // 재시도 감지: 활성화하려는 phase 가 이미 in_progress 이면 이전 시도가
+  // 중단됐다는 뜻. Claude 세션에는 partial response + 미완료 tool_use 가
+  // 남아있어 --resume 시 계획서 단계를 건너뛰고 구현을 이어가는 등 혼란을
+  // 보인다. resolvedPrompt 앞에 재시작 지시를 prepend 해 복구.
+  let isRetry = false;
   if (phaseTransition) {
     const t2 = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
     if (t2?.pipeline?.enabled) {
+      const activateKey = phaseTransition.activate as keyof typeof t2.pipeline.phases;
+      isRetry = t2.pipeline.phases[activateKey]?.status === 'in_progress';
       const now = new Date().toISOString();
       const phases = { ...t2.pipeline.phases };
       for (const p of phaseTransition.done) {
@@ -105,7 +112,6 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
           phases[key] = { ...phases[key], status: 'done', completedAt: now };
         }
       }
-      const activateKey = phaseTransition.activate as keyof typeof phases;
       phases[activateKey] = {
         ...(phases[activateKey] || {}),
         status: 'in_progress',
@@ -172,6 +178,15 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
         /* continue */
       }
     }
+  }
+
+  // 재시도 감지 시 Claude 에게 "이전 시도 중단" 을 명시. 그렇지 않으면 Claude
+  // 가 --resume 으로 partial state(예: 미완료 tool_use)를 이어받아 계획서를
+  // 건너뛰고 이미 하던 작업을 계속하려는 혼란을 보인다.
+  if (isRetry) {
+    resolvedPrompt =
+      `⚠️ [재시작 알림] 이전 /${cmdName} 시도는 도중에 중단됐습니다. 이전 partial response / 미완료 tool_use 는 무시하고, **처음부터** 이 스킬을 실행하세요. 이미 시작한 작업을 이어가지 말고, Step 1 (계획서 템플릿) 부터 새로 출력합니다.\n\n---\n\n` +
+      resolvedPrompt;
   }
 
   // Build context pack data
