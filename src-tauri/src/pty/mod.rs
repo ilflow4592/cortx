@@ -137,6 +137,7 @@ impl PtyManager {
         disallowed_tools: &[String],
         disable_project_mcp: bool,
         bash_timeout_ms: Option<u64>,
+        permission_mode: Option<&str>,
         app: &AppHandle,
     ) -> Result<(), String> {
         self.sessions.remove(id);
@@ -151,6 +152,10 @@ impl PtyManager {
         let model_owned = model.unwrap_or("claude-opus-4-6").to_string();
         let effort_owned = effort.map(|s| s.to_string());
         let disallowed_tools_owned: Vec<String> = disallowed_tools.to_vec();
+        // None 이면 기존 동작(bypassPermissions) 유지. "plan" 지정 시 Claude CLI 가
+        // Write/Edit 을 하드 차단하고 Claude 가 ExitPlanMode 로 계획 제출 → 세션
+        // 종료. Cortx 가 이벤트 인식해 승인 UI 렌더.
+        let permission_mode_owned = permission_mode.unwrap_or("bypassPermissions").to_string();
 
         let pid_holder: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
@@ -187,6 +192,7 @@ impl PtyManager {
             let add_dirs = derive_add_dirs(&files_owned);
 
             let mut cmd_builder = ClaudeCommand::new(msg_file.path(), &model_owned)
+                .with_permission_mode(&permission_mode_owned)
                 .with_session(session_id_owned.as_deref())
                 .with_effort(effort_owned.as_deref())
                 .with_disallowed_tools(&disallowed_tools_owned)

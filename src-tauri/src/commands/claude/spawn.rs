@@ -19,6 +19,7 @@ pub fn claude_spawn(
     disallowed_tools: Option<Vec<String>>,
     disable_project_mcp: Option<bool>,
     bash_timeout_ms: Option<u64>,
+    permission_mode: Option<String>,
     state: tauri::State<'_, SharedPtyManager>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -37,6 +38,7 @@ pub fn claude_spawn(
         &disallowed,
         disable_project_mcp.unwrap_or(false),
         bash_timeout_ms,
+        permission_mode.as_deref(),
         &app,
     )
 }

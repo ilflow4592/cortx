@@ -84,6 +84,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // /pipeline:dev-implement 입력하면 PROGRESS 바에서 즉시 Dev Plan 스피너 돌아감.
   const phaseByCommand: Record<string, { done: string[]; activate: string }> = {
     '/pipeline:dev-implement': { done: ['grill_me', 'save'], activate: 'dev_plan' },
+    // Plan 승인 후 재스폰 — dev_plan done 처리하고 implement 활성화.
+    // Cortx 내부 전용 (사용자 입력 경로 아님).
+    '/pipeline:_approve-plan': { done: ['grill_me', 'save', 'dev_plan'], activate: 'implement' },
     '/pipeline:dev-review-loop': {
       done: ['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr'],
       activate: 'review_loop',
@@ -151,7 +154,28 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       .replace(/\{TASK_NAME\}/g, title);
 
   let builtinUsed = false;
-  if (command.startsWith('/pipeline:')) {
+  // 합성 명령 `/pipeline:_approve-plan` — 스킬 파일 없음. 승인 후 구현 진입을
+  // 지시하는 인라인 프롬프트를 사용. 이전 Plan mode 세션에서 Claude 가
+  // ExitPlanMode 로 제출한 계획은 `--resume` 으로 복원되므로 여기서는 "계획
+  // 승인됐다, 구현 시작해라" 만 전달하면 된다.
+  if (command.startsWith('/pipeline:_approve-plan')) {
+    resolvedPrompt = [
+      '✅ 사용자가 이전에 제출한 계획을 승인했습니다.',
+      '이제 Plan mode 가 해제되어 Write/Edit 이 가능합니다.',
+      '',
+      '다음 순서로 진행:',
+      '1. 먼저 [PIPELINE:dev_plan:done] 마커 출력',
+      '2. 이어서 [PIPELINE:implement:in_progress] 마커 출력',
+      '3. 승인된 계획대로 **바로 구현 시작**. 계획 재출력·재확인 금지.',
+      '4. 각 단계별 파일 수정은 Edit/Write 로 직접 수행.',
+      '5. 테스트 작성 + 실행까지 완료.',
+      '6. 구현 완료 후 사용자에게 "커밋하시겠습니까?" 라고 물어보고 중단.',
+      '',
+      '⛔ prod 브랜치 관련 명령 일체 금지.',
+      '⛔ 한국어로만 대화.',
+    ].join('\n');
+    builtinUsed = true;
+  } else if (command.startsWith('/pipeline:')) {
     try {
       const builtin = await invoke<string | null>('get_builtin_pipeline_skill', { name: skillLookupKey });
       if (builtin && builtin.trim()) {
@@ -422,6 +446,28 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
 
         if (toolBlocks.length > 0) {
           currentMsgId = '';
+          // ExitPlanMode 감지 — Plan mode 종료 시 Claude 가 계획을 제출하는 이벤트.
+          // Headless 에선 auto-reject 되어 세션이 곧 종료. 계획 본문을 캐시에 저장해
+          // 승인 UI 가 렌더할 수 있게 한다.
+          const exitPlanBlock = (
+            toolBlocks as Array<{ type: string; name?: string; input?: { plan?: string; planFilePath?: string } }>
+          ).find((b) => b.name === 'ExitPlanMode');
+          if (exitPlanBlock?.input?.plan) {
+            const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
+            if (t?.pipeline?.enabled) {
+              useTaskStore.getState().updateTask(taskId, {
+                pipeline: {
+                  ...t.pipeline,
+                  pendingPlanApproval: {
+                    plan: exitPlanBlock.input.plan,
+                    planFilePath: exitPlanBlock.input.planFilePath,
+                    createdAt: new Date().toISOString(),
+                  },
+                },
+              });
+            }
+          }
+
           const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
           const content = formatToolActivity(toolBlocks as ContentBlock[], toolLabel, null);
           const now = Date.now();
@@ -659,6 +705,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // 다시 올릴 수 없으므로 여기서 누락되면 Claude가 컨텍스트를 잃는다.
   const resumeSessionId = !isFreshStart ? sessionCache.get(taskId) || null : null;
 
+  // Permission mode — dev_plan 단계에서만 plan 모드 사용. Claude CLI 가 Write/Edit
+  // 를 하드 차단하고 Claude 가 ExitPlanMode 로 계획 제출 후 세션 종료 (headless
+  // 에선 auto-reject). Cortx 가 ExitPlanMode 이벤트 인식해 승인 카드 렌더.
+  // 승인 후 재스폰은 bypassPermissions 로 --resume 하면서 구현 단계 진입.
+  const permissionMode = activePhase === 'dev_plan' ? 'plan' : 'bypassPermissions';
+
   void recordEvent('action', 'claude_spawn', {
     reqId,
     taskId,
@@ -689,6 +741,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     // runaway find/grep/rg 가 워크트리 전체 스캔으로 수 분 hang 되는 걸 CLI
     // 레벨에서 차단. 구현(implement) 단계는 빌드·테스트가 길 수 있어 기본값 유지.
     bashTimeoutMs: activePhase && GRILLME_PHASES.includes(activePhase as string) ? 30000 : null,
+    permissionMode,
   });
 
   await donePromise;

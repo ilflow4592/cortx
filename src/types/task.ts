@@ -75,6 +75,15 @@ export interface PipelineState {
   reviewRounds?: number;
   /** implement 단계에서 사용할 개발 계획 텍스트 */
   devPlan?: string;
+  /** Plan mode 에서 Claude 가 제출한 승인 대기 중인 계획 (ExitPlanMode tool_use) */
+  pendingPlanApproval?: {
+    /** 계획 본문 (markdown) */
+    plan: string;
+    /** Claude CLI 가 저장한 plan 파일 경로 (있을 경우) */
+    planFilePath?: string;
+    /** 계획 생성 시각 */
+    createdAt: string;
+  };
 }
 
 /**

@@ -22,15 +22,27 @@ impl ClaudeCommand {
             model.into(),
             "--max-turns".into(),
             "30".into(),
-            // Cortx는 비대화형 실행 — 항상 우회
-            "--permission-mode".into(),
-            "bypassPermissions".into(),
         ];
         // Opus 사용 시 rate limit/장애 대비 Sonnet으로 자동 fallback
         if model.contains("opus") {
             parts.extend(["--fallback-model".into(), "claude-sonnet-4-6".into()]);
         }
         Self { parts }
+    }
+
+    /// Claude CLI `--permission-mode` 플래그. 유효 값:
+    /// `bypassPermissions` (기본, 모든 도구 허용)
+    /// `plan` (Write/Edit 차단, Claude 가 ExitPlanMode 로 계획 제출)
+    /// `acceptEdits` | `default` | `dontAsk` | `auto`
+    /// 잘못된 값은 무시해 CLI 에러를 피한다.
+    pub fn with_permission_mode(mut self, mode: &str) -> Self {
+        if matches!(
+            mode,
+            "bypassPermissions" | "plan" | "acceptEdits" | "default" | "dontAsk" | "auto"
+        ) {
+            self.parts.extend(["--permission-mode".into(), mode.to_string()]);
+        }
+        self
     }
 
     pub fn with_session(mut self, session_id: Option<&str>) -> Self {
@@ -143,6 +155,35 @@ mod tests {
     fn sonnet_model_omits_fallback() {
         let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6").build();
         assert!(!cmd.contains("--fallback-model"));
+    }
+
+    #[test]
+    fn with_permission_mode_accepts_valid_modes() {
+        for mode in ["bypassPermissions", "plan", "acceptEdits", "default", "dontAsk", "auto"] {
+            let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6")
+                .with_permission_mode(mode)
+                .build();
+            assert!(
+                cmd.contains(&format!("--permission-mode {}", mode)),
+                "mode {} should be present in: {}",
+                mode,
+                cmd
+            );
+        }
+    }
+
+    #[test]
+    fn with_permission_mode_rejects_invalid() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6")
+            .with_permission_mode("yolo")
+            .build();
+        assert!(!cmd.contains("--permission-mode"));
+    }
+
+    #[test]
+    fn new_does_not_set_permission_mode_by_default() {
+        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6").build();
+        assert!(!cmd.contains("--permission-mode"));
     }
 }
 

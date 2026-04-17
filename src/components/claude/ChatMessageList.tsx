@@ -4,6 +4,8 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useT } from '../../i18n';
 import type { Message } from './types';
+import type { PipelineState } from '../../types/task';
+import { PlanApprovalCard } from './PlanApprovalCard';
 
 /**
  * Live elapsed-seconds counter for an activity message. Updates every second
@@ -39,6 +41,8 @@ interface ChatMessageListProps {
   contextTotalCount: number;
   contextFileCount: number;
   endRef: React.RefObject<HTMLDivElement | null>;
+  taskId: string;
+  pipeline?: PipelineState;
 }
 
 /**
@@ -54,6 +58,8 @@ export function ChatMessageList({
   contextTotalCount,
   contextFileCount,
   endRef,
+  taskId,
+  pipeline,
 }: ChatMessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -141,6 +147,14 @@ export function ChatMessageList({
             <span style={{ fontSize: 13, color: 'var(--fg-faint)' }}>{t('chat.thinking')}</span>
           </div>
         </div>
+      )}
+
+      {pipeline?.pendingPlanApproval && (
+        <PlanApprovalCard
+          taskId={taskId}
+          plan={pipeline.pendingPlanApproval.plan}
+          planFilePath={pipeline.pendingPlanApproval.planFilePath}
+        />
       )}
 
       {error && <div className="error-box">{error}</div>}

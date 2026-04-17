@@ -41,6 +41,8 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
         contextTotalCount={contextTotalCount}
         contextFileCount={contextFileCount}
         endRef={endRef}
+        taskId={taskId}
+        pipeline={pipeline}
       />
       <ChatInput
         input={input}
