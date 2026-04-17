@@ -23,6 +23,7 @@ import {
   deleteCustomPipeline,
   exportCustomPipeline,
   importCustomPipeline,
+  invalidateList,
 } from '../../services/customPipelineStore';
 import { useTaskStore } from '../../stores/taskStore';
 import { runCustomPipeline } from '../../utils/pipeline-exec/runCustomPipeline';
@@ -74,9 +75,11 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
   const locked = isAnyPhaseInProgress(cfg, taskId);
 
-  // 최초 목록 로드
+  // 최초 목록 로드 — 캐시 강제 무효화 후 재조회 (외부에서 파일 삭제/수정된 경우
+  // 유령 항목이 드롭다운에 남지 않게).
   useEffect(() => {
     (async () => {
+      invalidateList(cwd);
       const list = await listCustomPipelines(cwd);
       setPipelines(list);
       if (list.length > 0 && !activeId) {
@@ -103,17 +106,19 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
         setSelectedPhaseId(loaded.phases[0]?.id || null);
         setDirty(false);
         setStatus(''); // 성공 시 이전 에러 제거
-      } catch (e) {
-        // 로드 실패 — activeId 초기화해 드롭다운을 (선택) 상태로 복귀.
-        // 에러 메시지는 간결하게.
+      } catch {
+        // 로드 실패 — 해당 id 는 유령 (캐시 ↔ 디스크 불일치). 목록에서 제거 + 캐시
+        // 무효화 + activeId 초기화.
         if (!cancelled) {
+          const failedId = activeId;
           setActiveId(null);
           setCfg(null);
-          setStatus(`로드 실패: ${String(e).replace(/^Error: /, '')}`);
-          // 5초 후 자동 dismiss
+          setPipelines((prev) => prev.filter((p) => p.id !== failedId));
+          invalidateList(cwd);
+          setStatus(`파일 없음: ${failedId} — 목록에서 제거됨`);
           setTimeout(() => {
-            setStatus((prev) => (prev.startsWith('로드 실패') ? '' : prev));
-          }, 5000);
+            setStatus((prev) => (prev.startsWith('파일 없음') ? '' : prev));
+          }, 4000);
         }
       }
     })();
