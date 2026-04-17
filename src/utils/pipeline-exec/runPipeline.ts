@@ -218,9 +218,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
         const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
           cwd,
           // 소스 파일만 필터 (node_modules/target/build 는 git ls-files 가 기본 제외).
-          // 800라인 상한 — 중대형 모노레포 커버하면서 컨텍스트 과다 방지.
+          // 300라인 상한 — 800 은 컨텍스트 15k+ 토큰 추가 → API 호출당 수 분 지연.
+          // test/mock/resource 경로 제외해 핵심 소스 우선 노출.
           command:
-            'git ls-files 2>/dev/null | grep -E "\\.(java|kt|ts|tsx|js|jsx|py|rs|go|rb|scala|gradle|toml|json|yaml|yml)$" | head -800',
+            'git ls-files 2>/dev/null | grep -E "\\.(java|kt|ts|tsx|py|rs|go|rb|scala)$" | grep -vE "(test|mock|resources|node_modules|generated)/" | head -300',
         });
         if (result.success && result.output.trim()) {
           prefix +=

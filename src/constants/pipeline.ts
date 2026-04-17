@@ -33,9 +33,9 @@ export const PHASE_NAMES: Record<PipelinePhase, string> = {
 export const PHASE_MODELS: Record<PipelinePhase, string> = {
   grill_me: 'Opus',
   save: 'Opus',
-  dev_plan: 'Opus',
+  dev_plan: 'Sonnet',
   implement: 'Sonnet',
   commit_pr: 'Sonnet',
-  review_loop: 'Opus',
+  review_loop: 'Sonnet',
   done: '-',
 };
