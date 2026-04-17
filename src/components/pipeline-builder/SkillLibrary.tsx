@@ -1,5 +1,16 @@
-/** 좌측 패널 — builtin/project/user 스킬 + 내장/커스텀 agent 드래그 소스. 클릭 시 편집 모달. */
+/**
+ * 좌측 패널 — builtin/project/user 스킬 + 내장/커스텀 agent.
+ *
+ * 두 가지 추가 방식:
+ *  1. **클릭** (주요): 현재 파이프라인에 스킬 추가 (Tauri WebKit DnD 불안정 대응 폴백).
+ *     cfg 없으면 새 파이프라인+Phase 1 자동 생성, cfg 있으면 selected phase 에 append,
+ *     selected 가 없으면 마지막 phase 에 append, phase 없으면 새 phase 생성.
+ *  2. **드래그앤드랍** (선택): 정상 작동 환경에서 여전히 지원.
+ *
+ * 연필 아이콘 버튼 (✎) → 스킬 편집 모달.
+ */
 import { useEffect, useState } from 'react';
+import { Pencil, Plus } from 'lucide-react';
 import type { SkillEntry } from '../../services/skillLibrary';
 import { listSkillLibrary } from '../../services/skillLibrary';
 import { listAgents } from '../../services/agentRegistry';
@@ -10,6 +21,8 @@ import { SkillEditorModal } from './SkillEditorModal';
 interface Props {
   cwd: string;
   disabled?: boolean;
+  /** 클릭으로 스킬 추가. PipelineBuilder 에서 현재 cfg 에 맞게 처리 */
+  onAddSkill: (ref: CustomSkillRef) => void;
 }
 
 type LibrarySection = {
@@ -39,7 +52,7 @@ function agentToItem(a: ClaudeAgentEntry) {
   };
 }
 
-export function SkillLibrary({ cwd, disabled }: Props) {
+export function SkillLibrary({ cwd, disabled, onAddSkill }: Props) {
   const [sections, setSections] = useState<LibrarySection[]>([]);
   const [editingSkill, setEditingSkill] = useState<SkillEntry | null>(null);
   const [skillEntries, setSkillEntries] = useState<SkillEntry[]>([]);
@@ -76,8 +89,16 @@ export function SkillLibrary({ cwd, disabled }: Props) {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
+  // 주요 액션: 클릭 시 파이프라인에 스킬 추가 (DnD 대체)
   const onClickItem = (ref: CustomSkillRef) => {
-    if (ref.kind === 'agent') return; // agent 는 편집 모달 현재 미지원 (phase detail 에서 prompt 편집)
+    if (disabled) return;
+    onAddSkill(ref);
+  };
+
+  // 보조 액션: 연필 버튼 → 편집 모달 (agent 는 편집 미지원)
+  const onEditClick = (ref: CustomSkillRef, ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    if (ref.kind === 'agent') return;
     const entry = skillEntries.find((s) => s.id === ref.id && s.kind === ref.kind);
     if (entry) setEditingSkill(entry);
   };
@@ -128,7 +149,7 @@ export function SkillLibrary({ cwd, disabled }: Props) {
                 border: '1px solid var(--border-muted)',
                 borderLeft: `3px solid ${borderColorForKind(item.kind)}`,
                 borderRadius: 4,
-                cursor: disabled ? 'not-allowed' : 'grab',
+                cursor: disabled ? 'not-allowed' : 'pointer',
                 fontSize: 10,
                 display: 'flex',
                 alignItems: 'center',
@@ -136,7 +157,7 @@ export function SkillLibrary({ cwd, disabled }: Props) {
                 opacity: disabled ? 0.5 : 1,
                 userSelect: 'none',
               }}
-              title={item.description}
+              title={`클릭해서 파이프라인에 추가 — ${item.description}`}
             >
               <span>{item.icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -153,6 +174,27 @@ export function SkillLibrary({ cwd, disabled }: Props) {
                   {item.description}
                 </div>
               </div>
+              {item.ref.kind !== 'agent' && (
+                <button
+                  onClick={(e) => onEditClick(item.ref, e)}
+                  disabled={disabled}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--fg-dim)',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    padding: 2,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
+                  title="편집"
+                >
+                  <Pencil size={10} />
+                </button>
+              )}
+              <span style={{ color: 'var(--accent-bright)' }} title="추가">
+                <Plus size={11} />
+              </span>
             </div>
           ))}
         </div>

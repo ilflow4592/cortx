@@ -44,6 +44,11 @@ function isAnyPhaseInProgress(cfg: CustomPipelineConfig | null, taskId: string):
   return Object.values(active.phaseStates).some((s) => s.status === 'in_progress');
 }
 
+function skillRefLabel(ref: CustomSkillRef): string {
+  if (ref.kind === 'agent') return `agent:${ref.subagentType}`;
+  return `${ref.kind}:${ref.id}`;
+}
+
 function createEmptyConfig(id: string, name: string): CustomPipelineConfig {
   const now = new Date().toISOString();
   return {
@@ -165,6 +170,41 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
     setSelectedPhaseId(firstPhase.id);
     setDirty(true);
     setStatus('새 파이프라인 생성됨 — Save 로 저장');
+  };
+
+  /**
+   * 라이브러리에서 스킬 **클릭**으로 추가 (Tauri WebKit DnD 불안정 대응).
+   * 현재 상태에 따라 동작 분기:
+   *  - cfg 없음 → handleCreateWithSkill 위임 (새 파이프라인 생성)
+   *  - cfg 있고 selectedPhase 있음 → 해당 phase 의 skills 에 append
+   *  - cfg 있고 selectedPhase 없음/phase 전혀 없음 → 새 phase 하나 추가 + 스킬 포함
+   */
+  const handleAddSkillByClick = (skill: CustomSkillRef) => {
+    if (locked) return;
+    if (!cfg) {
+      handleCreateWithSkill(skill);
+      return;
+    }
+    // cfg 있음
+    if (cfg.phases.length === 0) {
+      const newPhase: CustomPhase = {
+        id: 'phase_1',
+        label: 'Phase 1',
+        skills: [skill],
+        model: 'Sonnet',
+        effort: 'medium',
+        permissionMode: 'bypassPermissions',
+      };
+      updatePhases([newPhase]);
+      setSelectedPhaseId(newPhase.id);
+      setStatus(`추가됨: Phase 1 + ${skillRefLabel(skill)}`);
+      return;
+    }
+    // 타겟 phase 결정: selected → selected, 아니면 마지막 phase
+    const targetId = selectedPhaseId || cfg.phases[cfg.phases.length - 1].id;
+    updatePhases(cfg.phases.map((p) => (p.id === targetId ? { ...p, skills: [...p.skills, skill] } : p)));
+    setSelectedPhaseId(targetId);
+    setStatus(`추가됨: ${targetId} ← ${skillRefLabel(skill)}`);
   };
 
   const handleDuplicate = async () => {
@@ -368,7 +408,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
             overflow: 'hidden',
           }}
         >
-          <SkillLibrary cwd={cwd} disabled={locked} />
+          <SkillLibrary cwd={cwd} disabled={locked} onAddSkill={handleAddSkillByClick} />
           <PhaseCanvas
             cfg={cfg}
             selectedPhaseId={selectedPhaseId}

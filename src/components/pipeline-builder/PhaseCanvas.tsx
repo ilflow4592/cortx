@@ -82,7 +82,7 @@ export function PhaseCanvas({
       >
         <div style={{ fontSize: 32, opacity: 0.5 }}>⊕</div>
         <div style={{ fontSize: 13, fontWeight: 500, textAlign: 'center' }}>
-          왼쪽 스킬을 여기로 드래그하면 새 파이프라인이 생성됩니다
+          왼쪽 스킬을 <strong>클릭</strong>하거나 여기로 드래그하면 새 파이프라인이 생성됩니다
         </div>
         <div style={{ fontSize: 11, color: 'var(--fg-dim)', textAlign: 'center' }}>
           또는 상단의 <strong>+ New</strong> / <strong>Import</strong> / 드롭다운으로 기존 선택
