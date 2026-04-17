@@ -69,7 +69,10 @@ export function SkillLibrary({ cwd, disabled }: Props) {
   }, [cwd]);
 
   const onDragStart = (e: React.DragEvent, ref: CustomSkillRef) => {
-    e.dataTransfer.setData(DND_SKILL_MIME, JSON.stringify(ref));
+    const payload = JSON.stringify(ref);
+    e.dataTransfer.setData(DND_SKILL_MIME, payload);
+    // WebKit fallback — text/plain 이 있어야 drag 가 정상 시작됨 (Tauri/Safari 버그)
+    e.dataTransfer.setData('text/plain', payload);
     e.dataTransfer.effectAllowed = 'copy';
   };
 

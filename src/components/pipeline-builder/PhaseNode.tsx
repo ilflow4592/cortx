@@ -46,24 +46,25 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
     e.preventDefault();
     setDropHover(false);
     if (disabled) return;
-    const skillRaw = e.dataTransfer.getData(DND_SKILL_MIME);
+    const skillRaw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
     if (skillRaw) {
       try {
         const ref = JSON.parse(skillRaw) as CustomSkillRef;
-        onSkillsChange([...phase.skills, ref]);
+        // ref validation — skill 페이로드만 허용
+        if (ref && typeof ref === 'object' && 'kind' in ref) {
+          onSkillsChange([...phase.skills, ref]);
+          return;
+        }
       } catch {
-        /* ignore */
+        /* text/plain 이 JSON 아닐 수도 — 아래 stacked skill 시도 */
       }
-      return;
     }
     const stackedRaw = e.dataTransfer.getData(DND_STACKED_SKILL_MIME);
     if (stackedRaw) {
       try {
         const { phaseId: srcPhaseId, index: srcIdx } = JSON.parse(stackedRaw);
         if (srcPhaseId === phase.id) return;
-        // cross-phase 이동: 원본 phase 에서 제거는 부모에서 처리 못함 (이 컴포넌트가 단일 phase)
-        // → 간단히 append 만. 원본 phase 는 reorder 로 따로 처리해야 하지만 v1 에선 생략.
-        // 실용상: 사용자는 보통 append 후 원본 제거를 직접 하거나, 본 이동 필요 시 X → drop 으로 대체.
+        // cross-phase 이동은 v2+ (append 만 하면 원본에 중복 남음 → 스킵)
         void srcIdx;
       } catch {
         /* ignore */
@@ -82,6 +83,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
       onDragStart={(e) => {
         if (disabled) return;
         e.dataTransfer.setData(DND_PHASE_MIME, phase.id);
+        e.dataTransfer.setData('text/plain', `phase:${phase.id}`);
         e.dataTransfer.effectAllowed = 'move';
       }}
       onDragOver={(e) => {
@@ -242,7 +244,9 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
               draggable={!disabled}
               onDragStart={(e) => {
                 if (disabled) return;
-                e.dataTransfer.setData(DND_STACKED_SKILL_MIME, JSON.stringify({ phaseId: phase.id, index: si }));
+                const payload = JSON.stringify({ phaseId: phase.id, index: si });
+                e.dataTransfer.setData(DND_STACKED_SKILL_MIME, payload);
+                e.dataTransfer.setData('text/plain', payload); // WebKit fallback
                 e.dataTransfer.effectAllowed = 'move';
               }}
               style={{

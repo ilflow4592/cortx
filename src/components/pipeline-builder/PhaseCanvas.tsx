@@ -63,13 +63,13 @@ export function PhaseCanvas({ cfg, selectedPhaseId, onSelectPhase, onPhasesChang
     e.preventDefault();
     setTrailingHover(false);
     if (disabled) return;
-    const raw = e.dataTransfer.getData(DND_SKILL_MIME);
+    const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
     if (!raw) return;
     try {
       const ref = JSON.parse(raw) as CustomSkillRef;
       appendPhaseFromSkill(ref);
     } catch {
-      // ignore
+      // ignore — text/plain 페이로드가 JSON 이 아닌 일반 드래그일 수 있음
     }
   };
 
