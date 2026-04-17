@@ -190,6 +190,30 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       resolvedPrompt;
   }
 
+  // Pre-scan 주입 (dev-implement continuation 전용): git ls-files 로 워크트리의
+  // 실제 파일 경로 목록을 한번에 주입. Claude 가 `find` / Glob 으로 파일 위치를
+  // 탐색할 필요 없이 grill-me 에서 지목된 클래스명으로 경로를 바로 찾아 Read.
+  if (command.startsWith('/pipeline:dev-implement') && cwd) {
+    try {
+      const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd,
+        command: 'git ls-files 2>/dev/null | head -500',
+      });
+      if (result.success && result.output.trim()) {
+        const fileList = result.output.trim();
+        resolvedPrompt =
+          resolvedPrompt +
+          `\n\n---\n\n## 📂 워크트리 파일 목록 (Cortx pre-scan, git ls-files 상위 500)\n\n` +
+          `파일 경로 탐색 시 \`find\` / Glob / Bash 로 스캔하지 말고 이 목록에서 직접 찾아 Read 하세요.\n\n` +
+          '```\n' +
+          fileList +
+          '\n```\n';
+      }
+    } catch {
+      /* git ls-files 실패 — skip */
+    }
+  }
+
   // Build context pack data
   const contextItems = useContextPackStore.getState().items[taskId] || [];
   let contextFiles: string[] = [];
@@ -633,6 +657,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     // sequential-thinking.js 나 npm 다운로드 중인 apidog 등 죽은 MCP handshake
     // 대기로 첫 tool 호출이 수 분 hang 되는 재현 케이스 제거.
     disableProjectMcp: true,
+    // grill_me/save/dev_plan 단계에서 Bash tool 기본 타임아웃 30초로 단축.
+    // runaway find/grep/rg 가 워크트리 전체 스캔으로 수 분 hang 되는 걸 CLI
+    // 레벨에서 차단. 구현(implement) 단계는 빌드·테스트가 길 수 있어 기본값 유지.
+    bashTimeoutMs: activePhase && GRILLME_PHASES.includes(activePhase as string) ? 30000 : null,
   });
 
   await donePromise;

@@ -9,32 +9,46 @@ use tauri::{AppHandle, Emitter};
 /// 묶어 종료할 수 있다. 그렇지 않으면 SIGTERM 이 Claude 에만 전달되고 MCP 가
 /// orphan 으로 남아 stdio/socket 점유를 유지 → 다음 spawn 의 첫 tool 호출이
 /// hang 되는 재현 케이스 존재.
+///
+/// `extra_env` 는 자식 프로세스에 주입할 추가 환경변수. 예: BASH_DEFAULT_TIMEOUT_MS
+/// 로 Claude CLI 의 Bash tool 기본 타임아웃 단축 (runaway find/grep 차단).
 pub fn spawn_and_stream(
     cwd: &str,
     cmd: &str,
     event_id: &str,
     app: &AppHandle,
     pid_holder: Arc<Mutex<Option<u32>>>,
+    extra_env: &[(String, String)],
 ) -> Result<(), String> {
     #[cfg(unix)]
     let child = {
         use std::os::unix::process::CommandExt;
-        std::process::Command::new("zsh")
+        let mut builder = std::process::Command::new("zsh");
+        builder
             .args(["-l", "-c", cmd])
             .current_dir(cwd)
             .env("TERM", "dumb")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .process_group(0)
-            .spawn()
+            .process_group(0);
+        for (k, v) in extra_env {
+            builder.env(k, v);
+        }
+        builder.spawn()
     };
     #[cfg(windows)]
-    let child = std::process::Command::new("cmd")
-        .args(["/C", cmd])
-        .current_dir(cwd)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn();
+    let child = {
+        let mut builder = std::process::Command::new("cmd");
+        builder
+            .args(["/C", cmd])
+            .current_dir(cwd)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        for (k, v) in extra_env {
+            builder.env(k, v);
+        }
+        builder.spawn()
+    };
 
     let mut proc = child.map_err(|e| e.to_string())?;
 

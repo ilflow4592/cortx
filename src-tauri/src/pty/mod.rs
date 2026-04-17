@@ -136,6 +136,7 @@ impl PtyManager {
         effort: Option<&str>,
         disallowed_tools: &[String],
         disable_project_mcp: bool,
+        bash_timeout_ms: Option<u64>,
         app: &AppHandle,
     ) -> Result<(), String> {
         self.sessions.remove(id);
@@ -199,9 +200,23 @@ impl PtyManager {
             // spawn_and_stream 은 동기 호출이라 이 스레드가 끝나야 반환 → OK.
             let _keep_mcp = mcp_guard;
 
-            if let Err(e) =
-                spawn_and_stream(&cwd_owned, &full_cmd, &event_id, &app_handle, pid_holder)
-            {
+            // Bash tool 기본/최대 타임아웃을 Claude CLI 환경변수로 주입. runaway
+            // find/grep 가 수 분 hang 되는 걸 CLI 레벨에서 차단. None 이면 기본값
+            // (default 120s, max 600s) 유지.
+            let mut extra_env: Vec<(String, String)> = Vec::new();
+            if let Some(ms) = bash_timeout_ms {
+                extra_env.push(("BASH_DEFAULT_TIMEOUT_MS".into(), ms.to_string()));
+                extra_env.push(("BASH_MAX_TIMEOUT_MS".into(), ms.to_string()));
+            }
+
+            if let Err(e) = spawn_and_stream(
+                &cwd_owned,
+                &full_cmd,
+                &event_id,
+                &app_handle,
+                pid_holder,
+                &extra_env,
+            ) {
                 let escaped = e
                     .replace('\\', "\\\\")
                     .replace('"', "\\\"")
