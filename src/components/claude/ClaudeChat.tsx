@@ -1,6 +1,7 @@
 import { useClaudeSession } from './useClaudeSession';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
+import { useTaskStore } from '../../stores/taskStore';
 import type { ClaudeChatProps } from './types';
 
 export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
@@ -19,6 +20,8 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
     contextFileCount,
     contextTotalCount,
   } = useClaudeSession(taskId, cwd, onSwitchTab);
+
+  const pipeline = useTaskStore((s) => s.tasks.find((t) => t.id === taskId)?.pipeline);
 
   // The Stop button must stay visible while Claude is actively working.
   // `loading` alone is unreliable: it can flip to false mid-stream due to
@@ -43,6 +46,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
         input={input}
         loading={isBusy}
         slashCommands={slashCommands}
+        pipeline={pipeline}
         contextTotalCount={contextTotalCount}
         onInputChange={setInput}
         onSend={handleSend}

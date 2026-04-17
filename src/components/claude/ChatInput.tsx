@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ArrowUp, Square, Paperclip } from 'lucide-react';
 import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
+import type { PipelineState } from '../../types/task';
+import { filterSlashCommandsByPipeline, isPipelineCommandRunning } from './pipelineCommandFilter';
 
 // Pipeline command priority order for the slash menu
 const PIPELINE_ORDER: Record<string, number> = {
@@ -9,12 +11,14 @@ const PIPELINE_ORDER: Record<string, number> = {
   'pipeline:dev-implement': 1,
   'pipeline:dev-review-loop': 2,
   'pipeline:dev-resume': 3,
+  'pipeline:pr-review-fu': 4,
 };
 
 interface ChatInputProps {
   input: string;
   loading: boolean;
   slashCommands: SlashCommand[];
+  pipeline: PipelineState | undefined;
   contextTotalCount: number;
   onInputChange: (val: string) => void;
   onSend: () => void;
@@ -28,6 +32,7 @@ export function ChatInput({
   input,
   loading,
   slashCommands,
+  pipeline,
   contextTotalCount,
   onInputChange,
   onSend,
@@ -39,11 +44,32 @@ export function ChatInput({
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
+  const [showClearHint, setShowClearHint] = useState(false);
   const slashMenuRef = useRef<HTMLDivElement>(null);
+  const clearHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = useT();
 
+  const resetClearHint = useCallback(() => {
+    setShowClearHint(false);
+    if (clearHintTimerRef.current) {
+      clearTimeout(clearHintTimerRef.current);
+      clearHintTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (clearHintTimerRef.current) clearTimeout(clearHintTimerRef.current);
+    };
+  }, []);
+
+  const pipelineFiltered = useMemo(
+    () => filterSlashCommandsByPipeline(slashCommands, pipeline),
+    [slashCommands, pipeline],
+  );
+
   const filteredCommands = showSlashMenu
-    ? slashCommands
+    ? pipelineFiltered
         .filter((cmd) => cmd.name.toLowerCase().includes(slashFilter.toLowerCase()))
         .sort((a, b) => {
           const aOrder = PIPELINE_ORDER[a.name] ?? 100;
@@ -73,16 +99,19 @@ export function ChatInput({
 
   const selectSlashCommand = useCallback(
     (cmd: SlashCommand) => {
+      if (isPipelineCommandRunning(cmd.name, pipeline)) return;
       onInputChange(`/${cmd.name} `);
       setShowSlashMenu(false);
       setSlashFilter('');
       inputRef.current?.focus();
     },
-    [onInputChange, inputRef],
+    [onInputChange, inputRef, pipeline],
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
+    // Any edit cancels a pending "Esc again to clear" prompt.
+    if (showClearHint) resetClearHint();
     onInputChange(val);
 
     // Detect slash command trigger
@@ -124,6 +153,28 @@ export function ChatInput({
       }
     }
 
+    // ESC with no slash menu open → same as Claude CLI: interrupt current generation.
+    if (e.key === 'Escape' && loading) {
+      e.preventDefault();
+      resetClearHint();
+      onStop();
+      return;
+    }
+
+    // ESC with input content → two-step clear, matching Claude CLI's "Esc again to clear".
+    if (e.key === 'Escape' && input.length > 0) {
+      e.preventDefault();
+      if (showClearHint) {
+        onInputChange('');
+        resetClearHint();
+      } else {
+        setShowClearHint(true);
+        if (clearHintTimerRef.current) clearTimeout(clearHintTimerRef.current);
+        clearHintTimerRef.current = setTimeout(() => setShowClearHint(false), 1000);
+      }
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend();
@@ -132,35 +183,73 @@ export function ChatInput({
 
   return (
     <div className="chat-input" style={{ position: 'relative' }}>
+      {showClearHint && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 4px)',
+            left: 12,
+            fontSize: 10,
+            color: 'var(--fg-faint)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 4,
+            padding: '2px 6px',
+            pointerEvents: 'none',
+          }}
+        >
+          Esc again to clear
+        </div>
+      )}
       {/* Slash command menu */}
       {showSlashMenu && filteredCommands.length > 0 && (
         <div className="slash-menu" ref={slashMenuRef}>
-          {filteredCommands.map((cmd, i) => (
-            <div
-              key={cmd.name}
-              role="option"
-              aria-selected={i === slashIndex}
-              tabIndex={-1}
-              className={`slash-item ${i === slashIndex ? 'slash-item-active' : ''}`}
-              onMouseEnter={() => setSlashIndex(i)}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                selectSlashCommand(cmd);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+          {filteredCommands.map((cmd, i) => {
+            const disabled = isPipelineCommandRunning(cmd.name, pipeline);
+            return (
+              <div
+                key={cmd.name}
+                role="option"
+                aria-selected={i === slashIndex}
+                aria-disabled={disabled}
+                tabIndex={-1}
+                className={`slash-item ${i === slashIndex ? 'slash-item-active' : ''}${disabled ? ' slash-item-disabled' : ''}`}
+                style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                onMouseEnter={() => setSlashIndex(i)}
+                onMouseDown={(e) => {
                   e.preventDefault();
+                  if (disabled) return;
                   selectSlashCommand(cmd);
-                }
-              }}
-            >
-              <div className="slash-item-name">
-                /{cmd.name}
-                {cmd.source !== 'builtin' && <span className="slash-item-source">{cmd.source}</span>}
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (disabled) return;
+                    selectSlashCommand(cmd);
+                  }
+                }}
+              >
+                <div className="slash-item-name">
+                  /{cmd.name}
+                  {cmd.source !== 'builtin' && <span className="slash-item-source">{cmd.source}</span>}
+                  {disabled && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 10,
+                        color: 'var(--fg-faint)',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      실행 중
+                    </span>
+                  )}
+                </div>
+                <div className="slash-item-desc">{cmd.description}</div>
               </div>
-              <div className="slash-item-desc">{cmd.description}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -223,7 +312,7 @@ export function ChatInput({
       </div>
 
       {loading ? (
-        <button className="send-btn" onClick={onStop} style={{ background: '#ef4444' }} title="Stop response">
+        <button className="send-btn" onClick={onStop} style={{ background: '#ef4444' }} title="응답 중단 (ESC)">
           <Square size={14} fill="#e5e5e5" strokeWidth={0} />
         </button>
       ) : (

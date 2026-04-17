@@ -280,7 +280,8 @@ export function useClaudeSession(
   };
 
   const handleStop = () => {
-    // Stop current response — kill process + unlisten + remove activity + reset task status
+    // ESC-like interrupt: kill current generation but keep conversation,
+    // session, and pipeline state intact so the user can continue the thread.
     if (currentReqIdRef.current) {
       invoke('claude_stop', { id: currentReqIdRef.current }).catch(() => {});
     }
@@ -289,17 +290,17 @@ export function useClaudeSession(
     invoke('claude_stop_task', { taskId }).catch(() => {});
     unlistenRefs.current.forEach((fn) => fn());
     unlistenRefs.current = [];
-    setMessages([]);
-    messageCache.set(taskId, []);
-    loadingCache.delete(taskId);
-    sessionCache.delete(taskId);
-    claudeSessionIdRef.current = '';
+    currentReqIdRef.current = '';
+    // Drop the trailing activity spinner (e.g. "Using Edit…") if present;
+    // keep all prior user/assistant messages.
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      return last?.role === 'activity' ? prev.slice(0, -1) : prev;
+    });
     setLoading(false);
     resetViolations(taskId);
     clearCanary(taskId);
     clearAllowlist(taskId);
-    // Reset task status to waiting, clear pipeline, and reset timer
-    useTaskStore.getState().updateTask(taskId, { status: 'waiting', pipeline: undefined, elapsedSeconds: 0 });
   };
 
   const handleClearMessages = () => {
