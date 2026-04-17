@@ -90,6 +90,10 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   // activeId/source 변경 → 해당 파이프라인 본문 로드
   useEffect(() => {
     if (!activeId) return;
+    // "New" 로 방금 만든 로컬 전용 cfg 는 디스크에 없어도 cfg 상태로 들고 있어야
+    // 함 (저장 전까지). activeId 가 현재 cfg 와 일치 && cfg 가 이미 로드돼 있으면
+    // 재로드 시도 skip.
+    if (cfg && cfg.id === activeId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -98,13 +102,25 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
         setCfg(loaded);
         setSelectedPhaseId(loaded.phases[0]?.id || null);
         setDirty(false);
+        setStatus(''); // 성공 시 이전 에러 제거
       } catch (e) {
-        setStatus(`Load failed: ${e}`);
+        // 로드 실패 — activeId 초기화해 드롭다운을 (선택) 상태로 복귀.
+        // 에러 메시지는 간결하게.
+        if (!cancelled) {
+          setActiveId(null);
+          setCfg(null);
+          setStatus(`로드 실패: ${String(e).replace(/^Error: /, '')}`);
+          // 5초 후 자동 dismiss
+          setTimeout(() => {
+            setStatus((prev) => (prev.startsWith('로드 실패') ? '' : prev));
+          }, 5000);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cfg 를 deps 에 넣으면 재로드 루프
   }, [activeId, activeSource, cwd]);
 
   const updateCfg = (patch: Partial<CustomPipelineConfig>) => {
@@ -362,7 +378,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
               fontSize: 11,
             }}
           >
-            <option value="">(선택)</option>
+            <option value="">{pipelines.length === 0 ? '저장된 파이프라인 없음' : '파이프라인 선택...'}</option>
             {pipelines.map((p) => (
               <option key={`${p.source}:${p.id}`} value={p.id}>
                 [{p.source}] {p.name}
