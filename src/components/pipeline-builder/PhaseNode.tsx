@@ -85,18 +85,19 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
         e.dataTransfer.effectAllowed = 'move';
       }}
       onDragOver={(e) => {
+        // WebKit dragover 제약 — 항상 preventDefault 하고 drop 에서 최종 판정.
         if (disabled) return;
-        if (e.dataTransfer.types.includes(DND_PHASE_MIME)) {
-          e.preventDefault();
-          setPhaseDropHover(true);
-        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setPhaseDropHover(true);
       }}
       onDragLeave={() => setPhaseDropHover(false)}
       onDrop={(e) => {
         const fromId = e.dataTransfer.getData(DND_PHASE_MIME);
+        setPhaseDropHover(false);
         if (fromId && fromId !== phase.id) {
           e.preventDefault();
-          setPhaseDropHover(false);
+          e.stopPropagation();
           onReorder(fromId, phase.id);
         }
       }}
@@ -199,14 +200,18 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
       {/* Skill stack */}
       <div
         onDragOver={(e) => {
+          // WebKit dragover 제약 — type 체크 없이 항상 허용, drop 에서 구분.
           if (disabled) return;
-          if (e.dataTransfer.types.includes(DND_SKILL_MIME) || e.dataTransfer.types.includes(DND_STACKED_SKILL_MIME)) {
-            e.preventDefault();
-            setDropHover(true);
-          }
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'copy';
+          setDropHover(true);
         }}
         onDragLeave={() => setDropHover(false)}
-        onDrop={onStackDrop}
+        onDrop={(e) => {
+          e.stopPropagation();
+          onStackDrop(e);
+        }}
         style={{
           padding: phase.skills.length === 0 ? 0 : '6px 10px 8px',
           minHeight: 36,

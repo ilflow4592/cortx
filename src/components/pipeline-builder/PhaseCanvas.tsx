@@ -110,11 +110,12 @@ export function PhaseCanvas({ cfg, selectedPhaseId, onSelectPhase, onPhasesChang
         {/* Trailing drop zone — skill 드롭 시 새 phase 자동 생성 */}
         <div
           onDragOver={(e) => {
+            // WebKit 은 dragover 중 custom MIME 을 types 에 노출하지 않음 — type 체크 없이 항상 허용.
+            // drop 핸들러가 getData 결과로 최종 판정.
             if (disabled) return;
-            if (e.dataTransfer.types.includes(DND_SKILL_MIME)) {
-              e.preventDefault();
-              setTrailingHover(true);
-            }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            setTrailingHover(true);
           }}
           onDragLeave={() => setTrailingHover(false)}
           onDrop={onTrailingDrop}

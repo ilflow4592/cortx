@@ -104,8 +104,10 @@ fn scan_pipelines(source: &str, dir: &std::path::Path, out: &mut Vec<CustomPipel
             Err(_) => continue, // 손상된 파일 skip
         };
         let phase_count = head.phases.as_ref().map(|p| p.len()).unwrap_or(0) as u32;
+        // id 는 반드시 파일 stem 사용 (JSON 내부 id 필드와 파일명 불일치 시 read 실패).
+        // head.id 는 무시 — list/read 경로 일관성 보장.
         out.push(CustomPipelineMeta {
-            id: head.id.unwrap_or_else(|| stem.to_string()),
+            id: stem.to_string(),
             name: head.name.unwrap_or_else(|| stem.to_string()),
             description: head.description,
             source: source.to_string(),

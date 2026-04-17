@@ -32,19 +32,41 @@ export interface SkillEntry {
 }
 
 /**
+ * Cortx 바이너리에 embed 된 pipeline builtin 스킬 카탈로그.
+ * src-tauri/src/commands/claude/builtin_skills.rs 의 include_str! 과 일치해야 함.
+ * list_slash_commands 에는 포함되지 않으므로 여기서 직접 주입.
+ */
+const BUILTIN_PIPELINE_SKILLS: Array<{ id: string; description: string }> = [
+  { id: 'pipeline:dev-task', description: 'Grill-me Q&A + 스펙 정리' },
+  { id: 'pipeline:dev-implement', description: '개발 계획 + 구현 (plan mode)' },
+  { id: 'pipeline:dev-review-loop', description: 'PR 리뷰 대응 + 재커밋 반복' },
+  { id: 'pipeline:dev-resume', description: '중단된 파이프라인 재개' },
+  { id: 'pipeline:pr-review-fu', description: 'PR 리뷰 follow-up' },
+];
+
+/**
  * 전체 라이브러리 조회. cwd 가 있으면 project 스킬 포함.
- * builtin/project/user 중 이름 중복 시 먼저 추가된 것 유지 (Rust 측 slash.rs 와 동일 정책).
+ * Cortx 내장 파이프라인 스킬(BUILTIN_PIPELINE_SKILLS) 먼저, 그 다음 project/user.
+ * 동일 id 가 project/user 에 있어도 builtin 은 별도 항목으로 유지 (사용자가 fork 대상 구분 가능).
  */
 export async function listSkillLibrary(cwd: string | undefined): Promise<SkillEntry[]> {
-  const commands = await invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd });
   const entries: SkillEntry[] = [];
 
+  // 1) 내장 파이프라인 스킬 (include_str! embed) — list_slash_commands 밖에서 주입
+  for (const b of BUILTIN_PIPELINE_SKILLS) {
+    entries.push({
+      kind: 'builtin',
+      id: b.id,
+      displayName: b.id,
+      description: b.description,
+      forkable: true,
+    });
+  }
+
+  // 2) project/user .md 스킬 (list_slash_commands 에서 조회)
+  const commands = await invoke<SlashCommand[]>('list_slash_commands', { projectCwd: cwd });
   for (const cmd of commands) {
-    if (!cmd.name.startsWith('pipeline:') && !cmd.name.startsWith('git:')) {
-      // 기본 Claude 내장 slash (예: /help, /clear) 는 skill library 대상 아님
-      // — pipeline:* 와 git:* 등 명시적으로 등록된 md 파일 기반만 사용
-      if (cmd.source === 'builtin') continue;
-    }
+    if (cmd.source === 'builtin') continue; // Claude CLI 내장 slash (/help, /clear) 는 라이브러리에서 제외
 
     const kind = normalizeKind(cmd.source);
     const entry: SkillEntry = {
@@ -52,22 +74,19 @@ export async function listSkillLibrary(cwd: string | undefined): Promise<SkillEn
       id: cmd.name,
       displayName: cmd.name,
       description: cmd.description,
-      forkable: kind === 'builtin',
+      forkable: false,
     };
 
-    // project/user 스킬은 본문을 읽어 frontmatter 파싱
-    if (kind !== 'builtin') {
-      try {
-        const body = await invoke<string>('read_slash_command', {
-          name: cmd.name,
-          source: cmd.source,
-          projectCwd: cwd,
-        });
-        const parsed = parseSkillFrontmatter(body);
-        if (parsed.frontmatter) entry.contract = parsed.frontmatter;
-      } catch {
-        // 읽기 실패 — contract 없이 목록에 포함 (탐색에만 사용)
-      }
+    try {
+      const body = await invoke<string>('read_slash_command', {
+        name: cmd.name,
+        source: cmd.source,
+        projectCwd: cwd,
+      });
+      const parsed = parseSkillFrontmatter(body);
+      if (parsed.frontmatter) entry.contract = parsed.frontmatter;
+    } catch {
+      // 읽기 실패 — contract 없이 목록에 포함 (탐색에만 사용)
     }
     entries.push(entry);
   }
