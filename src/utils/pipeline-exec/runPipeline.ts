@@ -43,6 +43,15 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     /* 이전 프로세스 없음 — 정상 */
   }
 
+  // claude_stop_task는 SIGTERM만 보내고 즉시 반환한다. Claude CLI는 종료 전에
+  // MCP 클라이언트 teardown / 세션 상태 디스크 flush 를 수행 — 이게 끝나기 전에
+  // 새 --resume 을 띄우면 첫 시도가 불완전한 세션 상태로 시작해 hang 될 수 있다
+  // (실측: ESC 로 kill → 재입력하면 두 번째 시도는 성공). 500ms 여유를 두어
+  // Claude CLI 측 정리 대기. 기존 프로세스가 없었다면 사실상 no-op 비용.
+  if (!isFreshStart) {
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
   if (isFreshStart) {
     messageCache.delete(taskId);
     sessionCache.delete(taskId);
@@ -539,6 +548,12 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
     if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
     if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
+    // dev_plan/grill_me/save 단계에서 Claude 가 skill 지시를 무시하고
+    // 탐색 도구를 호출하는 케이스를 하드 차단. 이들 단계는 기획·대화 중심이고
+    // 첫 tool_use 가 MCP init 대기로 hang 되는 재현 케이스 존재. Read 는 허용
+    // (skill 에서 최대 2회). ToolSearch 도 차단해 Claude 가 추가 도구 발굴
+    // 우회 못 하도록.
+    tools.push('Task', 'Agent', 'Grep', 'Glob', 'ToolSearch', 'WebFetch', 'WebSearch');
     disallowedTools = tools.length > 0 ? tools : null;
   }
 
