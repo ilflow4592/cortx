@@ -84,6 +84,15 @@ export interface PipelineState {
     /** 계획 생성 시각 */
     createdAt: string;
   };
+  /**
+   * 파이프라인 실행 모드.
+   * - `builtin` (기본): 하드코딩 7단계 파이프라인 사용. `phases` 가 PipelinePhase 리터럴 기반.
+   * - `custom`: 사용자 정의 파이프라인. `activeCustomPipeline` 에 별도 상태 저장.
+   * undefined 는 builtin 으로 간주 (기존 task localStorage 호환성).
+   */
+  pipelineMode?: 'builtin' | 'custom';
+  /** 커스텀 모드일 때 실행 중인 파이프라인 런타임 상태 */
+  activeCustomPipeline?: import('./customPipeline').ActiveCustomPipeline;
 }
 
 /**
