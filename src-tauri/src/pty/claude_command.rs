@@ -70,6 +70,15 @@ impl ClaudeCommand {
         self
     }
 
+    /// `--mcp-config <path>` — 지정된 JSON 만 MCP 설정으로 사용 (프로젝트/글로벌
+    /// 자동 탐색 비활성화). 빈 `{"mcpServers":{}}` 파일을 넘기면 MCP 서버를 하나도
+    /// 띄우지 않아 init 지연·handshake 실패로 인한 tool 호출 hang 을 원천 차단.
+    pub fn with_mcp_config(mut self, path: &str) -> Self {
+        self.parts.push("--mcp-config".into());
+        self.parts.push(shell_escape(path));
+        self
+    }
+
     pub fn with_add_dirs(mut self, dirs: &[String]) -> Self {
         for dir in dirs {
             self.parts.push("--add-dir".into());

@@ -17,6 +17,7 @@ pub fn claude_spawn(
     model: Option<String>,
     effort: Option<String>,
     disallowed_tools: Option<Vec<String>>,
+    disable_project_mcp: Option<bool>,
     state: tauri::State<'_, SharedPtyManager>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -33,6 +34,7 @@ pub fn claude_spawn(
         model.as_deref(),
         effort.as_deref(),
         &disallowed,
+        disable_project_mcp.unwrap_or(false),
         &app,
     )
 }

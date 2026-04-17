@@ -616,6 +616,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     model: selectedModel,
     effort: selectedEffort,
     disallowedTools,
+    // 파이프라인 호출은 프로젝트/글로벌 MCP 서버 자동 로딩 금지. 존재하지 않는
+    // sequential-thinking.js 나 npm 다운로드 중인 apidog 등 죽은 MCP handshake
+    // 대기로 첫 tool 호출이 수 분 hang 되는 재현 케이스 제거.
+    disableProjectMcp: true,
   });
 
   await donePromise;

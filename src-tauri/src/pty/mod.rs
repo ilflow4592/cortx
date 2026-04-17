@@ -135,6 +135,7 @@ impl PtyManager {
         model: Option<&str>,
         effort: Option<&str>,
         disallowed_tools: &[String],
+        disable_project_mcp: bool,
         app: &AppHandle,
     ) -> Result<(), String> {
         self.sessions.remove(id);
@@ -166,16 +167,37 @@ impl PtyManager {
                 None
             };
 
+            // disable_project_mcp=true 면 빈 MCP 설정 파일 생성 → Claude CLI 가
+            // 프로젝트 .mcp.json / ~/.claude.json mcpServers 스캔을 스킵하고
+            // MCP 서버를 하나도 띄우지 않음. 죽은 MCP (예: 존재하지 않는
+            // sequential-thinking.js) handshake 대기로 인한 tool 호출 hang 차단.
+            let mcp_guard = if disable_project_mcp {
+                Some(SecureTempFile::create_with_suffix(
+                    "cortx-mcp-",
+                    &event_id,
+                    ".json",
+                    r#"{"mcpServers":{}}"#,
+                ))
+            } else {
+                None
+            };
+
             let system_prompt = build_system_prompt(&summary_owned, &files_owned);
             let add_dirs = derive_add_dirs(&files_owned);
 
-            let full_cmd = ClaudeCommand::new(msg_file.path(), &model_owned)
+            let mut cmd_builder = ClaudeCommand::new(msg_file.path(), &model_owned)
                 .with_session(session_id_owned.as_deref())
                 .with_effort(effort_owned.as_deref())
                 .with_disallowed_tools(&disallowed_tools_owned)
                 .with_system_prompt(&system_prompt)
-                .with_add_dirs(&add_dirs)
-                .build();
+                .with_add_dirs(&add_dirs);
+            if let Some(g) = mcp_guard.as_ref() {
+                cmd_builder = cmd_builder.with_mcp_config(g.path());
+            }
+            let full_cmd = cmd_builder.build();
+            // mcp_guard 는 Drop 시 파일 제거 → spawn 끝날 때까지 살아있어야 함.
+            // spawn_and_stream 은 동기 호출이라 이 스레드가 끝나야 반환 → OK.
+            let _keep_mcp = mcp_guard;
 
             if let Err(e) =
                 spawn_and_stream(&cwd_owned, &full_cmd, &event_id, &app_handle, pid_holder)

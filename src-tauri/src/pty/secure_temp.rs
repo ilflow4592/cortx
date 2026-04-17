@@ -37,12 +37,13 @@ pub struct SecureTempFile {
 
 impl SecureTempFile {
     pub fn create(prefix: &str, event_id: &str, content: &str) -> Self {
+        Self::create_with_suffix(prefix, event_id, ".md", content)
+    }
+
+    /// 임의 확장자의 임시 파일 생성 (예: MCP 설정용 .json).
+    pub fn create_with_suffix(prefix: &str, event_id: &str, suffix: &str, content: &str) -> Self {
         // 1) tempfile 크레이트가 unique suffix를 붙여 생성 시도
-        if let Ok(f) = tempfile::Builder::new()
-            .prefix(prefix)
-            .suffix(".md")
-            .tempfile()
-        {
+        if let Ok(f) = tempfile::Builder::new().prefix(prefix).suffix(suffix).tempfile() {
             let path = f.path().to_string_lossy().to_string();
             f.keep().ok(); // claude CLI가 열 수 있도록 파일 유지 (Drop은 remove로 대체)
             match write_secure_temp(&path, content) {
@@ -58,7 +59,7 @@ impl SecureTempFile {
             }
         }
         // 2) /tmp fallback — 고정 경로지만 event_id 수준의 unique성 보장
-        let path = format!("/tmp/{}{}.md", prefix, event_id);
+        let path = format!("/tmp/{}{}{}", prefix, event_id, suffix);
         if let Err(e) = write_secure_temp(&path, content) {
             log::warn!("[pty] fallback write {} failed: {}", prefix, e);
             let _ = std::fs::remove_file(&path);
