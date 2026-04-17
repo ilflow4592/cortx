@@ -561,6 +561,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Diagnostic — helps debug "dev-implement stuck" issues by logging session
   // resume state and cwd at spawn time. Remove once the chat-vs-button parity
   // issue is confirmed fixed.
+  const skillHead = resolvedPrompt.slice(0, 300);
+  const hasNewRule = resolvedPrompt.includes('Step 1 에서 Agent 사용 절대 금지');
+  const hasOldObsidian = resolvedPrompt.includes('Obsidian에 저장된 dev-plan');
   console.log('[runPipeline] spawn', {
     taskId,
     command,
@@ -569,6 +572,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     resumeSessionId: resumeSessionId || '(none)',
     messageCacheLength: (messageCache.get(taskId) || []).length,
     contextSummaryLength: contextSummary.length,
+    builtinUsed,
+    skillHead,
+    hasNewRule,
+    hasOldObsidian,
   });
 
   await invoke('claude_spawn', {
