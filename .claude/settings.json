@@ -1,0 +1,81 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm view:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npx stylelint:*)",
+      "Bash(npx husky:*)",
+      "Bash(npx lint-staged:*)",
+      "Bash(npx tauri:*)",
+      "Bash(npx vite:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo tauri:*)",
+      "Bash(cargo clean:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh api:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(echo:*)",
+      "Bash(node:*)",
+      "Bash(command -v rustc)",
+      "Bash(bash .git/hooks/pre-commit)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(grep *)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git push *)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr create *)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git commit -m * --no-verify*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-prod.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/confirm-delete.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

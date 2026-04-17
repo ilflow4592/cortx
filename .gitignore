@@ -30,6 +30,9 @@ src-tauri/target/
 .env
 .env.local
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # Backup files
 *.bak
 *.tmp
