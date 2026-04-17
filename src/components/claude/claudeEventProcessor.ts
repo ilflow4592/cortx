@@ -229,11 +229,12 @@ export class ClaudeEventProcessor {
       // Activity 라벨 생성 — 가시성 위해 Bash/Read/Edit의 실제 인자를 요약 표시.
       // 사용자가 "Using Bash..." 앞에서 hang 했는지 파악 가능하도록.
       const displayContent = formatToolActivity(toolBlocks, toolLabel, dangerLabel);
+      const startedAt = Date.now();
       this.ctx.setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== this.ctx.activityId);
         return [
           ...filtered,
-          { id: this.ctx.activityId, role: 'activity', content: displayContent, toolName: toolLabel },
+          { id: this.ctx.activityId, role: 'activity', content: displayContent, toolName: toolLabel, startedAt },
         ];
       });
     }

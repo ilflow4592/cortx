@@ -371,13 +371,14 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
         if (toolBlocks.length > 0) {
           currentMsgId = '';
           const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
-          // useClaudeSession 과 동일하게 Read/Edit/Bash/Grep 의 실제 인자를 표시.
-          // "Using Read..." 만 뜨면 사용자가 어느 파일을 읽는지 몰라 hang 인지
-          // 진행 중인지 구분 불가.
           const content = formatToolActivity(toolBlocks as ContentBlock[], toolLabel, null);
+          const now = Date.now();
           updateCache((cached) => {
             const filtered = cached.filter((m) => m.id !== activityId);
-            return [...filtered, { id: activityId, role: 'activity' as const, content, toolName: toolLabel }];
+            return [
+              ...filtered,
+              { id: activityId, role: 'activity' as const, content, toolName: toolLabel, startedAt: now },
+            ];
           });
         }
       } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
@@ -541,11 +542,19 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
 
   const contextSummary = summaryParts.join('\n');
 
-  // Select model based on pipeline phase
+  // Select model based on pipeline phase.
+  // - grill_me / save: Opus (대화·요약 품질). effort=medium.
+  // - dev_plan: Sonnet 4.6 (템플릿 채우기 + 기존 패턴 추종 작업. Opus max 는
+  //   불필요하게 thinking 토큰 소모 — 체감 latency 수 배 증가).
+  // - implement / review_loop: Sonnet (비용 효율).
   const currentPipeline = useTaskStore.getState().tasks.find((t) => t.id === taskId)?.pipeline;
-  const selectedModel = currentPipeline?.phases?.implement?.status === 'in_progress' ? 'claude-sonnet-4-6' : null;
-  // Opus 사용 경로(selectedModel == null → pty가 opus로 기본 승격)에서만 effort 낮춤.
-  // Sonnet은 기존 동작 유지.
+  const activePhaseForModel = currentPipeline?.phases
+    ? (['dev_plan', 'implement', 'review_loop'] as const).find(
+        (p) => currentPipeline.phases[p]?.status === 'in_progress',
+      )
+    : undefined;
+  const selectedModel = activePhaseForModel ? 'claude-sonnet-4-6' : null;
+  // Opus 경로(selectedModel == null)에서만 effort 낮춤. Sonnet 은 CLI 기본값.
   const selectedEffort = selectedModel === null ? 'medium' : null;
 
   // grill-me / save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
@@ -568,6 +577,10 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
     if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
     if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
+    // Serena MCP 차단: dev_plan/grill_me/save 단계는 파일 Read 로 충분. Serena 의
+    // LSP 인덱싱이 대규모 프로젝트에서 수 분 걸리며, 첫 symbol 쿼리 시 hang
+    // 재현 원인. 구현(implement) 단계에선 필요할 수 있어 그때는 허용.
+    tools.push('mcp__serena__*');
     disallowedTools = tools.length > 0 ? tools : null;
   }
 

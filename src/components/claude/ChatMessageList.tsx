@@ -1,9 +1,36 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Paperclip } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useT } from '../../i18n';
 import type { Message } from './types';
+
+/**
+ * Live elapsed-seconds counter for an activity message. Updates every second
+ * so the user can tell "slow" vs "genuinely stuck".
+ */
+function ElapsedCounter({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const label = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+  const stale = seconds >= 60;
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        color: stale ? 'var(--fg-faint, #f59e0b)' : 'var(--fg-dim)',
+        fontVariantNumeric: 'tabular-nums',
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface ChatMessageListProps {
   messages: Message[];
@@ -152,9 +179,17 @@ const MessageItem = memo(
               marginTop: multiline ? 2 : 0,
             }}
           />
-          <div style={{ fontFamily: "'Fira Code', 'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+          <div
+            style={{
+              fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+              whiteSpace: 'pre-wrap',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
             {msg.content}
           </div>
+          {msg.startedAt && <ElapsedCounter startedAt={msg.startedAt} />}
         </div>
       );
     }
@@ -182,6 +217,7 @@ const MessageItem = memo(
     prev.msg.id === next.msg.id &&
     prev.msg.content === next.msg.content &&
     prev.msg.role === next.msg.role &&
+    prev.msg.startedAt === next.msg.startedAt &&
     (prev.msg.guardrailMarks?.length || 0) === (next.msg.guardrailMarks?.length || 0),
 );
 
