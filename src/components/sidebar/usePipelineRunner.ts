@@ -2,6 +2,19 @@ import { useEffect } from 'react';
 import { useTaskStore } from '../../stores/taskStore';
 import { usePipelineRunnerStore } from '../../stores/pipelineRunnerStore';
 import { runPipeline } from '../../utils/pipelineExec';
+import type { Task } from '../../types/task';
+
+/**
+ * A task's pipeline is considered "started" once any phase has moved past
+ * `pending`. The in-memory `runningPipelines` Set only tracks the current
+ * process, but Claude sessions can be long-lived and the app may restart
+ * while a phase is in_progress — the persistent pipeline state is the
+ * authoritative signal that work is underway.
+ */
+function hasStartedPipeline(t: Task | undefined): boolean {
+  if (!t?.pipeline?.enabled) return false;
+  return Object.values(t.pipeline.phases).some((p) => p.status !== 'pending');
+}
 
 /**
  * Pipeline runner hook — wraps runPipeline() with UI state tracking.
@@ -53,22 +66,28 @@ export function usePipelineRunner() {
   }, [tasks]);
 
   const runSelectedPipelines = (selectedTasks: Set<string>, onDone: () => void) => {
-    // done 상태 제외 + 이미 파이프라인 돌고 있는 task 제외 (중복 실행 방지)
-    const selected = [...selectedTasks].filter(
-      (id) => !runningPipelines.has(id) && tasks.some((t) => t.id === id && t.status !== 'done'),
-    );
+    // 제외: done 상태, 이미 in-memory 실행 중, 이미 파이프라인이 시작된(phase !== pending) task.
+    const selected = [...selectedTasks].filter((id) => {
+      if (runningPipelines.has(id)) return false;
+      const t = tasks.find((x) => x.id === id);
+      if (!t || t.status === 'done') return false;
+      if (hasStartedPipeline(t)) return false;
+      return true;
+    });
     selected.forEach((id) => useTaskStore.getState().updateTask(id, { elapsedSeconds: 0 }));
     selected.forEach((id) => runPipelineForTask(id, '/pipeline:dev-task'));
     onDone();
   };
 
-  /** 선택된 task 중 실제 Run 가능한(= 실행 중 아닌 + done 아닌) 개수 계산 */
+  /** 선택된 task 중 실제 Run 가능한(= 실행 중 아닌 + done 아닌 + 파이프라인 미시작) 개수 */
   const countRunnable = (selectedTasks: Set<string>): number => {
     let count = 0;
     selectedTasks.forEach((id) => {
       if (runningPipelines.has(id)) return;
       const t = tasks.find((x) => x.id === id);
-      if (t && t.status !== 'done') count++;
+      if (!t || t.status === 'done') return;
+      if (hasStartedPipeline(t)) return;
+      count++;
     });
     return count;
   };
