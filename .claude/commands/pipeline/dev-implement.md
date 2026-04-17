@@ -12,7 +12,7 @@ Context Pack의 스펙을 기반으로 개발 계획을 수립하고, 구현 및
 - **grill-me 결과를 1차 입력**으로 사용. 계획서 초안은 grill-me 에서 확정된 사항만으로 구성 가능해야 함.
 - **Read 는 허용** — grill-me 에서 지목된 파일 또는 명백한 참조 대상(예: "NexusQuoteController 패턴 참고")에 한함.
 - **⚡ 한 턴 batch 규칙 (필수)**: 여러 파일을 읽어야 하면 **한 번의 응답 안에서 Read 도구 호출을 동시에 나열**하세요 (병렬 실행). 순차적으로 하나씩 호출하지 마세요 — 턴 수만큼 왕복 지연이 누적됩니다.
-- Step 1 금지 도구: **Agent, Grep/Glob 전체 스캔, WebFetch, Serena MCP** — Serena 는 LSP 인덱싱 지연으로 hang 위험. 구현 단계에서만 허용.
+- Step 1 금지 도구: **Agent, Grep/Glob 전체 스캔, WebFetch, Serena MCP**. 그리고 **Bash 의 `find` / `grep` / `rg` / `ag` / `fd` / `tree` / `ls -R` 같은 파일 탐색 명령도 금지** — 워크트리 전체 순회로 수 분 걸림. grill-me 에서 지목된 파일 경로를 그대로 Read 하거나, 경로 불확실 시 사용자에게 질문.
 - **탐색 선언 문구 최소화**. "코드베이스를 확인합니다", "기존 패턴을 파악합니다" 같은 사전 해설 없이 **필요한 Read 를 바로 호출**하고, 결과를 받은 뒤 계획서 템플릿으로 진입.
 - dev-plan.md 파일을 찾지 마세요. Cortx는 어떤 파일도 외부에 저장하지 않습니다 (memory/localStorage만 사용).
 
