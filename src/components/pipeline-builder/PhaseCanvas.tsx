@@ -9,6 +9,8 @@ interface Props {
   selectedPhaseId: string | null;
   onSelectPhase: (id: string) => void;
   onPhasesChange: (phases: CustomPhase[]) => void;
+  /** cfg 가 null 일 때 빈 캔버스에 스킬 드롭 시 호출 — 새 파이프라인 + phase 동시 생성 */
+  onCreateWithSkill: (skill: CustomSkillRef) => void;
   disabled?: boolean;
 }
 
@@ -25,13 +27,66 @@ function makeEmptyPhase(existingIds: Set<string>): CustomPhase {
   };
 }
 
-export function PhaseCanvas({ cfg, selectedPhaseId, onSelectPhase, onPhasesChange, disabled }: Props) {
+export function PhaseCanvas({
+  cfg,
+  selectedPhaseId,
+  onSelectPhase,
+  onPhasesChange,
+  onCreateWithSkill,
+  disabled,
+}: Props) {
   const [trailingHover, setTrailingHover] = useState(false);
+  const [emptyHover, setEmptyHover] = useState(false);
 
   if (!cfg) {
+    // 빈 상태 — 스킬을 여기로 드롭하면 새 파이프라인 자동 생성
     return (
-      <div style={{ padding: 24, color: 'var(--fg-dim)', fontSize: 12 }}>
-        왼쪽 툴바에서 파이프라인을 선택하거나 New 로 생성하세요.
+      <div
+        onDragOver={(e) => {
+          if (disabled) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setEmptyHover(true);
+        }}
+        onDragLeave={() => setEmptyHover(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setEmptyHover(false);
+          if (disabled) return;
+          const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
+          if (!raw) return;
+          try {
+            const ref = JSON.parse(raw) as CustomSkillRef;
+            if (ref && typeof ref === 'object' && 'kind' in ref) {
+              onCreateWithSkill(ref);
+            }
+          } catch {
+            /* ignore */
+          }
+        }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          padding: 40,
+          gap: 12,
+          color: emptyHover ? 'var(--green, #34d399)' : 'var(--fg-dim)',
+          background: emptyHover ? 'rgba(52,211,153,0.03)' : 'transparent',
+          border: `3px dashed ${emptyHover ? 'var(--green, #34d399)' : 'var(--border-strong)'}`,
+          borderRadius: 12,
+          margin: 24,
+          transition: 'all 0.15s',
+        }}
+      >
+        <div style={{ fontSize: 32, opacity: 0.5 }}>⊕</div>
+        <div style={{ fontSize: 13, fontWeight: 500, textAlign: 'center' }}>
+          왼쪽 스킬을 여기로 드래그하면 새 파이프라인이 생성됩니다
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--fg-dim)', textAlign: 'center' }}>
+          또는 상단의 <strong>+ New</strong> / <strong>Import</strong> / 드롭다운으로 기존 선택
+        </div>
       </div>
     );
   }

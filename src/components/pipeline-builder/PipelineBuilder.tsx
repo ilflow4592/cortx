@@ -14,7 +14,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { X, Play, Plus, Save, Copy, Trash2, Download, Upload } from 'lucide-react';
-import type { CustomPipelineConfig, CustomPipelineMeta, CustomPhase } from '../../types/customPipeline';
+import type { CustomPipelineConfig, CustomPipelineMeta, CustomPhase, CustomSkillRef } from '../../types/customPipeline';
 import {
   listCustomPipelines,
   readCustomPipeline,
@@ -145,6 +145,28 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
     setDirty(true);
   };
 
+  // 빈 캔버스에 스킬 드롭 → 새 파이프라인 생성 + 첫 phase + 드롭된 스킬 추가.
+  const handleCreateWithSkill = (skill: CustomSkillRef) => {
+    if (locked) return;
+    const id = `custom-${Date.now().toString(36)}`;
+    const empty = createEmptyConfig(id, 'New Pipeline');
+    const firstPhase: CustomPhase = {
+      id: 'phase_1',
+      label: 'Phase 1',
+      skills: [skill],
+      model: 'Sonnet',
+      effort: 'medium',
+      permissionMode: 'bypassPermissions',
+    };
+    empty.phases = [firstPhase];
+    setCfg(empty);
+    setActiveId(id);
+    setActiveSource('project');
+    setSelectedPhaseId(firstPhase.id);
+    setDirty(true);
+    setStatus('새 파이프라인 생성됨 — Save 로 저장');
+  };
+
   const handleDuplicate = async () => {
     if (!cfg) return;
     const newId = `${cfg.id}-copy-${Date.now().toString(36).slice(-4)}`;
@@ -234,7 +256,6 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   };
 
   return (
-     
     <div
       style={{
         position: 'fixed',
@@ -353,6 +374,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
             selectedPhaseId={selectedPhaseId}
             onSelectPhase={setSelectedPhaseId}
             onPhasesChange={updatePhases}
+            onCreateWithSkill={handleCreateWithSkill}
             disabled={locked}
           />
           <PhaseDetail
