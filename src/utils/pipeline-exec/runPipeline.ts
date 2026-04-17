@@ -652,8 +652,11 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       )
     : undefined;
   const selectedModel = activePhaseForModel ? 'claude-sonnet-4-6' : null;
-  // Opus 경로(selectedModel == null)에서만 effort 낮춤. Sonnet 은 CLI 기본값.
-  const selectedEffort = selectedModel === null ? 'medium' : null;
+  // Opus·Sonnet 전부 effort=medium. Sonnet CLI 기본값이 high/xhigh 여서 extended
+  // thinking 토큰이 수만 토큰 과소비되는 실측(Dev Plan 27K+). medium 으로 낮춰
+  // 비용·지연 절감. 단계별 차등은 PHASE_EFFORT 상수로 조정 가능하게 분리했으나
+  // 현재는 전 단계 동일.
+  const selectedEffort = 'medium';
 
   // grill-me / save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
   // 로직: "fullText가 이미 있는 소스만 차단". fullText가 없는 소스는 Claude가 필요 시
