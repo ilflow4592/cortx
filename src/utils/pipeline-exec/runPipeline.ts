@@ -8,13 +8,13 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { messageCache, sessionCache, loadingCache } from '../chatState';
 import { recordEvent } from '../../services/telemetry';
-import type { PipelinePhase } from '../../types/task';
 import { invoke, listen } from './tauri';
 import { fetchPinUrl } from './fetchPinUrl';
-import { formatToolActivity, type ContentBlock } from '../../components/claude/claudeEventProcessor';
 import type { PipelineCallbacks } from './types';
-import { stripMarkers as sharedStripMarkers, isQuestion as sharedIsQuestion, BUILTIN_PHASE_KEYS } from './_shared';
-import { applyPhaseTransition, applyMarkerToStore } from './_phaseTransitions';
+import { isQuestion as sharedIsQuestion } from './_shared';
+import { applyPhaseTransition } from './_phaseTransitions';
+import { buildContextSummary } from './_contextBuilder';
+import { createStreamState, handleClaudeDataEvent } from './_streamHandler';
 
 export async function runPipeline(taskId: string, command: string, callbacks?: PipelineCallbacks) {
   const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
@@ -266,297 +266,19 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   }
   messageCache.set(taskId, [...msgs]);
 
-  // Strip pipeline markers from display text — 공유 유틸 사용 (_shared.ts)
-  const stripMarkers = sharedStripMarkers;
-
-  // Parse pipeline markers — builtin phase + 유효 status 만 처리, store 업데이트는
-  // applyMarkerToStore (추출된 공유 유틸) 에 위임.
-  const parsePipelineMarkers = (text: string): string => {
-    let cleaned = text;
-    const markerRegex = /\[PIPELINE:(\w+):(\w+)(?::([^\]]*))?\]/g;
-    const VALID_STATUSES = new Set(['in_progress', 'done', 'skipped', 'pending']);
-    let match;
-    while ((match = markerRegex.exec(text)) !== null) {
-      const [fullMatch, phase, status, memo] = match;
-      if (BUILTIN_PHASE_KEYS.has(phase) && VALID_STATUSES.has(status)) {
-        applyMarkerToStore(taskId, phase, status as 'in_progress' | 'done' | 'skipped' | 'pending', memo);
-      }
-      cleaned = cleaned.replace(fullMatch, '');
-    }
-    return cleaned;
-  };
-
-  // Streaming handler — writes to messageCache
-  let turnCounter = 0;
-  let currentResponse = '';
-  let currentMsgId = '';
-  const activityId = `${reqId}-activity`;
-
-  // Streaming 시 Asking 상태 트래킹. donePromise보다 먼저 UI 반영.
-  let isAskingNow = false;
-  const updateCache = (updater: (cached: Msg[]) => Msg[]) => {
-    // loadingCache stays true throughout the pipeline so the Stop button
-    // remains visible. The "Claude is thinking..." indicator is hidden
-    // automatically in ChatMessageList when any assistant/activity message exists.
-    const cached = messageCache.get(taskId) || [];
-    const next = updater(cached);
-    messageCache.set(taskId, next);
-
-    // 마지막 assistant 메시지가 질문으로 끝나면 Asking, 아니면 해제.
-    // activity 메시지(tool_use 중)가 있으면 아직 작업 중 → asking 해제.
-    const hasTrailingActivity = next.some((m) => m.role === 'activity');
-    const lastAssistant = [...next].reverse().find((m) => m.role === 'assistant');
-    const shouldBeAsking =
-      !hasTrailingActivity &&
-      !!lastAssistant &&
-      lastAssistant.content.trim().length > 0 &&
-      isQuestion(lastAssistant.content);
-    if (shouldBeAsking && !isAskingNow) {
-      isAskingNow = true;
-      callbacks?.onAsking?.();
-    } else if (!shouldBeAsking && isAskingNow) {
-      isAskingNow = false;
-      callbacks?.onNotAsking?.();
-    }
-  };
-
+  // Streaming handler — _streamHandler.ts 로 추출. state closure 는 여기서 소유.
+  const streamState = createStreamState(reqId);
   const unData = await listen<string>(`claude-data-${reqId}`, (event) => {
-    const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-    if (!currentTask?.pipeline?.enabled) return;
-
-    try {
-      const evt = JSON.parse(event.payload);
-
-      if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
-        sessionCache.set(taskId, evt.session_id);
-      }
-
-      if (evt.type === 'assistant' && evt.message?.content) {
-        const textBlocks = (evt.message.content as Array<{ type: string; text?: string }>)
-          .filter((b: { type: string }) => b.type === 'text')
-          .map((b: { text?: string }) => b.text || '');
-        const toolBlocks = (evt.message.content as Array<{ type: string; name?: string }>).filter(
-          (b: { type: string }) => b.type === 'tool_use',
-        );
-
-        if (textBlocks.length > 0) {
-          const newText = textBlocks.join('');
-          if (!currentMsgId) {
-            turnCounter++;
-            currentMsgId = `${reqId}-turn-${turnCounter}`;
-            currentResponse = parsePipelineMarkers(stripMarkers(newText));
-          } else {
-            currentResponse = parsePipelineMarkers(stripMarkers(currentResponse + newText));
-          }
-          if (currentResponse.trim()) {
-            const msgId = currentMsgId;
-            updateCache((cached) => {
-              const filtered = cached.filter((m) => m.id !== activityId);
-              const idx = filtered.findIndex((m) => m.id === msgId);
-              if (idx >= 0) {
-                filtered[idx] = { ...filtered[idx], content: currentResponse };
-                return [...filtered];
-              }
-              return [...filtered, { id: msgId, role: 'assistant' as const, content: currentResponse }];
-            });
-          }
-        }
-
-        if (toolBlocks.length > 0) {
-          currentMsgId = '';
-          // ExitPlanMode 감지 — Plan mode 종료 시 Claude 가 계획을 제출하는 이벤트.
-          // Headless 에선 auto-reject 되어 세션이 곧 종료. 계획 본문을 캐시에 저장해
-          // 승인 UI 가 렌더할 수 있게 한다.
-          const exitPlanBlock = (
-            toolBlocks as Array<{ type: string; name?: string; input?: { plan?: string; planFilePath?: string } }>
-          ).find((b) => b.name === 'ExitPlanMode');
-          if (exitPlanBlock?.input?.plan) {
-            const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
-            if (t?.pipeline?.enabled) {
-              useTaskStore.getState().updateTask(taskId, {
-                pipeline: {
-                  ...t.pipeline,
-                  pendingPlanApproval: {
-                    plan: exitPlanBlock.input.plan,
-                    planFilePath: exitPlanBlock.input.planFilePath,
-                    createdAt: new Date().toISOString(),
-                  },
-                },
-              });
-            }
-          }
-
-          const toolLabel = toolBlocks.map((b) => b.name || 'tool').join(', ');
-          const content = formatToolActivity(toolBlocks as ContentBlock[], toolLabel, null);
-          const now = Date.now();
-          updateCache((cached) => {
-            const filtered = cached.filter((m) => m.id !== activityId);
-            return [
-              ...filtered,
-              { id: activityId, role: 'activity' as const, content, toolName: toolLabel, startedAt: now },
-            ];
-          });
-        }
-      } else if (evt.type === 'content_block_delta' && evt.delta?.text) {
-        currentResponse = parsePipelineMarkers(stripMarkers(currentResponse + evt.delta.text));
-        if (!currentMsgId) {
-          turnCounter++;
-          currentMsgId = `${reqId}-turn-${turnCounter}`;
-        }
-        if (currentResponse.trim()) {
-          const msgId = currentMsgId;
-          updateCache((cached) => {
-            const filtered = cached.filter((m) => m.id !== activityId);
-            const idx = filtered.findIndex((m) => m.id === msgId);
-            if (idx >= 0) {
-              filtered[idx] = { ...filtered[idx], content: currentResponse };
-              return [...filtered];
-            }
-            return [...filtered, { id: msgId, role: 'assistant' as const, content: currentResponse }];
-          });
-        }
-      }
-
-      // Track token usage
-      if (evt.type === 'result' && evt.usage) {
-        const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
-        if (t?.pipeline?.enabled) {
-          const inTok = evt.usage.input_tokens || 0;
-          const outTok = evt.usage.output_tokens || 0;
-          const cost = evt.total_cost_usd || 0;
-          const phases = { ...t.pipeline.phases };
-          const PHASE_ORDER: PipelinePhase[] = [
-            'grill_me',
-            'save',
-            'dev_plan',
-            'implement',
-            'commit_pr',
-            'review_loop',
-            'done',
-          ];
-          const activePhase = PHASE_ORDER.find((p) => phases[p]?.status === 'in_progress');
-          if (activePhase) {
-            const entry = { ...phases[activePhase] };
-            entry.inputTokens = (entry.inputTokens || 0) + inTok;
-            entry.outputTokens = (entry.outputTokens || 0) + outTok;
-            entry.costUsd = (entry.costUsd || 0) + cost;
-            phases[activePhase] = entry;
-            useTaskStore.getState().updateTask(taskId, { pipeline: { ...t.pipeline, phases } });
-          }
-        }
-      }
-    } catch {
-      /* not JSON */
-    }
+    handleClaudeDataEvent(event.payload, streamState, { taskId, reqId, callbacks });
   });
 
   const donePromise = new Promise<void>((resolve) => {
     listen(`claude-done-${reqId}`, () => resolve());
   });
 
-  // Pre-load project-context.md so Claude doesn't need a separate Read tool call.
-  // Continuation(--resume)일 때는 이미 이전 세션 시스템 프롬프트에 포함돼 있으므로
-  // skip. 중복 주입 시 Claude 가 동일 17KB 를 재파싱해 TTFB 가 크게 늘어난다.
-  let projectContextMd = '';
-  if (cwd && isFreshStart) {
-    try {
-      const ctxRes = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-        cwd: '/',
-        command: `cat "${cwd}/.cortx/project-context.md" 2>/dev/null`,
-      });
-      if (ctxRes.success && ctxRes.output.trim()) {
-        projectContextMd = ctxRes.output;
-      }
-    } catch {
-      /* no project-context.md yet, skill falls back to fresh exploration */
-    }
-  }
-
-  // Build context summary.
-  //
-  // Fresh start(/pipeline:dev-task): 전체 컨텍스트 주입 (RULES + project-context.md +
-  //   Context Pack fullText).
-  // Continuation(/pipeline:dev-implement 등): --resume 이 이전 시스템 프롬프트와
-  //   대화를 복원하므로 PIPELINE_TRACKING (phase 마커 리마인더)만 남기고 나머지는
-  //   skip. 중복 주입 시 동일 17KB+ 블록을 Claude 가 재파싱해 TTFB 가 크게 늘어난다.
-  const summaryParts: string[] = [
-    '## CORTX_PIPELINE_TRACKING',
-    'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
-    'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-    'Valid phases: grill_me, save, dev_plan, implement, commit_pr, review_loop, done',
-    'Valid statuses: in_progress, done, skipped',
-    'Examples:',
-    '- When starting grill-me: emit [PIPELINE:grill_me:in_progress]',
-    '- When grill-me is complete: emit [PIPELINE:grill_me:done]',
-    '- When dev plan starts: emit [PIPELINE:dev_plan:in_progress]',
-    '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
-    '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
-  ];
-
-  if (isFreshStart) {
-    summaryParts.push(
-      '',
-      '## CORTX_RULES (MUST FOLLOW)',
-      '- Cortx stores state in memory/localStorage only. No external file writes. NEVER read/write dev-plan.md, _dashboard.md, _pipeline-state.json, or any vault/notes file.',
-      '- The "Save" phase means: output the grill-me summary as chat text. Nothing is written to disk. Do not describe fake file writes.',
-      '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
-      '- NEVER run git commit, git push, or gh pr create without asking the user first.',
-      '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
-      '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
-      '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
-      '- 한국어로만 대화합니다.',
-      '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-      '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Read/Bash 호출 금지. project-context.md와 Context Pack fullText만 사용.',
-      '- Context Pack에 Notion/Slack/GitHub fullText가 있으면 해당 MCP 도구 재호출 금지 (mcp__notion__*, mcp__slack__*, mcp__github__*).',
-    );
-
-    if (projectContextMd) {
-      summaryParts.push('', '---', '', '## CORTX_PROJECT_CONTEXT (pre-loaded)');
-      summaryParts.push('project-context.md가 이미 아래에 포함돼 있습니다. 같은 파일을 Read 도구로 다시 읽지 마세요.');
-      summaryParts.push('Tech Stack, Rule Files, 임베드된 CLAUDE.md/AGENTS.md 본문이 모두 포함됨.');
-      summaryParts.push('', projectContextMd);
-    }
-
-    if (contextItems.length > 0) {
-      summaryParts.push('', '---', '', '## CORTX_CONTEXT_PACK_MODE');
-      summaryParts.push('This pipeline was invoked from the Cortx app with Context Pack data.');
-      summaryParts.push(
-        'Use the Context Pack data below as the task specification. Do NOT look for or reference any dev-plan file.',
-      );
-      summaryParts.push(
-        'Skip all external file lookups (dev-plan.md, _pipeline-state.json, notes, vaults) — the Context Pack IS your source of truth.',
-      );
-      summaryParts.push('If a dev-plan is needed, generate it from the Context Pack data.');
-      const sourceLabels: Record<string, string> = {
-        github: 'GitHub',
-        slack: 'Slack',
-        notion: 'Notion',
-        pin: 'Pinned',
-      };
-      const bySource: Record<string, typeof contextItems> = {};
-      for (const item of contextItems) {
-        const key = item.sourceType || 'other';
-        (bySource[key] ??= []).push(item);
-      }
-      for (const [source, items] of Object.entries(bySource)) {
-        const label = sourceLabels[source] || source;
-        const lines = items.map((item) => {
-          const parts = [`- **${item.title}**`];
-          if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
-          const hasFullText = !!item.metadata?.fullText;
-          // fullText가 있으면 URL은 감춤 — Claude가 원본 URL을 보고 MCP로 재조회하는 유인 제거
-          if (item.url && item.url.startsWith('http') && !hasFullText) parts.push(`  ${item.url}`);
-          if (hasFullText) {
-            parts.push(`\n<!-- 본문 이미 포함됨 — ${label} MCP로 재조회 금지 -->\n${item.metadata!.fullText}`);
-          }
-          return parts.join('\n');
-        });
-        summaryParts.push('', `## ${label}`, ...lines);
-      }
-    }
-  }
-
-  const contextSummary = summaryParts.join('\n');
+  // Context summary — CORTX_PIPELINE_TRACKING + (fresh start 일 때) RULES +
+  // project-context.md + Context Pack fullText. 공유 유틸로 추출 (_contextBuilder.ts).
+  const contextSummary = await buildContextSummary(cwd, isFreshStart, contextItems);
 
   // Select model based on pipeline phase.
   // - grill_me / save: Opus (대화·요약 품질). effort=medium.
