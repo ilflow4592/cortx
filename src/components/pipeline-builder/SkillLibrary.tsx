@@ -16,6 +16,7 @@ import { listSkillLibrary } from '../../services/skillLibrary';
 import { listAgents } from '../../services/agentRegistry';
 import type { ClaudeAgentEntry, CustomSkillRef } from '../../types/customPipeline';
 import { DND_SKILL_MIME } from './dragTypes';
+import { setDragPayload } from './dndUtils';
 import { SkillEditorModal } from './SkillEditorModal';
 
 interface Props {
@@ -82,10 +83,7 @@ export function SkillLibrary({ cwd, disabled, onAddSkill }: Props) {
   }, [cwd]);
 
   const onDragStart = (e: React.DragEvent, ref: CustomSkillRef) => {
-    const payload = JSON.stringify(ref);
-    e.dataTransfer.setData(DND_SKILL_MIME, payload);
-    // WebKit fallback — text/plain 이 있어야 drag 가 정상 시작됨 (Tauri/Safari 버그)
-    e.dataTransfer.setData('text/plain', payload);
+    setDragPayload(e, DND_SKILL_MIME, JSON.stringify(ref));
     e.dataTransfer.effectAllowed = 'copy';
   };
 

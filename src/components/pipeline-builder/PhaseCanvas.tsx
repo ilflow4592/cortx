@@ -2,6 +2,7 @@
 import { useRef } from 'react';
 import { PhaseNode } from './PhaseNode';
 import { DND_SKILL_MIME, DND_PHASE_MIME } from './dragTypes';
+import { getDragPayload, parseDragJson } from './dndUtils';
 import type { CustomPhase, CustomPipelineConfig, CustomSkillRef } from '../../types/customPipeline';
 
 interface Props {
@@ -82,16 +83,12 @@ export function PhaseCanvas({
           e.stopPropagation();
           setEmptyHoverDOM(false);
           if (disabled) return;
-          const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
-          if (!raw) return;
-          try {
-            const ref = JSON.parse(raw) as CustomSkillRef;
-            if (ref && typeof ref === 'object' && 'kind' in ref) {
-              onCreateWithSkill(ref);
-            }
-          } catch {
-            /* ignore */
-          }
+          const raw = getDragPayload(e, DND_SKILL_MIME);
+          const ref = parseDragJson<CustomSkillRef>(
+            raw,
+            (v): v is CustomSkillRef => !!v && typeof v === 'object' && 'kind' in v,
+          );
+          if (ref) onCreateWithSkill(ref);
         }}
         style={{
           display: 'flex',
@@ -148,16 +145,12 @@ export function PhaseCanvas({
     e.stopPropagation();
     setTrailingHoverDOM(false);
     if (disabled) return;
-    const raw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
-    if (!raw) return;
-    try {
-      const ref = JSON.parse(raw) as CustomSkillRef;
-      if (ref && typeof ref === 'object' && 'kind' in ref) {
-        appendPhaseFromSkill(ref);
-      }
-    } catch {
-      // ignore — text/plain 페이로드가 JSON 이 아닌 일반 드래그일 수 있음
-    }
+    const raw = getDragPayload(e, DND_SKILL_MIME);
+    const ref = parseDragJson<CustomSkillRef>(
+      raw,
+      (v): v is CustomSkillRef => !!v && typeof v === 'object' && 'kind' in v,
+    );
+    if (ref) appendPhaseFromSkill(ref);
   };
 
   return (

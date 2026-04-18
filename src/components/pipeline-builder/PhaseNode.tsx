@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { X, GripVertical } from 'lucide-react';
 import type { CustomPhase, CustomSkillRef } from '../../types/customPipeline';
 import { DND_SKILL_MIME, DND_STACKED_SKILL_MIME, DND_PHASE_MIME } from './dragTypes';
+import { setDragPayload, getDragPayload, parseDragJson } from './dndUtils';
 
 interface Props {
   phase: CustomPhase;
@@ -63,28 +64,27 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
     e.stopPropagation();
     setStackHover(false);
     if (disabled) return;
-    const skillRaw = e.dataTransfer.getData(DND_SKILL_MIME) || e.dataTransfer.getData('text/plain');
-    if (skillRaw) {
-      try {
-        const ref = JSON.parse(skillRaw) as CustomSkillRef;
-        // ref validation — skill 페이로드만 허용
-        if (ref && typeof ref === 'object' && 'kind' in ref) {
-          onSkillsChange([...phase.skills, ref]);
-          return;
-        }
-      } catch {
-        /* text/plain 이 JSON 아닐 수도 — 아래 stacked skill 시도 */
-      }
+
+    // 1) 라이브러리에서 드래그된 신규 skill → append
+    const skillRaw = getDragPayload(e, DND_SKILL_MIME);
+    const skillRef = parseDragJson<CustomSkillRef>(
+      skillRaw,
+      (v): v is CustomSkillRef => !!v && typeof v === 'object' && 'kind' in v,
+    );
+    if (skillRef) {
+      onSkillsChange([...phase.skills, skillRef]);
+      return;
     }
+
+    // 2) phase 내부 stacked skill reorder (cross-phase 이동은 v2+ 로 스킵)
     const stackedRaw = e.dataTransfer.getData(DND_STACKED_SKILL_MIME);
     if (stackedRaw) {
-      try {
-        const { phaseId: srcPhaseId, index: srcIdx } = JSON.parse(stackedRaw);
-        if (srcPhaseId === phase.id) return;
-        // cross-phase 이동은 v2+ (append 만 하면 원본에 중복 남음 → 스킵)
-        void srcIdx;
-      } catch {
-        /* ignore */
+      const parsed = parseDragJson<{ phaseId: string; index: number }>(
+        stackedRaw,
+        (v): v is { phaseId: string; index: number } => !!v && typeof v === 'object' && 'phaseId' in v && 'index' in v,
+      );
+      if (parsed && parsed.phaseId === phase.id) {
+        // same phase — reorder 지원 여지 (v1 에선 noop)
       }
     }
   };
@@ -100,8 +100,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
       draggable={!disabled}
       onDragStart={(e) => {
         if (disabled) return;
-        e.dataTransfer.setData(DND_PHASE_MIME, phase.id);
-        e.dataTransfer.setData('text/plain', `phase:${phase.id}`);
+        setDragPayload(e, DND_PHASE_MIME, phase.id);
         e.dataTransfer.effectAllowed = 'move';
       }}
       onDragEnter={(e) => {
@@ -272,9 +271,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
               draggable={!disabled}
               onDragStart={(e) => {
                 if (disabled) return;
-                const payload = JSON.stringify({ phaseId: phase.id, index: si });
-                e.dataTransfer.setData(DND_STACKED_SKILL_MIME, payload);
-                e.dataTransfer.setData('text/plain', payload); // WebKit fallback
+                setDragPayload(e, DND_STACKED_SKILL_MIME, JSON.stringify({ phaseId: phase.id, index: si }));
                 e.dataTransfer.effectAllowed = 'move';
               }}
               style={{
