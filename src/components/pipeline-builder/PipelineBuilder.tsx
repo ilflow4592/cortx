@@ -93,7 +93,10 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
   const runtimeLock = isAnyPhaseInProgress(cfg, taskId);
   const builtinLock = cfg?.source === 'builtin';
-  const locked = runtimeLock || builtinLock; // builtin 편집 차단
+  // 현재 파이프라인의 phase/skill/필드 편집만 차단.
+  // New/Dup/Import 같은 글로벌 CRUD 는 runtimeLock 일 때만 차단 (builtin 이어도 허용 —
+  // 그래야 사용자가 builtin 에서 빠져나올 수 있음).
+  const editLocked = runtimeLock || builtinLock;
 
   // 최초 목록 로드 — 캐시 강제 무효화 후 재조회 (외부에서 파일 삭제/수정된 경우
   // 유령 항목이 드롭다운에 남지 않게).
@@ -149,7 +152,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   }, [activeId, activeSource, cwd]);
 
   const updateCfg = (patch: Partial<CustomPipelineConfig>) => {
-    if (!cfg || locked) return;
+    if (!cfg || editLocked) return;
     setCfg({ ...cfg, ...patch });
     setDirty(true);
   };
@@ -169,7 +172,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   );
 
   const handleSave = async () => {
-    if (!cfg || locked) return;
+    if (!cfg || editLocked) return;
     try {
       await writeCustomPipeline(cfg, cwd);
       setDirty(false);
@@ -197,7 +200,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
   // 빈 캔버스에 스킬 드롭 → 새 파이프라인 생성 + 첫 phase + 드롭된 스킬 추가.
   const handleCreateWithSkill = async (skill: CustomSkillRef) => {
-    if (locked) return;
+    if (editLocked) return;
     const name = await askText('새 파이프라인 이름', 'My Pipeline');
     if (name === null) return;
     const trimmed = name.trim() || 'Untitled Pipeline';
@@ -228,7 +231,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
    *  - cfg 있고 selectedPhase 없음/phase 전혀 없음 → 새 phase 하나 추가 + 스킬 포함
    */
   const handleAddSkillByClick = (skill: CustomSkillRef) => {
-    if (locked) return;
+    if (editLocked) return;
     if (!cfg) {
       handleCreateWithSkill(skill);
       return;
@@ -275,7 +278,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   };
 
   const handleDelete = async () => {
-    if (!cfg || locked) return;
+    if (!cfg || editLocked) return;
     const ok = await askConfirm(`'${cfg.name}' 삭제?`, '이 작업은 되돌릴 수 없습니다.');
     if (!ok) return;
     try {
@@ -414,7 +417,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
                 setActiveSource(meta.source);
               }
             }}
-            disabled={locked}
+            disabled={runtimeLock}
             style={{
               marginLeft: 12,
               background: 'var(--bg-chip)',
@@ -437,25 +440,30 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
           <span style={{ fontSize: 10, color: 'var(--accent-bright)' }}>{status}</span>
 
-          <button onClick={handleNew} disabled={locked} style={btn()} title="New Pipeline">
+          <button onClick={handleNew} disabled={runtimeLock} style={btn()} title="New Pipeline">
             <Plus size={12} /> New
           </button>
-          <button onClick={handleDuplicate} disabled={!cfg || locked} style={btn()} title="Duplicate">
+          <button
+            onClick={handleDuplicate}
+            disabled={!cfg || runtimeLock}
+            style={btn()}
+            title="Duplicate (builtin 도 가능)"
+          >
             <Copy size={12} /> Dup
           </button>
-          <button onClick={handleImport} disabled={locked} style={btn()} title="Import JSON">
+          <button onClick={handleImport} disabled={runtimeLock} style={btn()} title="Import JSON">
             <Upload size={12} /> Import
           </button>
           <button onClick={handleExport} disabled={!cfg} style={btn()} title="Export JSON">
             <Download size={12} /> Export
           </button>
-          <button onClick={handleDelete} disabled={!cfg || locked} style={btn()} title="Delete">
+          <button onClick={handleDelete} disabled={!cfg || editLocked} style={btn()} title="Delete">
             <Trash2 size={12} />
           </button>
-          <button onClick={handleSave} disabled={!dirty || locked} style={btn()} title="Save (⌘S)">
+          <button onClick={handleSave} disabled={!dirty || editLocked} style={btn()} title="Save (⌘S)">
             <Save size={12} /> Save
           </button>
-          <button onClick={handleRun} disabled={!cfg || dirty || locked} style={btnPrimary()} title="Run pipeline">
+          <button onClick={handleRun} disabled={!cfg || dirty || runtimeLock} style={btnPrimary()} title="Run pipeline">
             <Play size={12} /> Run
           </button>
           <button onClick={onClose} style={btn()} title="Close">
@@ -471,7 +479,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
             overflow: 'hidden',
           }}
         >
-          <SkillLibrary cwd={cwd} disabled={locked} onAddSkill={handleAddSkillByClick} />
+          <SkillLibrary cwd={cwd} disabled={editLocked} onAddSkill={handleAddSkillByClick} />
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
             {builtinLock && (
               <div
@@ -526,13 +534,13 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
                 <input
                   type="text"
                   value={cfg.name}
-                  onChange={(e) => !locked && updateCfg({ name: e.target.value })}
-                  readOnly={locked}
+                  onChange={(e) => !editLocked && updateCfg({ name: e.target.value })}
+                  readOnly={editLocked}
                   placeholder="파이프라인 이름"
                   style={{
                     flex: 1,
                     padding: '4px 8px',
-                    background: locked ? 'var(--bg-app)' : 'var(--bg-chip)',
+                    background: editLocked ? 'var(--bg-app)' : 'var(--bg-chip)',
                     border: '1px solid var(--border-muted)',
                     borderRadius: 4,
                     color: 'var(--fg-primary)',
@@ -545,13 +553,13 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
                 <input
                   type="text"
                   value={cfg.description || ''}
-                  onChange={(e) => !locked && updateCfg({ description: e.target.value })}
-                  readOnly={locked}
+                  onChange={(e) => !editLocked && updateCfg({ description: e.target.value })}
+                  readOnly={editLocked}
                   placeholder="(선택)"
                   style={{
                     flex: 2,
                     padding: '4px 8px',
-                    background: locked ? 'var(--bg-app)' : 'var(--bg-chip)',
+                    background: editLocked ? 'var(--bg-app)' : 'var(--bg-chip)',
                     border: '1px solid var(--border-muted)',
                     borderRadius: 4,
                     color: 'var(--fg-primary)',
@@ -568,14 +576,14 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
                 onSelectPhase={setSelectedPhaseId}
                 onPhasesChange={updatePhases}
                 onCreateWithSkill={handleCreateWithSkill}
-                disabled={locked}
+                disabled={editLocked}
               />
             </div>
           </div>
           <PhaseDetail
             phase={selectedPhase}
             onChange={(patch) => selectedPhase && updatePhase(selectedPhase.id, patch)}
-            disabled={locked}
+            disabled={editLocked}
           />
         </div>
       </div>
