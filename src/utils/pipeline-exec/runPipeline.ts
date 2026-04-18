@@ -15,6 +15,9 @@ import { isQuestion as sharedIsQuestion } from './_shared';
 import { applyPhaseTransition } from './_phaseTransitions';
 import { buildContextSummary } from './_contextBuilder';
 import { createStreamState, handleClaudeDataEvent } from './_streamHandler';
+import { resolveSkillPrompt } from './_skillResolver';
+import { buildDevImplementPrefix } from './_devImplementPrefix';
+import { computeSpawnPermissions } from './_toolPermissions';
 
 export async function runPipeline(taskId: string, command: string, callbacks?: PipelineCallbacks) {
   const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
@@ -95,75 +98,8 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   messageCache.set(taskId, [...msgs]);
   loadingCache.set(taskId, true);
 
-  // Resolve slash command.
-  // 우선순위:
-  //  1. /pipeline:* 계열은 **Cortx 바이너리 내장** 스킬 사용 (프로젝트/글로벌 무시).
-  //     이유: 프로젝트·글로벌에 오래된 스킬(Obsidian 저장 등)이 있으면 Cortx 앱
-  //     기대 동작과 어긋남. /pipeline:* 은 Cortx가 소유한 워크플로우이므로 항상
-  //     내장 버전이 진실이다.
-  //  2. 그 외(`/git:*`, `/sc:*` 등)는 project-local → $HOME 순 파일 조회.
-  //     (`~`는 큰따옴표 안에서 확장되지 않으므로 `$HOME` 사용.)
-  let resolvedPrompt = `${command} ${args}`;
+  let resolvedPrompt = await resolveSkillPrompt({ command, args, branch, title, cwd });
   const cmdName = command.slice(1);
-  const skillFileKey = cmdName.replace(/:/g, '/') + '.md';
-  const skillLookupKey = cmdName.replace(/:/g, '/'); // 내장 조회는 .md 없이
-  const substitute = (prompt: string): string =>
-    prompt
-      .replace(/\$ARGUMENTS/g, args)
-      .replace(/\{TASK_ID\}/g, branch)
-      .replace(/\{TASK_NAME\}/g, title);
-
-  let builtinUsed = false;
-  // 합성 명령 `/pipeline:_approve-plan` — 스킬 파일 없음. 승인 후 구현 진입을
-  // 지시하는 인라인 프롬프트를 사용. 이전 Plan mode 세션에서 Claude 가
-  // ExitPlanMode 로 제출한 계획은 `--resume` 으로 복원되므로 여기서는 "계획
-  // 승인됐다, 구현 시작해라" 만 전달하면 된다.
-  if (command.startsWith('/pipeline:_approve-plan')) {
-    resolvedPrompt = [
-      '✅ 사용자가 이전에 제출한 계획을 승인했습니다.',
-      '이제 Plan mode 가 해제되어 Write/Edit 이 가능합니다.',
-      '',
-      '다음 순서로 진행:',
-      '1. 먼저 [PIPELINE:dev_plan:done] 마커 출력',
-      '2. 이어서 [PIPELINE:implement:in_progress] 마커 출력',
-      '3. 승인된 계획대로 **바로 구현 시작**. 계획 재출력·재확인 금지.',
-      '4. 각 단계별 파일 수정은 Edit/Write 로 직접 수행.',
-      '5. 테스트 작성 + 실행까지 완료.',
-      '6. 구현 완료 후 사용자에게 "커밋하시겠습니까?" 라고 물어보고 중단.',
-      '',
-      '⛔ prod 브랜치 관련 명령 일체 금지.',
-      '⛔ 한국어로만 대화.',
-    ].join('\n');
-    builtinUsed = true;
-  } else if (command.startsWith('/pipeline:')) {
-    try {
-      const builtin = await invoke<string | null>('get_builtin_pipeline_skill', { name: skillLookupKey });
-      if (builtin && builtin.trim()) {
-        resolvedPrompt = substitute(builtin);
-        builtinUsed = true;
-      }
-    } catch {
-      /* builtin 조회 실패 시 파일 fallback */
-    }
-  }
-
-  if (!builtinUsed) {
-    const skillBases = [`${cwd}/.claude/commands`, '$HOME/.claude/commands'];
-    for (const base of skillBases) {
-      try {
-        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd: '/',
-          command: `cat "${base}/${skillFileKey}" 2>/dev/null`,
-        });
-        if (result.success && result.output.trim()) {
-          resolvedPrompt = substitute(result.output);
-          break;
-        }
-      } catch {
-        /* continue */
-      }
-    }
-  }
 
   // 재시도 감지 시 Claude 에게 "이전 시도 중단" 을 명시. 그렇지 않으면 Claude
   // 가 --resume 으로 partial state(예: 미완료 tool_use)를 이어받아 계획서를
@@ -174,53 +110,8 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
       resolvedPrompt;
   }
 
-  // dev-implement 전용 주입 2종:
-  //  1. Grill-me 최종 스펙 (마지막 어시스턴트 메시지) — 스펙 직접 가시화.
-  //     --resume 이 전체 Q&A 를 세션에 복원하므로 전체 재주입은 컨텍스트 2배화 →
-  //     마지막 요약 1개만 주입해 Claude 가 prompt 에서 바로 스펙을 본다.
-  //  2. 소스 파일 경로 맵 (git ls-files 필터) — 디렉토리 구조 탐색 차단.
-  //     스펙에서 지목된 클래스명(NexusCountryController, CountryService 등)을
-  //     `ls` / `find` / `Glob` 호출 없이 이 맵에서 바로 Read 하도록 유도.
   if (command.startsWith('/pipeline:dev-implement') && !isFreshStart) {
-    let prefix = '';
-
-    const lastSpec = [...prevMsgs]
-      .filter((m) => m.role === 'assistant' && m.content.trim() && !m.content.startsWith('/pipeline:'))
-      .pop();
-
-    if (lastSpec) {
-      prefix +=
-        `## 📋 GRILL-ME 스펙 요약 (Cortx 자동 주입 — 이전 단계에서 확정된 개발 스펙)\n\n` +
-        `아래가 완전한 개발 스펙입니다. 이 내용만으로 개발 계획서를 작성하세요.\n` +
-        `추가 코드베이스 탐색(Grep/Glob/Bash find/Agent) 없이 바로 계획서 템플릿을 작성합니다.\n\n` +
-        lastSpec.content +
-        `\n\n`;
-    }
-
-    if (cwd) {
-      try {
-        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd,
-          // 소스 파일만 필터 (node_modules/target/build 는 git ls-files 가 기본 제외).
-          // 300라인 상한 — 800 은 컨텍스트 15k+ 토큰 추가 → API 호출당 수 분 지연.
-          // test/mock/resource 경로 제외해 핵심 소스 우선 노출.
-          command:
-            'git ls-files 2>/dev/null | grep -E "\\.(java|kt|ts|tsx|py|rs|go|rb|scala)$" | grep -vE "(test|mock|resources|node_modules|generated)/" | head -300',
-        });
-        if (result.success && result.output.trim()) {
-          prefix +=
-            `## 📂 소스 파일 경로 맵 (Cortx pre-scan — git ls-files 상위 800)\n\n` +
-            `위 스펙에서 지목된 클래스명(컨트롤러/서비스/DTO 등)을 이 목록에서 찾아 바로 Read 하세요.\n` +
-            `**\`ls\` / \`find\` / \`Glob\` / 디렉토리 구조 확인 Bash 호출 금지** — 이미 전체 경로가 아래에 있습니다.\n\n` +
-            '```\n' +
-            result.output.trim() +
-            '\n```\n\n';
-        }
-      } catch {
-        /* git ls-files 실패 — skip, 스킬이 fallback */
-      }
-    }
-
+    const prefix = await buildDevImplementPrefix(prevMsgs, cwd);
     if (prefix) {
       resolvedPrompt = prefix + `---\n\n` + resolvedPrompt;
     }
@@ -280,79 +171,16 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // project-context.md + Context Pack fullText. 공유 유틸로 추출 (_contextBuilder.ts).
   const contextSummary = await buildContextSummary(cwd, isFreshStart, contextItems);
 
-  // Select model based on pipeline phase.
-  // - grill_me / save: Opus (대화·요약 품질). effort=medium.
-  // - dev_plan: Sonnet 4.6 (템플릿 채우기 + 기존 패턴 추종 작업. Opus max 는
-  //   불필요하게 thinking 토큰 소모 — 체감 latency 수 배 증가).
-  // - implement / review_loop: Sonnet (비용 효율).
   const currentPipeline = useTaskStore.getState().tasks.find((t) => t.id === taskId)?.pipeline;
-  const activePhaseForModel = currentPipeline?.phases
-    ? (['dev_plan', 'implement', 'review_loop'] as const).find(
-        (p) => currentPipeline.phases[p]?.status === 'in_progress',
-      )
-    : undefined;
-  const selectedModel = activePhaseForModel ? 'claude-sonnet-4-6' : null;
-  // Opus·Sonnet 전부 effort=medium. Sonnet CLI 기본값이 high/xhigh 여서 extended
-  // thinking 토큰이 수만 토큰 과소비되는 실측(Dev Plan 27K+). medium 으로 낮춰
-  // 비용·지연 절감. 단계별 차등은 PHASE_EFFORT 상수로 조정 가능하게 분리했으나
-  // 현재는 전 단계 동일.
-  const selectedEffort = 'medium';
-
-  // grill-me / save / dev-plan 단계에서 소스별 MCP 도구를 조건부 차단한다.
-  // 로직: "fullText가 이미 있는 소스만 차단". fullText가 없는 소스는 Claude가 필요 시
-  // MCP로 fetch 폴백을 탈 수 있게 허용 — eager fetch 실패 / MCP 미연결 케이스 커버.
-  //
-  // 예: Notion Pin에 fullText가 있으면 mcp__notion__* 차단 (재조회 낭비 제거).
-  //     fullText가 없으면 mcp__notion__* 허용 (Claude가 한 번 fetch해서 진행).
-  const GRILLME_PHASES: ReadonlyArray<string> = ['grill_me', 'save', 'dev_plan'];
-  const phases = currentPipeline?.phases;
-  const activePhase = phases
-    ? (Object.keys(phases) as Array<keyof typeof phases>).find((p) => phases[p]?.status === 'in_progress')
-    : undefined;
-
-  let disallowedTools: string[] | null = null;
-  if (activePhase && GRILLME_PHASES.includes(activePhase as string)) {
-    const hasUnfetched = (pattern: RegExp) =>
-      contextItems.some((i) => i.url && pattern.test(i.url) && !i.metadata?.fullText);
-    const tools: string[] = [];
-    if (!hasUnfetched(/notion\.(so|site)/)) tools.push('mcp__notion__*');
-    if (!hasUnfetched(/slack\.com/)) tools.push('mcp__slack__*');
-    if (!hasUnfetched(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//)) tools.push('mcp__github__*');
-    // dev_plan/grill_me/save 단계 하드 차단 목록:
-    // - Serena MCP: LSP 인덱싱 수 분, 첫 symbol 쿼리 hang.
-    // - Glob/Grep: 모노레포 전체 스캔 시 수 분 소요. Read 로 충분.
-    // - Task/Agent: subagent spawn 오버헤드 30초+ 가 실제 작업보다 큼.
-    // - Bash(find/grep/rg/ag/ls -R/tree): Claude 가 Glob 차단을 shell 로
-    //   우회해 `find -type f -name ...` 같은 워크트리 전체 스캔을 돌리는
-    //   실측 케이스. 동일 목적이므로 Bash 레벨에서도 막음.
-    // 일반 Bash (git status, ./gradlew 등) 는 여전히 허용.
-    tools.push(
-      'mcp__serena__*',
-      'Glob',
-      'Grep',
-      'Task',
-      'Agent',
-      'Bash(find:*)',
-      'Bash(grep:*)',
-      'Bash(rg:*)',
-      'Bash(ag:*)',
-      'Bash(fd:*)',
-      'Bash(tree:*)',
-      'Bash(ls:*)',
-    );
-    disallowedTools = tools.length > 0 ? tools : null;
-  }
+  const { selectedModel, selectedEffort, disallowedTools, permissionMode, bashTimeoutMs } = computeSpawnPermissions(
+    currentPipeline,
+    contextItems,
+  );
 
   // Continuation 시 이전 Claude 세션을 --resume 으로 이어 grill-me 컨텍스트 보존.
   // 세션이 캐시에 없으면(앱 재시작 등) null → 새 세션. 사용자가 직접 이전 대화를
   // 다시 올릴 수 없으므로 여기서 누락되면 Claude가 컨텍스트를 잃는다.
   const resumeSessionId = !isFreshStart ? sessionCache.get(taskId) || null : null;
-
-  // Permission mode — dev_plan 단계에서만 plan 모드 사용. Claude CLI 가 Write/Edit
-  // 를 하드 차단하고 Claude 가 ExitPlanMode 로 계획 제출 후 세션 종료 (headless
-  // 에선 auto-reject). Cortx 가 ExitPlanMode 이벤트 인식해 승인 카드 렌더.
-  // 승인 후 재스폰은 bypassPermissions 로 --resume 하면서 구현 단계 진입.
-  const permissionMode = activePhase === 'dev_plan' ? 'plan' : 'bypassPermissions';
 
   void recordEvent('action', 'claude_spawn', {
     reqId,
@@ -383,7 +211,7 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     // grill_me/save/dev_plan 단계에서 Bash tool 기본 타임아웃 30초로 단축.
     // runaway find/grep/rg 가 워크트리 전체 스캔으로 수 분 hang 되는 걸 CLI
     // 레벨에서 차단. 구현(implement) 단계는 빌드·테스트가 길 수 있어 기본값 유지.
-    bashTimeoutMs: activePhase && GRILLME_PHASES.includes(activePhase as string) ? 30000 : null,
+    bashTimeoutMs,
     permissionMode,
   });
 
@@ -398,9 +226,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Process exited — 최종 asking 상태 재확인 (activity 스트립 후 기준).
   const lastAssistant = [...finalMsgs].reverse().find((m) => m.role === 'assistant');
   const finalAsking = !!lastAssistant && isQuestion(lastAssistant.content);
-  if (finalAsking && !isAskingNow) {
+  if (finalAsking && !streamState.isAskingNow) {
     callbacks?.onAsking?.();
-  } else if (!finalAsking && isAskingNow) {
+  } else if (!finalAsking && streamState.isAskingNow) {
     callbacks?.onNotAsking?.();
   }
 
