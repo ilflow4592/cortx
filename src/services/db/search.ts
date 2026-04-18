@@ -1,4 +1,5 @@
 import { getDb } from './connection';
+import { logger } from '../../utils/logger';
 
 export interface SearchHit {
   kind: 'task' | 'message';
@@ -51,7 +52,7 @@ export async function searchAll(query: string, limit = 50): Promise<SearchHit[]>
       snippet: r.snippet,
     }));
   } catch (err) {
-    console.error('[cortx] FTS search failed:', err);
+    logger.error('[cortx] FTS search failed:', err);
     return [];
   }
 }

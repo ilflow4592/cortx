@@ -11,6 +11,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { ClaudeChat } from './claude/ClaudeChat';
 import { ErrorBoundary } from './ErrorBoundary';
 import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '../services/db';
+import { logger } from '../utils/logger';
 
 interface Props {
   taskId: string;
@@ -30,7 +31,7 @@ export function TaskPopoutWindow({ taskId }: Props) {
         if (tasks.length) useTaskStore.getState().loadTasks(tasks, taskId);
         setDataLoaded(true);
       } catch (err) {
-        console.error('[cortx popout] Failed to load data:', err);
+        logger.error('[cortx popout] Failed to load data:', err);
         setDataLoaded(true);
       }
     })();

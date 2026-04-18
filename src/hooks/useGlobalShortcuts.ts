@@ -7,6 +7,7 @@
 
 import { useTaskStore } from '../stores/taskStore';
 import { useContextHistoryStore } from '../stores/contextHistoryStore';
+import { logger } from '../utils/logger';
 
 /**
  * 전역 단축키를 등록한다.
@@ -55,6 +56,6 @@ export async function registerShortcuts() {
     }
   } catch (err) {
     // 브라우저 개발 환경 등 Tauri가 없는 경우 graceful fallback
-    console.warn('Global shortcuts not available:', err);
+    logger.warn('Global shortcuts not available:', err);
   }
 }

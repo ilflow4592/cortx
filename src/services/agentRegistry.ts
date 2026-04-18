@@ -5,6 +5,7 @@
 import type { ClaudeAgentEntry } from '../types/customPipeline';
 import type { ClaudeAgent } from '../types/generated/ClaudeAgent';
 import { BUILTIN_AGENTS } from '../constants/agentRegistry';
+import { logger } from '../utils/logger';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -32,7 +33,7 @@ export async function listAgents(): Promise<ClaudeAgentEntry[]> {
       isCustom: true,
     }));
   } catch (e) {
-    console.error('listAgents (custom scan) failed:', e);
+    logger.error('listAgents (custom scan) failed:', e);
   }
   cache = [...builtins, ...customs];
   return cache;

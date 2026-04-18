@@ -7,6 +7,7 @@ import { listBranches, pullBaseBranch, createWorktree, readCortxConfig, runSetup
 import { TaskFormFields } from './new-task-modal/TaskFormFields';
 import { CreateWorktreeProgress } from './new-task-modal/CreateWorktreeProgress';
 import { ModalBackdrop } from './common/ModalBackdrop';
+import { logger } from '../utils/logger';
 
 export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => void; defaultProjectId?: string }) {
   const addTask = useTaskStore((s) => s.addTask);
@@ -100,7 +101,7 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
         }
       } catch (err) {
         // Not in Tauri context or git error
-        console.warn('Worktree creation skipped:', err);
+        logger.warn('Worktree creation skipped:', err);
         worktreePath = repoPath; // fallback to repo root
         branchName = '';
       }

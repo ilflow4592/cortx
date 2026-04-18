@@ -11,6 +11,7 @@
 import type { ContextItem } from '../../types/contextPack';
 import { SEARCH_MCP_REGISTRY } from '../../config/searchResources';
 import { parseClaudeOutput, parseTokenUsage, toContextItems } from './mcpSearch/parse';
+import { logger } from '../../utils/logger';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -151,14 +152,14 @@ async function collectViaClaudeCli(serviceType: string, keywords: string[], mode
 
     const parsed = parseClaudeOutput(output);
     if (!parsed) {
-      console.warn('[cortx:mcp:' + serviceType + '] no JSON array found in output');
+      logger.warn('[cortx:mcp:' + serviceType + '] no JSON array found in output');
       return { items: [], tokenUsage };
     }
 
     const items = toContextItems(parsed, serviceType);
     return { items, tokenUsage };
   } catch (err) {
-    console.warn(`[cortx] MCP search failed for ${serviceType}:`, err);
+    logger.warn(`[cortx] MCP search failed for ${serviceType}:`, err);
     return { items: [] };
   }
 }

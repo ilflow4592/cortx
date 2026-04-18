@@ -9,6 +9,7 @@ import type { Task } from '../../types/task';
 import type { Project } from '../../types/project';
 import { save } from './dialog';
 import { buildDefaultPath } from './paths';
+import { logger } from '../../utils/logger';
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -130,7 +131,7 @@ export async function exportTaskAsMarkdown(task: Task): Promise<boolean> {
     await writeTextFile(filePath, markdown);
     return true;
   } catch (err) {
-    console.error('[cortx] Markdown export failed:', err);
+    logger.error('[cortx] Markdown export failed:', err);
     throw err;
   }
 }

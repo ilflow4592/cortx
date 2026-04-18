@@ -16,6 +16,7 @@ import { parseWorktrees, classifyWorktree } from './worktree-cleanup/parsing';
 import { listWorktrees, removeWorktree } from './worktree-cleanup/api';
 import { CategorySection } from './worktree-cleanup/CategorySection';
 import { RefreshButton, CloseButton } from './worktree-cleanup/buttons';
+import { logger } from '../utils/logger';
 
 interface Props {
   onClose: () => void;
@@ -65,7 +66,7 @@ export function WorktreeCleanup({ onClose }: Props) {
             });
           }
         } catch (err) {
-          console.error(`[cortx] Failed to list worktrees for ${project.name}:`, err);
+          logger.error(`[cortx] Failed to list worktrees for ${project.name}:`, err);
         }
       }
       setEntries(results);

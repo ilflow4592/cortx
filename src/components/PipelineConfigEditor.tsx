@@ -12,6 +12,7 @@ import { readPipelineConfig, writePipelineConfig } from './pipeline-config/api';
 import { YamlEditor } from './pipeline-config/YamlEditor';
 import { ConfigPreview, ConfigFooter } from './pipeline-config/ConfigPreview';
 import { ConfigHeader } from './pipeline-config/ConfigHeader';
+import { logger } from '../utils/logger';
 
 export function PipelineConfigEditor({ projectPath, projectName, onClose }: PipelineConfigEditorProps) {
   const [content, setContent] = useState<string>('');
@@ -33,7 +34,7 @@ export function PipelineConfigEditor({ projectPath, projectName, onClose }: Pipe
         setContent(loaded);
         setOriginal(loaded);
       } catch (err) {
-        console.error('[cortx] Failed to load pipeline config:', err);
+        logger.error('[cortx] Failed to load pipeline config:', err);
         setContent(TEMPLATE);
         setOriginal(TEMPLATE);
       }

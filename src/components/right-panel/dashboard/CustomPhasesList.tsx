@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, Circle, CircleAlert } from 'lucide-react';
 import type { PipelineState } from '../../../types/task';
 import type { CustomPipelineConfig, CustomSkillStatus, CustomSkillRef } from '../../../types/customPipeline';
 import { readCustomPipeline } from '../../../services/customPipelineStore';
+import { logger } from '../../../utils/logger';
 
 function phaseIcon(status: CustomSkillStatus): ReactNode {
   switch (status) {
@@ -61,7 +62,7 @@ export function CustomPhasesList({ pipeline, cwd }: Props) {
         const loaded = await readCustomPipeline(active.configId, active.source, cwd);
         if (!cancelled) setCfg(loaded);
       } catch (e) {
-        console.error('CustomPhasesList: failed to load config', e);
+        logger.error('CustomPhasesList: failed to load config', e);
       }
     })();
     return () => {

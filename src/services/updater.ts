@@ -2,7 +2,19 @@
  * Thin wrapper around tauri-plugin-updater.
  * Check for updates, download, and install.
  */
-import type { Update } from '@tauri-apps/plugin-updater';
+import { logger } from '../utils/logger';
+
+/** Minimal shape of tauri-plugin-updater's Update object we use. */
+type Update = {
+  version: string;
+  body?: string;
+  date?: string;
+  available?: boolean;
+  download: () => Promise<void>;
+  install: () => Promise<void>;
+  downloadAndInstall: () => Promise<void>;
+  close: () => Promise<void>;
+};
 
 export interface UpdateInfo {
   available: boolean;
@@ -31,7 +43,7 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
       update,
     };
   } catch (err) {
-    console.error('[cortx] Update check failed:', err);
+    logger.error('[cortx] Update check failed:', err);
     throw err;
   }
 }

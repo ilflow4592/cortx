@@ -9,6 +9,7 @@ import type { Task } from '../../types/task';
 import type { Project } from '../../types/project';
 import { save, open } from './dialog';
 import { buildDefaultPath } from './paths';
+import { logger } from '../../utils/logger';
 
 export const EXPORT_FORMAT_VERSION = 1;
 
@@ -65,7 +66,7 @@ export async function exportTaskAsJson(task: Task): Promise<boolean> {
     await writeTextFile(filePath, json);
     return true;
   } catch (err) {
-    console.error('[cortx] JSON export failed:', err);
+    logger.error('[cortx] JSON export failed:', err);
     throw err;
   }
 }

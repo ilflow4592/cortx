@@ -9,6 +9,7 @@
  * 프로젝트 우선 머지 정책은 Rust `list_custom_pipelines` 에서 처리.
  */
 import type { CustomPipelineConfig, CustomPipelineMeta, PipelineSource } from '../types/customPipeline';
+import { logger } from '../utils/logger';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -31,7 +32,7 @@ export async function listCustomPipelines(cwd: string | undefined): Promise<Cust
     listCache.set(key, result);
     return result;
   } catch (e) {
-    console.error('listCustomPipelines failed:', e);
+    logger.error('listCustomPipelines failed:', e);
     return [];
   }
 }

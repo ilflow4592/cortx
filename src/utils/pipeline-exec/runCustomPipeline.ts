@@ -36,6 +36,7 @@ import type {
   CustomSkillRef,
   CustomSkillStatus,
 } from '../../types/customPipeline';
+import { logger } from '../logger';
 
 type Msg = {
   id: string;
@@ -325,7 +326,7 @@ export async function runCustomPipeline(
   if (!task) return;
   const cwd = task.worktreePath || task.repoPath || '';
   if (!cwd) {
-    console.error('runCustomPipeline: no cwd for task', taskId);
+    logger.error('runCustomPipeline: no cwd for task', taskId);
     return;
   }
 
@@ -336,7 +337,7 @@ export async function runCustomPipeline(
   try {
     cfg = await readCustomPipeline(configRef.id, configRef.source, cwd);
   } catch (err) {
-    console.error('runCustomPipeline: failed to load config', err);
+    logger.error('runCustomPipeline: failed to load config', err);
     callbacks?.onDone?.();
     return;
   }
@@ -376,7 +377,7 @@ export async function runCustomPipeline(
       }
     }
   } catch (err) {
-    console.error('runCustomPipeline error:', err);
+    logger.error('runCustomPipeline error:', err);
   } finally {
     loadingCache.set(taskId, false);
     recordEvent('action', 'custom_pipeline.done', { configId: configRef.id });

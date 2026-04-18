@@ -14,6 +14,7 @@ import { useMcpStore } from '../stores/mcpStore';
 import { useModalStore } from '../stores/modalStore';
 import { migrateFromLocalStorageIfNeeded, loadAllProjects, loadAllTasks } from '../services/db';
 import { migrateSourceTokensToKeychain } from '../services/secrets';
+import { logger } from '../utils/logger';
 
 export function useInitialLoad(): void {
   useEffect(() => {
@@ -34,7 +35,7 @@ export function useInitialLoad(): void {
         );
         if (crashed) useModalStore.getState().open('crashRecovery');
       } catch (err) {
-        console.error('[cortx] Failed to load SQLite data:', err);
+        logger.error('[cortx] Failed to load SQLite data:', err);
       }
     })();
     useSettingsStore.getState().loadSettings();
@@ -52,7 +53,7 @@ export function useInitialLoad(): void {
           store.setSources(migrated);
         }
       } catch (err) {
-        console.warn('[cortx] Context source token migration skipped:', err);
+        logger.warn('[cortx] Context source token migration skipped:', err);
       }
     })();
   }, []);

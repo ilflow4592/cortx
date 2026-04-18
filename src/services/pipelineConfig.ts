@@ -25,6 +25,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTaskStore } from '../stores/taskStore';
 import { PHASE_NAMES as DEFAULT_NAMES, PHASE_MODELS as DEFAULT_MODELS, PHASE_ORDER } from '../constants/pipeline';
 import type { PipelinePhase } from '../types/task';
+import { logger } from '../utils/logger';
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const mod = await import('@tauri-apps/api/core');
@@ -91,7 +92,7 @@ export async function loadPipelineConfig(projectPath: string): Promise<PipelineC
     cache.set(projectPath, cfg);
     return cfg;
   } catch (err) {
-    console.error('[cortx] Failed to load pipeline config:', err);
+    logger.error('[cortx] Failed to load pipeline config:', err);
     const cfg = defaults();
     cache.set(projectPath, cfg);
     return cfg;

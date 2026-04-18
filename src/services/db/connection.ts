@@ -26,7 +26,7 @@ export function safeJsonParse<T>(raw: string | null | undefined, fallback: T, co
   try {
     return JSON.parse(raw) as T;
   } catch (err) {
-    if (context) console.warn(`[db] JSON.parse failed (${context}):`, err);
+    if (context) logger.warn(`[db] JSON.parse failed (${context}):`, err);
     return fallback;
   }
 }

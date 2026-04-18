@@ -6,6 +6,7 @@
  */
 import { Component, type ReactNode } from 'react';
 import { recordCrash } from '../services/telemetry';
+import { logger } from '../utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -25,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack?: string | null }) {
-    console.error(`[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ''}]`, error, info);
+    logger.error(`[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ''}]`, error, info);
     // Report to telemetry (no-op if telemetry is disabled)
     try {
       recordCrash(error, this.props.label);

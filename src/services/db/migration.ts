@@ -2,6 +2,7 @@ import type { Project } from '../../types/project';
 import type { Task } from '../../types/task';
 import { upsertProject } from './projects';
 import { upsertTask, setActiveTaskId } from './tasks';
+import { logger } from '../../utils/logger';
 
 const MIGRATION_KEY = 'cortx-migrated-to-sqlite';
 
@@ -60,6 +61,6 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<void> {
 
     localStorage.setItem(MIGRATION_KEY, '1');
   } catch (err) {
-    console.error('[cortx] Migration from localStorage failed:', err);
+    logger.error('[cortx] Migration from localStorage failed:', err);
   }
 }
