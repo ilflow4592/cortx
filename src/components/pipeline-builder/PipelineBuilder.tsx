@@ -13,7 +13,6 @@
  * 실행 중 태스크면 전체 편집/교체 UI 가 read-only (결정 정책).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { X, Play, Plus, Save, Copy, Trash2, Download, Upload } from 'lucide-react';
 import type { CustomPipelineConfig, CustomPipelineMeta, CustomPhase, CustomSkillRef } from '../../types/customPipeline';
 import {
   listCustomPipelines,
@@ -31,38 +30,15 @@ import { SkillLibrary } from './SkillLibrary';
 import { PhaseCanvas } from './PhaseCanvas';
 import { PhaseDetail } from './PhaseDetail';
 import { PromptModal, type PromptRequest } from './PromptModal';
+import { BuiltinBanner } from './_BuiltinBanner';
+import { CfgHeaderInputs } from './_CfgHeaderInputs';
+import { BuilderToolbar } from './_BuilderToolbar';
+import { isAnyPhaseInProgress, skillRefLabel, createEmptyConfig } from './_builderUtils';
 
 interface Props {
   taskId: string;
   cwd: string;
   onClose: () => void;
-}
-
-function isAnyPhaseInProgress(cfg: CustomPipelineConfig | null, taskId: string): boolean {
-  if (!cfg) return false;
-  const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-  const active = task?.pipeline?.activeCustomPipeline;
-  if (!active) return false;
-  return Object.values(active.phaseStates).some((s) => s.status === 'in_progress');
-}
-
-function skillRefLabel(ref: CustomSkillRef): string {
-  if (ref.kind === 'agent') return `agent:${ref.subagentType}`;
-  return `${ref.kind}:${ref.id}`;
-}
-
-function createEmptyConfig(id: string, name: string): CustomPipelineConfig {
-  const now = new Date().toISOString();
-  return {
-    schemaVersion: 1,
-    id,
-    name,
-    description: '',
-    source: 'project',
-    phases: [],
-    createdAt: now,
-    updatedAt: now,
-  };
 }
 
 export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
@@ -389,91 +365,31 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '0 12px',
-            borderBottom: '1px solid var(--border-muted)',
-            background: 'var(--bg-surface)',
+        <BuilderToolbar
+          pipelines={pipelines}
+          activeId={activeId}
+          cfg={cfg}
+          dirty={dirty}
+          runtimeLock={runtimeLock}
+          builtinLock={builtinLock}
+          editLocked={editLocked}
+          status={status}
+          onSelectPipeline={(id) => {
+            const meta = pipelines.find((p) => p.id === id);
+            if (meta) {
+              setActiveId(meta.id);
+              setActiveSource(meta.source);
+            }
           }}
-        >
-          <span style={{ fontWeight: 600, color: 'var(--accent-bright)', fontSize: 13 }}>⚙ Pipeline Builder</span>
-          <span style={{ fontSize: 10, color: builtinLock ? 'var(--amber, #f59e0b)' : 'var(--fg-dim)' }}>
-            {runtimeLock
-              ? '🔒 실행 중 — read-only'
-              : builtinLock
-                ? '📦 builtin — Dup 으로 편집'
-                : dirty
-                  ? '● 변경됨'
-                  : ''}
-          </span>
-
-          <select
-            value={activeId || ''}
-            onChange={(e) => {
-              const id = e.target.value;
-              const meta = pipelines.find((p) => p.id === id);
-              if (meta) {
-                setActiveId(meta.id);
-                setActiveSource(meta.source);
-              }
-            }}
-            disabled={runtimeLock}
-            style={{
-              marginLeft: 12,
-              background: 'var(--bg-chip)',
-              color: 'var(--fg-primary)',
-              border: '1px solid var(--border-muted)',
-              borderRadius: 4,
-              padding: '3px 8px',
-              fontSize: 11,
-            }}
-          >
-            <option value="">{pipelines.length === 0 ? '저장된 파이프라인 없음' : '파이프라인 선택...'}</option>
-            {pipelines.map((p) => (
-              <option key={`${p.source}:${p.id}`} value={p.id}>
-                [{p.source}] {p.name}
-              </option>
-            ))}
-          </select>
-
-          <span style={{ flex: 1 }} />
-
-          <span style={{ fontSize: 10, color: 'var(--accent-bright)' }}>{status}</span>
-
-          <button onClick={handleNew} disabled={runtimeLock} style={btn()} title="New Pipeline">
-            <Plus size={12} /> New
-          </button>
-          <button
-            onClick={handleDuplicate}
-            disabled={!cfg || runtimeLock}
-            style={btn()}
-            title="Duplicate (builtin 도 가능)"
-          >
-            <Copy size={12} /> Dup
-          </button>
-          <button onClick={handleImport} disabled={runtimeLock} style={btn()} title="Import JSON">
-            <Upload size={12} /> Import
-          </button>
-          <button onClick={handleExport} disabled={!cfg} style={btn()} title="Export JSON">
-            <Download size={12} /> Export
-          </button>
-          <button onClick={handleDelete} disabled={!cfg || editLocked} style={btn()} title="Delete">
-            <Trash2 size={12} />
-          </button>
-          <button onClick={handleSave} disabled={!dirty || editLocked} style={btn()} title="Save (⌘S)">
-            <Save size={12} /> Save
-          </button>
-          <button onClick={handleRun} disabled={!cfg || dirty || runtimeLock} style={btnPrimary()} title="Run pipeline">
-            <Play size={12} /> Run
-          </button>
-          <button onClick={onClose} style={btn()} title="Close">
-            <X size={14} />
-          </button>
-        </div>
+          onNew={handleNew}
+          onDuplicate={handleDuplicate}
+          onImport={handleImport}
+          onExport={handleExport}
+          onDelete={handleDelete}
+          onSave={handleSave}
+          onRun={handleRun}
+          onClose={onClose}
+        />
 
         {/* 3-panel body */}
         <div
@@ -485,94 +401,8 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
         >
           <SkillLibrary cwd={cwd} disabled={editLocked} onAddSkill={handleAddSkillByClick} />
           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-            {builtinLock && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 16px',
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
-                  color: 'var(--amber, #f59e0b)',
-                }}
-              >
-                <span style={{ fontSize: 18 }}>📦</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>내장 템플릿 — 편집 불가</div>
-                  <div style={{ fontSize: 10, color: 'var(--fg-dim)' }}>
-                    이 파이프라인은 Cortx 바이너리에 embed 된 읽기 전용 템플릿. 오른쪽 <strong>복사 후 편집</strong>{' '}
-                    버튼으로 project 복사본을 만들어 자유롭게 수정하세요.
-                  </div>
-                </div>
-                <button
-                  onClick={handleDuplicate}
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: 11,
-                    background: 'var(--amber, #f59e0b)',
-                    color: '#000',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  복사 후 편집 →
-                </button>
-              </div>
-            )}
-            {cfg && (
-              <div
-                style={{
-                  padding: '10px 16px',
-                  borderBottom: '1px solid var(--border-muted)',
-                  background: 'var(--bg-surface)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <span style={{ fontSize: 10, color: 'var(--fg-dim)', minWidth: 38 }}>이름</span>
-                <input
-                  type="text"
-                  value={cfg.name}
-                  onChange={(e) => !editLocked && updateCfg({ name: e.target.value })}
-                  readOnly={editLocked}
-                  placeholder="파이프라인 이름"
-                  style={{
-                    flex: 1,
-                    padding: '4px 8px',
-                    background: editLocked ? 'var(--bg-app)' : 'var(--bg-chip)',
-                    border: '1px solid var(--border-muted)',
-                    borderRadius: 4,
-                    color: 'var(--fg-primary)',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    outline: 'none',
-                  }}
-                />
-                <span style={{ fontSize: 10, color: 'var(--fg-dim)', minWidth: 38 }}>설명</span>
-                <input
-                  type="text"
-                  value={cfg.description || ''}
-                  onChange={(e) => !editLocked && updateCfg({ description: e.target.value })}
-                  readOnly={editLocked}
-                  placeholder="(선택)"
-                  style={{
-                    flex: 2,
-                    padding: '4px 8px',
-                    background: editLocked ? 'var(--bg-app)' : 'var(--bg-chip)',
-                    border: '1px solid var(--border-muted)',
-                    borderRadius: 4,
-                    color: 'var(--fg-primary)',
-                    fontSize: 11,
-                    outline: 'none',
-                  }}
-                />
-              </div>
-            )}
+            {builtinLock && <BuiltinBanner onDuplicate={handleDuplicate} />}
+            {cfg && <CfgHeaderInputs cfg={cfg} editLocked={editLocked} onChange={updateCfg} />}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
               <PhaseCanvas
                 cfg={cfg}
@@ -594,29 +424,4 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
       {promptReq && <PromptModal req={promptReq} onClose={() => setPromptReq(null)} />}
     </div>
   );
-}
-
-function btn(): React.CSSProperties {
-  return {
-    padding: '3px 8px',
-    fontSize: 10,
-    borderRadius: 4,
-    border: '1px solid var(--border-strong)',
-    background: 'var(--bg-surface)',
-    color: 'var(--fg-secondary)',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 3,
-  };
-}
-
-function btnPrimary(): React.CSSProperties {
-  return {
-    ...btn(),
-    background: 'var(--accent)',
-    color: 'white',
-    borderColor: 'var(--accent)',
-    fontWeight: 600,
-  };
 }
