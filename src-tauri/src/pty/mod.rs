@@ -10,6 +10,7 @@
 //! 재-export된 심볼만 사용.
 
 mod claude_command;
+mod mock_claude;
 mod secure_temp;
 mod session;
 mod spawn;
@@ -161,6 +162,13 @@ impl PtyManager {
         self.claude_pids.insert(id.to_string(), pid_holder.clone());
 
         thread::spawn(move || {
+            // E2E mock mode — 실제 claude CLI spawn 건너뛰고 scripted 응답 emit.
+            // Playwright 테스트가 결정적 결과를 받도록 함.
+            if mock_claude::is_enabled() {
+                mock_claude::run_mock_stream(&event_id, &msg_owned, &app_handle);
+                return;
+            }
+
             let msg_file = SecureTempFile::create("cortx-msg-", &event_id, &msg_owned);
             // 컨텍스트 요약은 있을 때만 기록 — 파일 생성 자체를 건너뜀
             let _ctx_file_guard = if !summary_owned.is_empty() {
