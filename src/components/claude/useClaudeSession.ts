@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
-import type { ContextItem } from '../../types/contextPack';
 import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
@@ -18,7 +17,6 @@ import {
 } from './counterQuestionGuard';
 import { recordViolation, resetViolations } from './violationTracker';
 import { usePipelineRunnerStore } from '../../stores/pipelineRunnerStore';
-import { sanitizeExternalContent } from '../../services/contextSanitizer';
 import { recordEvent } from '../../services/telemetry';
 import { recordAndPublish } from '../../services/guardrailEventBus';
 import { scanForSecrets } from './secretScanner';
@@ -26,6 +24,8 @@ import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
 import { getOrCreateCanary, buildCanaryDirective, detectCanaryLeak, maskCanary, clearCanary } from './canaryGuard';
 import { clearAllowlist } from './dangerousCommandAlert';
+import { serializeContextItems } from './_contextSerialize';
+import { resolveSlashCommand } from './_slashResolver';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -46,52 +46,6 @@ const CORTX_DESCRIPTIONS: Record<string, string> = {
   'pipeline:dev-implement': '개발 계획 수립 + 구현 + 테스트 + 커밋/PR',
   'pipeline:dev-resume': '중단된 파이프라인 재개',
 };
-
-function serializeContextItems(items: ContextItem[], taskId?: string): string {
-  if (items.length === 0) return '';
-
-  const sections: string[] = [];
-  const bySource: Record<string, ContextItem[]> = {};
-
-  for (const item of items) {
-    const key = item.sourceType;
-    if (!bySource[key]) bySource[key] = [];
-    bySource[key].push(item);
-  }
-
-  const sourceLabels: Record<string, string> = {
-    github: 'GitHub',
-    slack: 'Slack',
-    notion: 'Notion',
-    pin: 'Pinned',
-  };
-
-  for (const [source, sourceItems] of Object.entries(bySource)) {
-    const label = sourceLabels[source] || source;
-    const lines = sourceItems.map((item) => {
-      const parts = [`- **${item.title}**`];
-      if (item.summary && item.summary !== 'Pinned') parts.push(`  ${item.summary}`);
-      if (item.url && item.url.startsWith('http')) parts.push(`  ${item.url}`);
-      if (item.metadata?.fullText) {
-        // Indirect injection 방어: 외부 콘텐츠를 trust boundary로 감싸고 패턴 스캔
-        const { wrapped, findings } = sanitizeExternalContent(item.metadata.fullText, source);
-        if (findings.length > 0) {
-          void recordAndPublish('context_injection_detected', {
-            source,
-            taskId,
-            patternCount: findings.length,
-            severities: findings.map((f) => f.severity),
-          });
-        }
-        parts.push(`\n${wrapped}`);
-      }
-      return parts.join('\n');
-    });
-    sections.push(`## ${label}\n${lines.join('\n')}`);
-  }
-
-  return sections.join('\n\n');
-}
 
 export interface UseClaudeSessionReturn {
   messages: Message[];
@@ -236,48 +190,7 @@ export function useClaudeSession(
     });
   };
 
-  const resolveSlashCommand = async (text: string): Promise<string> => {
-    if (!text.startsWith('/')) return text;
-
-    const parts = text.slice(1).split(/\s+/);
-    const cmdName = parts[0];
-    let args = parts.slice(1).join(' ');
-
-    // Auto-fill pipeline args from current task
-    const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-    if (cmdName.startsWith('pipeline:') && currentTask) {
-      const branch = currentTask.branchName || '';
-      const title = currentTask.title || '';
-      if (!args.trim()) {
-        args = `${branch} ${title}`.trim();
-      }
-    }
-
-    // Resolve skill from .claude/commands/ files
-    const skillKey = cmdName.replace(/:/g, '/');
-    const filePath = skillKey + '.md';
-    for (const base of [`${cwd}/.claude/commands`, '~/.claude/commands']) {
-      try {
-        const result = await invoke<{ success: boolean; output: string }>('run_shell_command', {
-          cwd: '/',
-          command: `cat "${base}/${filePath}" 2>/dev/null`,
-        });
-        if (result.success && result.output.trim()) {
-          let prompt = result.output;
-          prompt = prompt.replace(/\$ARGUMENTS/g, args);
-          if (currentTask) {
-            prompt = prompt.replace(/\{TASK_ID\}/g, currentTask.branchName || '');
-            prompt = prompt.replace(/\{TASK_NAME\}/g, currentTask.title || '');
-          }
-          return prompt;
-        }
-      } catch {
-        /* continue */
-      }
-    }
-
-    return text;
-  };
+  // Slash command → prompt 변환은 _slashResolver.ts 로 추출됨.
 
   const handleStop = () => {
     // ESC-like interrupt: kill current generation but keep conversation,
@@ -367,7 +280,7 @@ export function useClaudeSession(
       }
       resolvedText = args ? `/${cmdName} ${args}` : text;
     } else {
-      resolvedText = await resolveSlashCommand(text);
+      resolvedText = await resolveSlashCommand(text, taskId, cwd);
     }
 
     // Harness: grill_me 중 역질문 감지 → 메시지 래핑으로 Claude 응답 제약
