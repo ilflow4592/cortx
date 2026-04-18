@@ -3,9 +3,8 @@
  * files for both project-local and global scopes.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Editor, { type OnMount } from '@monaco-editor/react';
-import { Plus, Save, RotateCw, AlertCircle, Slash, FileCode } from 'lucide-react';
-import { resolveThemeColors } from '../utils/monacoTheme';
+import { type OnMount } from '@monaco-editor/react';
+import { Plus, RotateCw, AlertCircle, Slash, FileCode } from 'lucide-react';
 import {
   listSlashCommands,
   readSlashCommand,
@@ -17,6 +16,9 @@ import {
 import { CategoryList } from './slash-builder/CommandList';
 import { CreateForm } from './slash-builder/CreateForm';
 import { HoverIconButton, CloseButton } from './slash-builder/buttons';
+import { ConfirmDeleteModal } from './slash-builder/ConfirmDeleteModal';
+import { EditorPanel } from './slash-builder/EditorPanel';
+import { defineCortxDarkTheme } from './slash-builder/monacoTheme';
 
 interface Props {
   projectCwd: string;
@@ -133,20 +135,7 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
-    monaco.editor.defineTheme('cortx-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: resolveThemeColors({
-        'editor.background': 'var(--bg-surface)',
-        'editor.foreground': 'var(--fg-secondary)',
-        'editorLineNumber.foreground': 'var(--fg-dim)',
-        'editorCursor.foreground': 'var(--accent-bright)',
-        'editor.selectionBackground': 'var(--border-strong)',
-        'editor.lineHighlightBackground': 'var(--bg-surface-hover)',
-      }),
-    });
-    monaco.editor.setTheme('cortx-dark');
+    defineCortxDarkTheme(editor, monaco);
   };
 
   const handleDelete = async (cmd: SlashCommand) => {
@@ -378,90 +367,15 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
                 saving={saving}
               />
             ) : selected ? (
-              <>
-                {/* Editor toolbar */}
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderBottom: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    flexShrink: 0,
-                  }}
-                >
-                  <FileCode size={13} color="var(--accent)" strokeWidth={1.5} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: 'var(--fg-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      /{selected.name}
-                      {dirty && <span style={{ color: '#eab308', fontSize: 10 }}>●</span>}
-                      <span
-                        style={{
-                          fontSize: 9,
-                          padding: '1px 5px',
-                          borderRadius: 3,
-                          background: selected.source === 'project' ? 'var(--accent-bg)' : 'rgba(129,140,248,0.15)',
-                          color: selected.source === 'project' ? 'var(--accent-bright)' : '#818cf8',
-                          border: `1px solid ${selected.source === 'project' ? 'var(--accent-border)' : 'rgba(129,140,248,0.3)'}`,
-                        }}
-                      >
-                        {selected.source}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSave}
-                    disabled={!dirty || saving}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: 5,
-                      fontSize: 11,
-                      fontWeight: 500,
-                      background: dirty ? 'var(--accent-bg)' : 'rgba(55,65,81,0.3)',
-                      border: `1px solid ${dirty ? 'var(--accent-border)' : 'var(--border-muted)'}`,
-                      color: dirty ? 'var(--accent-bright)' : 'var(--fg-faint)',
-                      cursor: dirty && !saving ? 'pointer' : 'not-allowed',
-                      fontFamily: 'inherit',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <Save size={11} strokeWidth={1.5} />
-                    {saving ? 'Saving...' : 'Save'}
-                    <span style={{ fontSize: 9, color: 'var(--fg-faint)', marginLeft: 2 }}>⌘S</span>
-                  </button>
-                </div>
-                {/* Monaco editor */}
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <Editor
-                    value={content}
-                    language="markdown"
-                    theme="cortx-dark"
-                    onMount={handleMount}
-                    onChange={(val) => setContent(val || '')}
-                    options={{
-                      fontSize: 12,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      lineNumbers: 'on',
-                      wordWrap: 'on',
-                      tabSize: 2,
-                      insertSpaces: true,
-                    }}
-                  />
-                </div>
-              </>
+              <EditorPanel
+                selected={selected}
+                content={content}
+                dirty={!!dirty}
+                saving={saving}
+                onContentChange={setContent}
+                onMount={handleMount}
+                onSave={handleSave}
+              />
             ) : (
               <div
                 style={{
@@ -483,94 +397,12 @@ export function SlashCommandBuilder({ projectCwd, onClose }: Props) {
         </div>
       </div>
 
-      {/* Confirm delete */}
       {confirmDelete && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1600,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Cancel delete"
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(null);
-            }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.7)',
-              border: 'none',
-              padding: 0,
-              cursor: 'default',
-            }}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              width: 380,
-              background: 'var(--bg-panel)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 10,
-              padding: 18,
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-primary)', marginBottom: 8 }}>
-              Delete command?
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: 'var(--fg-subtle)',
-                marginBottom: 16,
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              /{confirmDelete.name} ({confirmDelete.source})
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setConfirmDelete(null)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 5,
-                  fontSize: 11,
-                  background: 'none',
-                  border: '1px solid var(--fg-dim)',
-                  color: 'var(--fg-muted)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(confirmDelete)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 5,
-                  fontSize: 11,
-                  background: 'rgba(239,68,68,0.12)',
-                  border: '1px solid rgba(239,68,68,0.4)',
-                  color: '#ef4444',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteModal
+          target={confirmDelete}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => handleDelete(confirmDelete)}
+        />
       )}
     </div>
   );
