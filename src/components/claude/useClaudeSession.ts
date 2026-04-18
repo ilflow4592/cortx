@@ -9,23 +9,19 @@ import { handleBuiltinCommand } from './builtinCommands';
 import { parsePipelineMarkers, applyPipelineMarkerUpdates } from './pipelineMarkers';
 import { ClaudeEventProcessor } from './claudeEventProcessor';
 import { applyPhaseTransitionOnUserInput } from './pipelinePhaseTransitions';
-import {
-  isCounterQuestion,
-  wrapCounterQuestion,
-  applyCounterQuestionGuard,
-  extractHighestQNumber,
-} from './counterQuestionGuard';
-import { recordViolation, resetViolations } from './violationTracker';
+import { isCounterQuestion, wrapCounterQuestion } from './counterQuestionGuard';
+import { resetViolations } from './violationTracker';
 import { usePipelineRunnerStore } from '../../stores/pipelineRunnerStore';
 import { recordEvent } from '../../services/telemetry';
 import { recordAndPublish } from '../../services/guardrailEventBus';
-import { scanForSecrets } from './secretScanner';
 import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
-import { getOrCreateCanary, buildCanaryDirective, detectCanaryLeak, maskCanary, clearCanary } from './canaryGuard';
+import { getOrCreateCanary, buildCanaryDirective, clearCanary } from './canaryGuard';
 import { clearAllowlist } from './dangerousCommandAlert';
 import { serializeContextItems } from './_contextSerialize';
 import { resolveSlashCommand } from './_slashResolver';
+import { PIPELINE_TRACKING_DIRECTIVE, CORTX_CONTEXT_PACK_MODE_DIRECTIVE } from './_pipelineDirective';
+import { applyCounterQuestionPostGuard, applySecretCanaryPostGuard } from './_postResponseGuards';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -329,47 +325,7 @@ export function useClaudeSession(
 
       // Pipeline tracking directive — always send for pipeline commands (even on resume)
       if (isPipeline) {
-        contextSummary = [
-          '## CORTX_PIPELINE_TRACKING',
-          'You are running inside the Cortx app. To update the pipeline dashboard, emit phase markers in your text output.',
-          'Format: [PIPELINE:phase:status] or [PIPELINE:phase:status:memo]',
-          'Valid phases: grill_me, save, dev_plan, implement, commit_pr, review_loop, done',
-          'Valid statuses: in_progress, done, skipped',
-          'Examples:',
-          '  [PIPELINE:dev_plan:in_progress]',
-          '  [PIPELINE:implement:done:빌드 성공, 4개 파일 변경]',
-          '  [PIPELINE:commit_pr:done:PR #4920]',
-          'Emit a marker at the START and END of each phase. These markers are parsed by the app and hidden from the user.',
-          'Also emit [PIPELINE:complexity:Simple] or Medium/Complex when determined.',
-          'Also emit [PIPELINE:pr:NUMBER:URL] when PR is created.',
-          '',
-          '## Phase transition rules:',
-          '- When user approves dev plan ("y"): emit [PIPELINE:dev_plan:done] then [PIPELINE:implement:in_progress]',
-          '- When implementation is complete: emit [PIPELINE:implement:done] then [PIPELINE:commit_pr:in_progress]',
-          '- When commit/PR is done: emit [PIPELINE:commit_pr:done]',
-          '- IMPORTANT: You MUST emit these markers. The dashboard will NOT update without them.',
-          '',
-          '## CORTX_RULES (MUST FOLLOW)',
-          '- Cortx stores state in memory/localStorage only. No external file writes. NEVER read/write dev-plan.md, _dashboard.md, _pipeline-state.json, or any vault/notes file.',
-          '- The "Save" phase means: output the grill-me summary as chat text. Nothing is written to disk. Do not describe fake file writes.',
-          '- Do NOT re-explore the codebase if you already explored it in this session. Use previous context.',
-          '- NEVER run git commit, git push, or gh pr create without asking the user first.',
-          '- After implementation, ask "커밋하시겠습니까?" and STOP. Do not commit until user says yes.',
-          '- After commit+push, ask "PR을 생성할까요?" and STOP. Do not create PR until user says yes.',
-          '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
-          '- 한국어로만 대화합니다.',
-          '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-          '',
-          '## ⛔ COUNTER-QUESTION RULE (CRITICAL — NEVER SKIP)',
-          '- When user asks YOU a question instead of answering (e.g. "너는 어떻게 생각해?", "왜?", "다른 방법은?"):',
-          '  1. Answer their question with reasoning',
-          '  2. MUST ask "이 방향으로 진행할까요?" — NEVER skip this confirmation',
-          '  3. Wait for user approval before moving to next Q number',
-          '  4. If user gives more input, incorporate and re-confirm',
-          '  5. NEVER output a new Q number until user explicitly approves',
-          '- Violating this rule invalidates the entire Grill-me session.',
-        ].join('\n');
-
+        contextSummary = PIPELINE_TRACKING_DIRECTIVE;
         // Canary: prompt injection 감지용 honeypot 토큰 삽입
         contextSummary += '\n' + buildCanaryDirective(getOrCreateCanary(taskId));
       }
@@ -395,12 +351,7 @@ export function useClaudeSession(
         const itemsSummary = serializeContextItems(nonFileItems, taskId);
 
         if (isPipeline && contextItems.length > 0) {
-          contextSummary +=
-            '\n\n---\n\n## CORTX_CONTEXT_PACK_MODE\n' +
-            'This pipeline was invoked from the Cortx app with Context Pack data.\n' +
-            'Use the Context Pack data below as the task specification. Do NOT look for or reference any dev-plan file.\n' +
-            'Skip all external file lookups (dev-plan.md, _pipeline-state.json, notes, vaults) — the Context Pack IS your source of truth.\n' +
-            'If a dev-plan is needed, generate it from the Context Pack data.';
+          contextSummary += CORTX_CONTEXT_PACK_MODE_DIRECTIVE;
         }
 
         if (itemsSummary) {
@@ -516,87 +467,12 @@ export function useClaudeSession(
 
       await donePromise;
 
-      // Code-level guard: grill_me 중 역질문 응답에서 premature Q번호 제거 + 확인 삽입
       if (isGrillMe && processor.hasContent()) {
-        const allMsgs = messagesRef.current;
-        const assistantMsgs = allMsgs.filter((m) => m.role === 'assistant');
-        const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
-        if (lastAssistant) {
-          const prevMsgs = assistantMsgs.slice(0, -1);
-          const currentQNumber = prevMsgs.reduce((max, m) => Math.max(max, extractHighestQNumber(m.content)), 0);
-          const guardResult = applyCounterQuestionGuard({
-            userText: text,
-            responseText: lastAssistant.content,
-            currentQNumber,
-          });
-          if (guardResult) {
-            const targetId = lastAssistant.id;
-            const markType = guardResult.violationType === 'premature_q' ? 'q_trimmed' : 'confirmation_added';
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === targetId
-                  ? {
-                      ...m,
-                      content: guardResult.correctedText,
-                      guardrailMarks: [
-                        ...(m.guardrailMarks || []),
-                        { type: markType, detail: guardResult.violationDetail },
-                      ],
-                    }
-                  : m,
-              ),
-            );
-            // 위반 기록 + anomaly 감지 (3회 이상 시 UI 알림)
-            recordViolation({
-              taskId,
-              violationType: guardResult.violationType,
-              violationDetail: guardResult.violationDetail,
-            });
-          }
-        }
+        applyCounterQuestionPostGuard({ taskId, userText: text, messagesRef, setMessages });
       }
 
-      // Secret scanner + Canary: 응답에 API key/token/canary 있으면 마스킹
       if (processor.hasContent()) {
-        const allMsgs = messagesRef.current;
-        const assistantMsgs = allMsgs.filter((m) => m.role === 'assistant');
-        const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
-        if (lastAssistant) {
-          let content = lastAssistant.content;
-          const newMarks: { type: 'canary_blocked' | 'secret_masked'; detail?: string }[] = [];
-
-          // Canary leak 검출 (prompt injection 성공 신호)
-          if (detectCanaryLeak(content, taskId)) {
-            content = maskCanary(content, taskId);
-            newMarks.push({ type: 'canary_blocked' });
-            void recordAndPublish('canary_leak_detected', { taskId });
-            sendNotification(
-              'Cortx — Prompt Injection 감지',
-              'Claude가 내부 canary 토큰을 유출했습니다. 응답이 차단되었습니다.',
-            );
-          }
-
-          // Secret/마커 마스킹
-          const scan = scanForSecrets(content);
-          if (scan.found) {
-            content = scan.masked;
-            newMarks.push({ type: 'secret_masked', detail: scan.matches.map((x) => x.type).join(', ') });
-            void recordAndPublish('secret_leak_masked', {
-              taskId,
-              types: scan.matches.map((x) => x.type),
-              count: scan.matches.length,
-            });
-          }
-
-          if (newMarks.length > 0) {
-            const targetId = lastAssistant.id;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === targetId ? { ...m, content, guardrailMarks: [...(m.guardrailMarks || []), ...newMarks] } : m,
-              ),
-            );
-          }
-        }
+        applySecretCanaryPostGuard({ taskId, messagesRef, setMessages });
       }
 
       if (!processor.hasContent()) {
