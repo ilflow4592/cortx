@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
-import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
 import { runPipeline } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
@@ -18,9 +17,9 @@ import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
 import { clearCanary } from './canaryGuard';
 import { clearAllowlist } from './dangerousCommandAlert';
-import { resolveSlashCommand } from './_slashResolver';
 import { applyCounterQuestionPostGuard, applySecretCanaryPostGuard } from './_postResponseGuards';
 import { buildSendContext } from './_sendContextBuilder';
+import { ensurePipelineInitialized, selectModelForPhase, resolveTextForSession } from './_pipelineSessionHelpers';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -261,22 +260,7 @@ export function useClaudeSession(
       getMessages: () => messagesRef.current,
     });
 
-    // On resume: auto-fill pipeline args but skip skill resolution
-    // On first message: full skill resolution
-    let resolvedText: string;
-    if (claudeSessionIdRef.current) {
-      // Resume — just auto-fill args if pipeline command
-      const parts = text.startsWith('/') ? text.slice(1).split(/\s+/) : [];
-      const cmdName = parts[0] || '';
-      let args = parts.slice(1).join(' ');
-      if (cmdName.startsWith('pipeline:') && !args.trim()) {
-        const t = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        if (t) args = `${t.branchName || ''} ${t.title || ''}`.trim();
-      }
-      resolvedText = args ? `/${cmdName} ${args}` : text;
-    } else {
-      resolvedText = await resolveSlashCommand(text, taskId, cwd);
-    }
+    let resolvedText = await resolveTextForSession(text, taskId, cwd, !!claudeSessionIdRef.current);
 
     // Harness: grill_me 중 역질문 감지 → 메시지 래핑으로 Claude 응답 제약
     const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
@@ -334,38 +318,8 @@ export function useClaudeSession(
         ]);
       }
 
-      // Pipeline state init + timer (always, even on resume)
-      if (isPipeline) {
-        const currentTask = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        if (currentTask && !currentTask.pipeline?.enabled) {
-          const defaultPhases: Record<PipelinePhase, PipelinePhaseEntry> = {
-            grill_me: { status: 'in_progress', startedAt: new Date().toISOString() },
-            save: { status: 'pending' },
-            dev_plan: { status: 'pending' },
-            implement: { status: 'pending' },
-            commit_pr: { status: 'pending' },
-            review_loop: { status: 'pending' },
-            done: { status: 'pending' },
-          };
-          useTaskStore.getState().updateTask(taskId, {
-            pipeline: { enabled: true, phases: defaultPhases },
-          });
-        }
-        const taskNow = useTaskStore.getState().tasks.find((t) => t.id === taskId);
-        if (taskNow && (taskNow.status === 'waiting' || taskNow.status === 'paused')) {
-          useTaskStore.getState().startTask(taskId);
-        }
-      }
-
-      // Select model based on pipeline phase — Sonnet for implementation, Opus for planning
-      let selectedModel: string | null = null;
-      if (isPipeline) {
-        const currentPipeline = useTaskStore.getState().tasks.find((t) => t.id === taskId)?.pipeline;
-        if (currentPipeline?.phases?.implement?.status === 'in_progress') {
-          selectedModel = 'claude-sonnet-4-6'; // Implementation: Sonnet (cost-effective)
-        }
-        // Grill-me, Dev Plan, Review: Opus (default)
-      }
+      if (isPipeline) ensurePipelineInitialized(taskId);
+      const selectedModel = isPipeline ? selectModelForPhase(taskId) : null;
 
       // Token budget 사전 체크 — 초과 시 경고 (차단 아님)
       const budgetCheck = checkTokenBudget([resolvedText, contextSummary]);
