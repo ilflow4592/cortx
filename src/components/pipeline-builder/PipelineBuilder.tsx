@@ -30,6 +30,7 @@ import { runCustomPipeline } from '../../utils/pipeline-exec/runCustomPipeline';
 import { SkillLibrary } from './SkillLibrary';
 import { PhaseCanvas } from './PhaseCanvas';
 import { PhaseDetail } from './PhaseDetail';
+import { PromptModal, type PromptRequest } from './PromptModal';
 
 interface Props {
   taskId: string;
@@ -72,6 +73,23 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<string>('');
+  const [promptReq, setPromptReq] = useState<PromptRequest | null>(null);
+
+  /** Tauri WebKit 에서 window.prompt 차단되므로 커스텀 모달 사용 */
+  const askText = (title: string, defaultValue?: string, message?: string): Promise<string | null> =>
+    new Promise((resolve) => {
+      setPromptReq({ title, message, defaultValue, kind: 'input', resolve });
+    });
+  const askConfirm = (title: string, message?: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setPromptReq({
+        title,
+        message,
+        kind: 'confirm',
+        confirmLabel: '확인',
+        resolve: (v) => resolve(v !== null),
+      });
+    });
 
   const runtimeLock = isAnyPhaseInProgress(cfg, taskId);
   const builtinLock = cfg?.source === 'builtin';
@@ -163,9 +181,9 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
     }
   };
 
-  const handleNew = () => {
-    const name = prompt('새 파이프라인 이름:', 'My Pipeline');
-    if (name === null) return; // 취소
+  const handleNew = async () => {
+    const name = await askText('새 파이프라인 이름', 'My Pipeline');
+    if (name === null) return;
     const trimmed = name.trim() || 'Untitled Pipeline';
     const id = `custom-${Date.now().toString(36)}`;
     const empty = createEmptyConfig(id, trimmed);
@@ -178,9 +196,9 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   };
 
   // 빈 캔버스에 스킬 드롭 → 새 파이프라인 생성 + 첫 phase + 드롭된 스킬 추가.
-  const handleCreateWithSkill = (skill: CustomSkillRef) => {
+  const handleCreateWithSkill = async (skill: CustomSkillRef) => {
     if (locked) return;
-    const name = prompt('새 파이프라인 이름:', 'My Pipeline');
+    const name = await askText('새 파이프라인 이름', 'My Pipeline');
     if (name === null) return;
     const trimmed = name.trim() || 'Untitled Pipeline';
     const id = `custom-${Date.now().toString(36)}`;
@@ -240,7 +258,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   const handleDuplicate = async () => {
     if (!cfg) return;
     const defaultName = `${cfg.name} (copy)`;
-    const newName = prompt('복사본 이름:', defaultName);
+    const newName = await askText('복사본 이름', defaultName);
     if (newName === null) return;
     const trimmedName = newName.trim() || defaultName;
     const newId = `custom-${Date.now().toString(36)}`;
@@ -258,7 +276,8 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
 
   const handleDelete = async () => {
     if (!cfg || locked) return;
-    if (!confirm(`Delete '${cfg.name}'?`)) return;
+    const ok = await askConfirm(`'${cfg.name}' 삭제?`, '이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
     try {
       await deleteCustomPipeline(cfg.id, cfg.source, cwd);
       const list = await listCustomPipelines(cwd);
@@ -560,6 +579,7 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
           />
         </div>
       </div>
+      {promptReq && <PromptModal req={promptReq} onClose={() => setPromptReq(null)} />}
     </div>
   );
 }

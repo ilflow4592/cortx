@@ -207,7 +207,8 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (!disabled && confirm(`Remove phase '${phase.label}'?`)) onRemove();
+            // Tauri WebKit 에서 window.confirm 차단되므로 즉시 제거 (사용자가 실수 시 X 다시 클릭으로 되돌리기 어려움은 감수)
+            if (!disabled) onRemove();
           }}
           disabled={disabled}
           style={{
@@ -216,7 +217,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
             color: 'var(--fg-dim)',
             cursor: disabled ? 'not-allowed' : 'pointer',
           }}
-          title="Remove phase"
+          title="Remove phase (즉시 제거)"
         >
           <X size={12} />
         </button>
