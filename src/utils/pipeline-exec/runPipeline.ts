@@ -8,12 +8,13 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useContextPackStore } from '../../stores/contextPackStore';
 import { messageCache, sessionCache, loadingCache } from '../chatState';
 import { recordEvent } from '../../services/telemetry';
-import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
+import type { PipelinePhase } from '../../types/task';
 import { invoke, listen } from './tauri';
 import { fetchPinUrl } from './fetchPinUrl';
 import { formatToolActivity, type ContentBlock } from '../../components/claude/claudeEventProcessor';
 import type { PipelineCallbacks } from './types';
 import { stripMarkers as sharedStripMarkers, isQuestion as sharedIsQuestion, BUILTIN_PHASE_KEYS } from './_shared';
+import { applyPhaseTransition, applyMarkerToStore } from './_phaseTransitions';
 
 export async function runPipeline(taskId: string, command: string, callbacks?: PipelineCallbacks) {
   const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
@@ -80,51 +81,9 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
     });
   }
 
-  // Command → phase 즉시 전환. Claude의 마커 emit을 기다리지 않고 앱이 먼저
-  // 선행 phase를 done 처리하고 대응 phase를 in_progress 로 켠다. 사용자가
-  // /pipeline:dev-implement 입력하면 PROGRESS 바에서 즉시 Dev Plan 스피너 돌아감.
-  const phaseByCommand: Record<string, { done: string[]; activate: string }> = {
-    '/pipeline:dev-implement': { done: ['grill_me', 'save'], activate: 'dev_plan' },
-    // Plan 승인 후 재스폰 — dev_plan done 처리하고 implement 활성화.
-    // Cortx 내부 전용 (사용자 입력 경로 아님).
-    '/pipeline:_approve-plan': { done: ['grill_me', 'save', 'dev_plan'], activate: 'implement' },
-    '/pipeline:dev-review-loop': {
-      done: ['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr'],
-      activate: 'review_loop',
-    },
-    '/pipeline:pr-review-fu': {
-      done: ['grill_me', 'save', 'dev_plan', 'implement', 'commit_pr'],
-      activate: 'review_loop',
-    },
-  };
-  const baseCmd = command.split(/\s+/)[0];
-  const phaseTransition = phaseByCommand[baseCmd];
-  // 재시도 감지: 활성화하려는 phase 가 이미 in_progress 이면 이전 시도가
-  // 중단됐다는 뜻. Claude 세션에는 partial response + 미완료 tool_use 가
-  // 남아있어 --resume 시 계획서 단계를 건너뛰고 구현을 이어가는 등 혼란을
-  // 보인다. resolvedPrompt 앞에 재시작 지시를 prepend 해 복구.
-  let isRetry = false;
-  if (phaseTransition) {
-    const t2 = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
-    if (t2?.pipeline?.enabled) {
-      const activateKey = phaseTransition.activate as keyof typeof t2.pipeline.phases;
-      isRetry = t2.pipeline.phases[activateKey]?.status === 'in_progress';
-      const now = new Date().toISOString();
-      const phases = { ...t2.pipeline.phases };
-      for (const p of phaseTransition.done) {
-        const key = p as keyof typeof phases;
-        if (phases[key] && phases[key].status !== 'done') {
-          phases[key] = { ...phases[key], status: 'done', completedAt: now };
-        }
-      }
-      phases[activateKey] = {
-        ...(phases[activateKey] || {}),
-        status: 'in_progress',
-        startedAt: now,
-      };
-      useTaskStore.getState().updateTask(taskId, { pipeline: { ...t2.pipeline, phases } });
-    }
-  }
+  // Phase 전환 적용 (선제적) — 공유 유틸로 추출. isRetry 감지되면 resolvedPrompt
+  // 앞에 재시작 지시를 prepend 해 --resume partial state 혼란 복구.
+  const { isRetry } = applyPhaseTransition(taskId, command);
 
   // Add user message + show loading indicator (green dot "Claude is thinking...")
   // Fresh start에서는 messageCache가 비어있고, continuation(/pipeline:dev-implement 등)에서는
@@ -310,58 +269,17 @@ export async function runPipeline(taskId: string, command: string, callbacks?: P
   // Strip pipeline markers from display text — 공유 유틸 사용 (_shared.ts)
   const stripMarkers = sharedStripMarkers;
 
-  // Parse pipeline markers and update task store (builtin phase 만 허용)
+  // Parse pipeline markers — builtin phase + 유효 status 만 처리, store 업데이트는
+  // applyMarkerToStore (추출된 공유 유틸) 에 위임.
   const parsePipelineMarkers = (text: string): string => {
     let cleaned = text;
     const markerRegex = /\[PIPELINE:(\w+):(\w+)(?::([^\]]*))?\]/g;
+    const VALID_STATUSES = new Set(['in_progress', 'done', 'skipped', 'pending']);
     let match;
     while ((match = markerRegex.exec(text)) !== null) {
       const [fullMatch, phase, status, memo] = match;
-      const VALID_STATUSES = new Set(['in_progress', 'done', 'skipped', 'pending']);
       if (BUILTIN_PHASE_KEYS.has(phase) && VALID_STATUSES.has(status)) {
-        const t = useTaskStore.getState().tasks.find((tt) => tt.id === taskId);
-        if (t?.pipeline?.enabled) {
-          const phases = { ...t.pipeline.phases };
-          const entry = { ...(phases[phase as PipelinePhase] || {}) } as PipelinePhaseEntry;
-          entry.status = status as PipelinePhaseEntry['status'];
-          if (status === 'in_progress') entry.startedAt = new Date().toISOString();
-          if (status === 'done' || status === 'skipped') entry.completedAt = new Date().toISOString();
-          if (memo) entry.memo = memo;
-          phases[phase as PipelinePhase] = entry;
-
-          // Save dev plan
-          if (phase === 'dev_plan' && status === 'done') {
-            const cached = messageCache.get(taskId) || [];
-            const planText = cached
-              .filter((m) => m.role === 'assistant')
-              .map((m) => m.content)
-              .join('\n\n---\n\n');
-            useTaskStore
-              .getState()
-              .updateTask(taskId, { pipeline: { ...t.pipeline, phases, devPlan: planText || t.pipeline.devPlan } });
-          } else {
-            useTaskStore.getState().updateTask(taskId, { pipeline: { ...t.pipeline, phases } });
-          }
-
-          if (status === 'done') {
-            try {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                const PHASE_NAMES: Record<string, string> = {
-                  grill_me: 'Grill-me',
-                  save: 'Save',
-                  dev_plan: 'Dev Plan',
-                  implement: 'Implement',
-                  commit_pr: 'PR',
-                  review_loop: 'Review',
-                  done: 'Done',
-                };
-                new Notification('Cortx Pipeline', { body: `${PHASE_NAMES[phase] || phase} completed` });
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        applyMarkerToStore(taskId, phase, status as 'in_progress' | 'done' | 'skipped' | 'pending', memo);
       }
       cleaned = cleaned.replace(fullMatch, '');
     }
