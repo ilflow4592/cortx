@@ -352,6 +352,10 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
         activeCustomPipeline: undefined,
       },
     });
+    if (cfg.source === 'builtin') {
+      setStatus('내장 파이프라인은 Run 불가 — 복사 후 편집하세요');
+      return;
+    }
     await runCustomPipeline(taskId, { id: cfg.id, source: cfg.source });
   };
 

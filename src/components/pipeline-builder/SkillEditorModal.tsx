@@ -50,10 +50,11 @@ export function SkillEditorModal({ entry, cwd, onClose, onSaved }: Props) {
   };
 
   const handleSave = async () => {
-    if (isBuiltin) return;
+    if (entry.kind !== 'project' && entry.kind !== 'user') return;
+    const kind: 'project' | 'user' = entry.kind;
     setSaving(true);
     try {
-      await writeSkillBody(entry.id, entry.kind, body, cwd);
+      await writeSkillBody(entry.id, kind, body, cwd);
       setStatus('Saved');
       onSaved();
     } catch (e) {
@@ -64,7 +65,6 @@ export function SkillEditorModal({ entry, cwd, onClose, onSaved }: Props) {
   };
 
   return (
-     
     <div
       style={{
         position: 'fixed',

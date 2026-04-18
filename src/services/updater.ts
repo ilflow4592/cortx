@@ -4,6 +4,11 @@
  */
 import { logger } from '../utils/logger';
 
+type DownloadEvent =
+  | { event: 'Started'; data: { contentLength?: number } }
+  | { event: 'Progress'; data: { chunkLength: number } }
+  | { event: 'Finished' };
+
 /** Minimal shape of tauri-plugin-updater's Update object we use. */
 type Update = {
   version: string;
@@ -12,7 +17,7 @@ type Update = {
   available?: boolean;
   download: () => Promise<void>;
   install: () => Promise<void>;
-  downloadAndInstall: () => Promise<void>;
+  downloadAndInstall: (onEvent?: (event: DownloadEvent) => void) => Promise<void>;
   close: () => Promise<void>;
 };
 

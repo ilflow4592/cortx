@@ -134,7 +134,10 @@ export function isPathOutsideWorkspace(path: string, cwd: string): boolean {
 
   // 절대경로
   if (path.startsWith('/') || path.startsWith('~')) {
-    const expanded = path.startsWith('~') ? path.replace(/^~/, process.env.HOME || '/Users') : path;
+    const home =
+      typeof globalThis !== 'undefined' &&
+      (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.HOME;
+    const expanded = path.startsWith('~') ? path.replace(/^~/, home || '/Users') : path;
     // /tmp, /var/tmp는 일반적인 임시 공간이라 허용
     if (expanded.startsWith('/tmp/') || expanded.startsWith('/var/tmp/')) return false;
     return !expanded.startsWith(normalizedCwd + '/') && expanded !== normalizedCwd;
