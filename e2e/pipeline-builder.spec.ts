@@ -47,13 +47,11 @@ const DEFAULT_DEV_JSON = JSON.stringify({
 });
 
 test.beforeEach(async ({ page }) => {
-  await installTauriShim(page, {
-    invoke: (cmd) => {
-      if (cmd === 'list_custom_pipelines') return Promise.resolve(BUILTIN_META);
-      if (cmd === 'read_custom_pipeline') return Promise.resolve(DEFAULT_DEV_JSON);
-      if (cmd === 'list_claude_agents') return Promise.resolve([]);
-      return null;
-    },
+  await installTauriShim(page, (cmd) => {
+    if (cmd === 'list_custom_pipelines') return Promise.resolve(BUILTIN_META);
+    if (cmd === 'read_custom_pipeline') return Promise.resolve(DEFAULT_DEV_JSON);
+    if (cmd === 'list_claude_agents') return Promise.resolve([]);
+    return null;
   });
 });
 
