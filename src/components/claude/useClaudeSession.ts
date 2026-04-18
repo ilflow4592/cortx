@@ -3,7 +3,7 @@ import { useContextPackStore } from '../../stores/contextPackStore';
 import { useTaskStore } from '../../stores/taskStore';
 import type { PipelinePhase, PipelinePhaseEntry } from '../../types/task';
 import { messageCache, sessionCache, loadingCache } from '../../utils/chatState';
-import { runPipeline, fetchPinUrl } from '../../utils/pipelineExec';
+import { runPipeline } from '../../utils/pipelineExec';
 import type { Message, SlashCommand } from './types';
 import { handleBuiltinCommand } from './builtinCommands';
 import { parsePipelineMarkers, applyPipelineMarkerUpdates } from './pipelineMarkers';
@@ -16,12 +16,11 @@ import { recordEvent } from '../../services/telemetry';
 import { recordAndPublish } from '../../services/guardrailEventBus';
 import { checkTokenBudget, formatBudgetWarning } from './tokenBudget';
 import { sendNotification } from '../../utils/notification';
-import { getOrCreateCanary, buildCanaryDirective, clearCanary } from './canaryGuard';
+import { clearCanary } from './canaryGuard';
 import { clearAllowlist } from './dangerousCommandAlert';
-import { serializeContextItems } from './_contextSerialize';
 import { resolveSlashCommand } from './_slashResolver';
-import { PIPELINE_TRACKING_DIRECTIVE, CORTX_CONTEXT_PACK_MODE_DIRECTIVE } from './_pipelineDirective';
 import { applyCounterQuestionPostGuard, applySecretCanaryPostGuard } from './_postResponseGuards';
+import { buildSendContext } from './_sendContextBuilder';
 
 // Tauri API 동적 import 래퍼 (CLAUDE.md 규칙 + quality gate 훅).
 // 호출 지점마다 `import()`를 반복하지 않도록 모듈 내부에서만 재사용.
@@ -320,79 +319,19 @@ export function useClaudeSession(
       const hasExistingSession = !!claudeSessionIdRef.current;
       const isPipeline = text.startsWith('/pipeline:');
 
-      let contextSummary = '';
-      let contextFiles: string[] = [];
-
-      // Pipeline tracking directive — always send for pipeline commands (even on resume)
-      if (isPipeline) {
-        contextSummary = PIPELINE_TRACKING_DIRECTIVE;
-        // Canary: prompt injection 감지용 honeypot 토큰 삽입
-        contextSummary += '\n' + buildCanaryDirective(getOrCreateCanary(taskId));
-      }
-
-      // Only send full context on first message (no existing session)
-      if (!hasExistingSession) {
-        // Fetch content for pinned HTTP URLs that don't have fullText yet
-        const pinFetches = contextItems
-          .filter(
-            (item) => item.sourceType === 'pin' && item.url && item.url.startsWith('http') && !item.metadata?.fullText,
-          )
-          .map(async (item) => {
-            const content = await fetchPinUrl(item.url);
-            if (content) {
-              item.metadata = { ...item.metadata, fullText: content };
-            }
-          });
-        if (pinFetches.length > 0) await Promise.all(pinFetches);
-
-        const nonFileItems = contextItems.filter(
-          (item) => !item.url || item.url.startsWith('http') || item.sourceType !== 'pin',
-        );
-        const itemsSummary = serializeContextItems(nonFileItems, taskId);
-
-        if (isPipeline && contextItems.length > 0) {
-          contextSummary += CORTX_CONTEXT_PACK_MODE_DIRECTIVE;
-        }
-
-        if (itemsSummary) {
-          contextSummary = contextSummary ? `${contextSummary}\n\n---\n\n${itemsSummary}` : itemsSummary;
-        }
-
-        contextFiles = contextItems.filter((item) => item.url && !item.url.startsWith('http')).map((item) => item.url);
-
-        // Pre-inject project-context.md into system prompt so Claude can skip codebase re-discovery.
-        // cortx 스캐너가 생성한 파일로, 이미 규칙 문서·기술 스택·SOT가 요약되어 있음.
-        if (isPipeline && cwd) {
-          const ctxFile = `${cwd}/.cortx/project-context.md`;
-          try {
-            const { exists } = await import('@tauri-apps/plugin-fs');
-            if (await exists(ctxFile)) {
-              contextFiles.push(ctxFile);
-            }
-          } catch {
-            /* skip — fs 플러그인 로드 실패 or 파일 미존재 */
-          }
-        }
-
-        // Show loaded context items before Claude starts
-        if (isPipeline && contextItems.length > 0) {
-          const sourceIcons: Record<string, string> = {
-            github: 'GitHub',
-            slack: 'Slack',
-            notion: 'Notion',
-            pin: 'Pin',
-          };
-          const lines = contextItems.map((item) => {
-            const src = sourceIcons[item.sourceType] || item.sourceType;
-            return `  [${src}] ${item.title}`;
-          });
-          const contextLoadMsg = `Loading Context Pack (${contextItems.length} items)\n${lines.join('\n')}`;
-          const ctxMsgId = `${reqId}-context-load`;
-          setMessages((prev) => [
-            ...prev,
-            { id: ctxMsgId, role: 'activity', content: contextLoadMsg, toolName: 'Context Pack' },
-          ]);
-        }
+      const { contextSummary, contextFiles, contextLoadMessage } = await buildSendContext({
+        taskId,
+        cwd,
+        isPipeline,
+        hasExistingSession,
+        contextItems,
+      });
+      if (contextLoadMessage) {
+        const ctxMsgId = `${reqId}-context-load`;
+        setMessages((prev) => [
+          ...prev,
+          { id: ctxMsgId, role: 'activity', content: contextLoadMessage, toolName: 'Context Pack' },
+        ]);
       }
 
       // Pipeline state init + timer (always, even on resume)
