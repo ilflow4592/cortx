@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/ilflow4592/cortx/releases/latest"><strong>Download</strong></a> &nbsp;·&nbsp;
+  <a href="docs/getting-started.md"><strong>Getting Started (15min)</strong></a> &nbsp;·&nbsp;
   macOS (ARM/Intel) &nbsp;·&nbsp; Windows &nbsp;·&nbsp; Linux
 </p>
 
