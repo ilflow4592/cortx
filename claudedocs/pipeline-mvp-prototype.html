@@ -1,0 +1,1926 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cortx — Pipeline Builder (Drag & Drop MVP)</title>
+    <style>
+      :root {
+        --bg-app: #0a0d14;
+        --bg-surface: #141821;
+        --bg-surface-hover: #1b212d;
+        --bg-chip: #191f2a;
+        --border-muted: #242a38;
+        --border-strong: #2e3544;
+        --fg-primary: #e4e8ef;
+        --fg-secondary: #a8b0bc;
+        --fg-dim: #6b7280;
+        --fg-subtle: #828aa0;
+        --fg-faint: #9ca3af;
+        --accent: #3b82f6;
+        --accent-bright: #60a5fa;
+        --accent-bg: rgba(59, 130, 246, 0.12);
+        --green: #34d399;
+        --amber: #f59e0b;
+        --rose: #f87171;
+        --purple: #ab98c7;
+        --purple-bg: rgba(171, 152, 199, 0.08);
+        --teal: #14b8a6;
+        --teal-bg: rgba(20, 184, 166, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg-app);
+        color: var(--fg-primary);
+        font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+        font-size: 13px;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .app {
+        display: grid;
+        grid-template-rows: 44px 1fr;
+        height: 100vh;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border-muted);
+        background: var(--bg-surface);
+      }
+      header .logo {
+        font-weight: 600;
+        color: var(--accent-bright);
+      }
+      header .sub {
+        color: var(--fg-dim);
+        font-size: 11px;
+      }
+      header .spacer {
+        flex: 1;
+      }
+      header .task-selector {
+        font-size: 11px;
+        color: var(--fg-secondary);
+        background: var(--bg-chip);
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border-muted);
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: 260px 1fr 300px;
+        overflow: hidden;
+      }
+
+      /* LEFT: Skill Library */
+      .library {
+        border-right: 1px solid var(--border-muted);
+        overflow-y: auto;
+        padding: 12px;
+        background: var(--bg-surface);
+      }
+      .section-title {
+        font-size: 10px;
+        color: var(--fg-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 12px 4px 6px;
+      }
+
+      .pipe-item {
+        padding: 6px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--fg-secondary);
+      }
+      .pipe-item:hover {
+        background: var(--bg-surface-hover);
+      }
+      .pipe-item.active {
+        background: var(--accent-bg);
+        color: var(--accent-bright);
+        font-weight: 500;
+      }
+      .pipe-item .pipe-type {
+        margin-left: auto;
+        font-size: 9px;
+        color: var(--fg-dim);
+        text-transform: uppercase;
+      }
+
+      /* Draggable skill block */
+      .skill-block {
+        background: var(--bg-chip);
+        border: 1px solid var(--border-muted);
+        border-left: 3px solid var(--accent);
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin: 4px 0;
+        cursor: grab;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        user-select: none;
+        transition: transform 0.1s;
+      }
+      .skill-block:hover {
+        background: var(--bg-surface-hover);
+        transform: translateX(2px);
+      }
+      .skill-block:active {
+        cursor: grabbing;
+        opacity: 0.6;
+      }
+      .skill-block.builtin {
+        border-left-color: var(--accent);
+      }
+      .skill-block.project {
+        border-left-color: var(--teal);
+      }
+      .skill-block.control {
+        border-left-color: var(--amber);
+      }
+      .skill-block .skill-icon {
+        font-size: 13px;
+      }
+      .skill-block .skill-info {
+        flex: 1;
+      }
+      .skill-block .skill-name {
+        font-family: 'Fira Code', monospace;
+        font-weight: 500;
+      }
+      .skill-block .skill-desc {
+        font-size: 9px;
+        color: var(--fg-dim);
+        margin-top: 2px;
+      }
+      .skill-block.dragging {
+        opacity: 0.3;
+      }
+
+      .new-pipe-btn {
+        margin-top: 8px;
+        width: 100%;
+        padding: 6px 10px;
+        background: var(--bg-surface);
+        border: 1px dashed var(--border-strong);
+        border-radius: 4px;
+        color: var(--fg-secondary);
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .new-pipe-btn:hover {
+        background: var(--bg-surface-hover);
+        color: var(--fg-primary);
+      }
+
+      /* CENTER: Canvas */
+      .canvas-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-muted);
+        background: var(--bg-surface);
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        background: var(--bg-chip);
+        border-radius: 4px;
+        padding: 2px;
+      }
+      .tabs button {
+        padding: 4px 12px;
+        background: transparent;
+        color: var(--fg-secondary);
+        border: none;
+        border-radius: 3px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .tabs button.active {
+        background: var(--accent-bg);
+        color: var(--accent-bright);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .btn {
+        padding: 5px 12px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-surface);
+        color: var(--fg-secondary);
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--bg-surface-hover);
+        color: var(--fg-primary);
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+      .btn.primary:hover {
+        background: var(--accent-bright);
+      }
+
+      .canvas-body {
+        flex: 1;
+        overflow: auto;
+        padding: 24px;
+        background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.04), transparent 50%);
+      }
+      .canvas-view,
+      .yaml-view {
+        height: 100%;
+      }
+      .yaml-view textarea {
+        width: 100%;
+        height: calc(100% - 20px);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-muted);
+        border-radius: 6px;
+        color: var(--fg-primary);
+        padding: 14px;
+        font-family: 'Fira Code', 'JetBrains Mono', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        resize: none;
+        outline: none;
+      }
+
+      /* Phase flow */
+      .phase-flow {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 680px;
+      }
+      .phase-node {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-muted);
+        border-radius: 6px;
+        cursor: default;
+        transition: all 0.15s ease;
+        position: relative;
+      }
+      .phase-node.selected {
+        border-color: var(--accent);
+      }
+      .phase-node.drop-target {
+        border-color: var(--green);
+        background: rgba(52, 211, 153, 0.05);
+        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
+      }
+      .phase-node.active::before {
+        content: '';
+        position: absolute;
+        left: -12px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        background: var(--green);
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--green);
+      }
+      .phase-node.done {
+        opacity: 0.55;
+      }
+      .phase-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border-muted);
+      }
+      .phase-node.selected .phase-header {
+        background: var(--accent-bg);
+      }
+      .phase-drag-handle {
+        color: var(--fg-dim);
+        cursor: grab;
+        font-size: 14px;
+      }
+      .phase-drag-handle:active {
+        cursor: grabbing;
+      }
+      .phase-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--bg-chip);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: var(--fg-dim);
+        flex-shrink: 0;
+      }
+      .phase-node.active .phase-icon,
+      .phase-node.done .phase-icon {
+        background: var(--green);
+        color: #0a0d14;
+      }
+      .phase-title {
+        font-weight: 500;
+      }
+      .phase-id {
+        font-size: 10px;
+        color: var(--fg-dim);
+        font-family: 'Fira Code', monospace;
+      }
+      .phase-badges {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+      }
+      .badge {
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: 500;
+      }
+      .badge.opus {
+        color: var(--purple);
+        background: var(--purple-bg);
+      }
+      .badge.sonnet {
+        color: var(--accent-bright);
+        background: var(--accent-bg);
+      }
+      .badge.plan {
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.1);
+      }
+      .badge.auto {
+        color: var(--green);
+        background: rgba(52, 211, 153, 0.12);
+      }
+
+      .skill-stack {
+        padding: 8px 12px 10px;
+        min-height: 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .skill-stack.empty {
+        color: var(--fg-dim);
+        font-size: 10px;
+        font-style: italic;
+        text-align: center;
+        padding: 14px;
+        border: 2px dashed transparent;
+        border-radius: 4px;
+        transition: border-color 0.15s;
+      }
+      .skill-stack.drop-hover {
+        border-color: var(--green);
+        background: rgba(52, 211, 153, 0.03);
+      }
+
+      .stacked-skill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 8px;
+        background: var(--bg-chip);
+        border-left: 3px solid var(--accent);
+        border-radius: 3px;
+        font-size: 11px;
+        cursor: grab;
+        position: relative;
+      }
+      .stacked-skill.project {
+        border-left-color: var(--teal);
+      }
+      .stacked-skill.control {
+        border-left-color: var(--amber);
+      }
+      .stacked-skill:active {
+        cursor: grabbing;
+      }
+      .stacked-skill .skill-name {
+        font-family: 'Fira Code', monospace;
+        flex: 1;
+      }
+      .stacked-skill .remove {
+        color: var(--fg-dim);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0 4px;
+      }
+      .stacked-skill .remove:hover {
+        color: var(--rose);
+      }
+      .stacked-skill.dragging {
+        opacity: 0.3;
+      }
+
+      .arrow {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding-left: 24px;
+        color: var(--fg-dim);
+        font-size: 10px;
+        height: 20px;
+      }
+      .arrow.conditional {
+        color: var(--amber);
+      }
+
+      /* New phase drop zone */
+      .new-phase-drop {
+        border: 2px dashed var(--border-strong);
+        border-radius: 6px;
+        padding: 14px;
+        text-align: center;
+        color: var(--fg-dim);
+        font-size: 11px;
+        font-style: italic;
+        margin-top: 6px;
+        transition: all 0.15s;
+      }
+      .new-phase-drop.drop-hover {
+        border-color: var(--green);
+        background: rgba(52, 211, 153, 0.03);
+        color: var(--green);
+      }
+
+      /* RIGHT: Phase detail */
+      .phase-detail {
+        border-left: 1px solid var(--border-muted);
+        overflow-y: auto;
+        padding: 16px;
+        background: var(--bg-surface);
+      }
+      .phase-detail h3 {
+        margin: 0 0 4px;
+        font-size: 13px;
+      }
+      .phase-detail .sub {
+        font-size: 10px;
+        color: var(--fg-dim);
+        margin-bottom: 16px;
+        font-family: 'Fira Code', monospace;
+      }
+      .field {
+        margin-bottom: 12px;
+      }
+      .field label {
+        display: block;
+        font-size: 10px;
+        color: var(--fg-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+      }
+      .field input,
+      .field select,
+      .field textarea {
+        width: 100%;
+        padding: 6px 8px;
+        background: var(--bg-chip);
+        border: 1px solid var(--border-muted);
+        border-radius: 4px;
+        color: var(--fg-primary);
+        font-size: 12px;
+        font-family: inherit;
+        outline: none;
+      }
+      .field textarea {
+        font-family: 'Fira Code', monospace;
+        font-size: 11px;
+        min-height: 50px;
+      }
+      .field input:focus,
+      .field select:focus,
+      .field textarea:focus {
+        border-color: var(--accent);
+      }
+      .field .hint {
+        font-size: 10px;
+        color: var(--fg-dim);
+        margin-top: 4px;
+      }
+      .flag-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .flag-row input[type='checkbox'] {
+        width: auto;
+      }
+      .flag-row label {
+        margin: 0;
+        text-transform: none;
+        font-size: 11px;
+        color: var(--fg-secondary);
+      }
+
+      /* Log overlay */
+      .log-overlay {
+        position: fixed;
+        bottom: 16px;
+        right: 316px;
+        width: 360px;
+        max-height: 280px;
+        background: rgba(10, 13, 20, 0.96);
+        border: 1px solid var(--border-strong);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-family: 'Fira Code', monospace;
+        font-size: 10px;
+        overflow-y: auto;
+        backdrop-filter: blur(8px);
+      }
+      .log-overlay .log-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        color: var(--accent-bright);
+      }
+      .log-line {
+        color: var(--fg-secondary);
+        line-height: 1.5;
+      }
+      .log-line .ts {
+        color: var(--fg-dim);
+      }
+      .log-line.auto {
+        color: var(--green);
+      }
+      .log-line.cond {
+        color: var(--amber);
+      }
+      .log-line.skill {
+        color: var(--accent-bright);
+      }
+
+      /* Skill editor modal */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* [hidden] 기본 display:none 이 위의 display:flex 로 덮여 모달이 안 닫히는 버그 수정 */
+      .modal-backdrop[hidden] {
+        display: none;
+      }
+      .log-overlay[hidden] {
+        display: none;
+      }
+      .modal {
+        width: 720px;
+        max-width: 94vw;
+        max-height: 86vh;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border-muted);
+      }
+      .modal-header .skill-icon-lg {
+        font-size: 20px;
+      }
+      .modal-header .title-group {
+        flex: 1;
+      }
+      .modal-header .modal-title {
+        font-family: 'Fira Code', monospace;
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .modal-header .modal-subtitle {
+        font-size: 10px;
+        color: var(--fg-dim);
+        margin-top: 2px;
+      }
+      .modal-header .kind-badge {
+        font-size: 9px;
+        padding: 3px 7px;
+        border-radius: 3px;
+        font-weight: 500;
+      }
+      .modal-header .kind-badge.builtin {
+        color: var(--accent-bright);
+        background: var(--accent-bg);
+      }
+      .modal-header .kind-badge.project {
+        color: var(--teal);
+        background: var(--teal-bg);
+      }
+      .modal-header .kind-badge.control {
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.12);
+      }
+      .modal-header .close-btn {
+        background: transparent;
+        border: none;
+        color: var(--fg-dim);
+        cursor: pointer;
+        font-size: 18px;
+        padding: 4px 8px;
+      }
+      .modal-header .close-btn:hover {
+        color: var(--fg-primary);
+      }
+
+      .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 18px;
+      }
+      .modal-body .field {
+        margin-bottom: 14px;
+      }
+      .modal-body .field label {
+        display: block;
+        font-size: 10px;
+        color: var(--fg-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 6px;
+      }
+      .modal-body input,
+      .modal-body textarea,
+      .modal-body select {
+        width: 100%;
+        background: var(--bg-chip);
+        border: 1px solid var(--border-muted);
+        border-radius: 4px;
+        color: var(--fg-primary);
+        padding: 8px 10px;
+        font-size: 12px;
+        outline: none;
+        font-family: inherit;
+      }
+      .modal-body .body-editor {
+        font-family: 'Fira Code', 'JetBrains Mono', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        min-height: 260px;
+        resize: vertical;
+      }
+      .modal-body input:focus,
+      .modal-body textarea:focus,
+      .modal-body select:focus {
+        border-color: var(--accent);
+      }
+      .modal-body .meta-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .variable-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .var-chip {
+        background: var(--bg-chip);
+        border: 1px solid var(--border-muted);
+        color: var(--fg-subtle);
+        font-family: 'Fira Code', monospace;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .var-chip:hover {
+        color: var(--accent-bright);
+        border-color: var(--accent);
+      }
+      .builtin-warn {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        color: var(--amber);
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-size: 11px;
+        margin-bottom: 14px;
+      }
+
+      .modal-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-top: 1px solid var(--border-muted);
+        background: var(--bg-chip);
+      }
+      .modal-footer .preview-hint {
+        font-size: 10px;
+        color: var(--fg-dim);
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="logo">⚙ Cortx Pipeline Builder</div>
+        <div class="sub">드래그앤드랍 스킬 조립 MVP</div>
+        <div class="spacer"></div>
+        <div class="task-selector">Task: feat/BE-1456</div>
+      </header>
+
+      <main>
+        <!-- LEFT: Library -->
+        <aside class="library">
+          <div class="section-title">Pipelines</div>
+          <div class="pipe-item active" data-pipe="dev">
+            <span>dev</span>
+            <span class="pipe-type">default</span>
+          </div>
+          <div class="pipe-item" data-pipe="bugfix">
+            <span>bugfix</span>
+            <span class="pipe-type">fast</span>
+          </div>
+          <div class="pipe-item" data-pipe="release">
+            <span>release-prep</span>
+            <span class="pipe-type">custom</span>
+          </div>
+          <button class="new-pipe-btn">+ New Pipeline</button>
+
+          <div class="section-title">Skills — Builtin</div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="dev-task">
+            <span class="skill-icon">🎯</span>
+            <div class="skill-info">
+              <div class="skill-name">pipeline/dev-task</div>
+              <div class="skill-desc">Grill-me Q&A + 스펙 정리</div>
+            </div>
+          </div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="dev-implement">
+            <span class="skill-icon">🔨</span>
+            <div class="skill-info">
+              <div class="skill-name">pipeline/dev-implement</div>
+              <div class="skill-desc">계획서 + 구현 (plan mode)</div>
+            </div>
+          </div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="dev-review-loop">
+            <span class="skill-icon">🔁</span>
+            <div class="skill-info">
+              <div class="skill-name">pipeline/dev-review-loop</div>
+              <div class="skill-desc">PR 리뷰 대응 반복</div>
+            </div>
+          </div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="git-commit">
+            <span class="skill-icon">💾</span>
+            <div class="skill-info">
+              <div class="skill-name">git/commit</div>
+              <div class="skill-desc">커밋 메시지 생성 + 푸시</div>
+            </div>
+          </div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="git-pr">
+            <span class="skill-icon">📬</span>
+            <div class="skill-info">
+              <div class="skill-name">git/pr</div>
+              <div class="skill-desc">PR 생성</div>
+            </div>
+          </div>
+          <div class="skill-block builtin" draggable="true" data-skill-id="test-run">
+            <span class="skill-icon">🧪</span>
+            <div class="skill-info">
+              <div class="skill-name">test/run</div>
+              <div class="skill-desc">테스트 실행 + 결과 요약</div>
+            </div>
+          </div>
+
+          <div class="section-title">Skills — Project</div>
+          <div class="skill-block project" draggable="true" data-skill-id="security-scan">
+            <span class="skill-icon">🔒</span>
+            <div class="skill-info">
+              <div class="skill-name">security-scan</div>
+              <div class="skill-desc">의존성 / 시크릿 감사</div>
+            </div>
+          </div>
+          <div class="skill-block project" draggable="true" data-skill-id="changelog-gen">
+            <span class="skill-icon">📝</span>
+            <div class="skill-info">
+              <div class="skill-name">changelog-gen</div>
+              <div class="skill-desc">커밋 기반 체인지로그</div>
+            </div>
+          </div>
+
+          <div class="section-title">Control Flow</div>
+          <div class="skill-block control" draggable="true" data-skill-id="if-tests-fail">
+            <span class="skill-icon">⚡</span>
+            <div class="skill-info">
+              <div class="skill-name">if: tests_failed</div>
+              <div class="skill-desc">마커 조건부 재시도</div>
+            </div>
+          </div>
+          <div class="skill-block control" draggable="true" data-skill-id="loop-until">
+            <span class="skill-icon">🔂</span>
+            <div class="skill-info">
+              <div class="skill-name">loop: until</div>
+              <div class="skill-desc">조건 충족까지 반복</div>
+            </div>
+          </div>
+          <div class="skill-block control" draggable="true" data-skill-id="approval-gate">
+            <span class="skill-icon">✋</span>
+            <div class="skill-info">
+              <div class="skill-name">gate: approval</div>
+              <div class="skill-desc">사용자 승인 대기</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER: Canvas -->
+        <section class="canvas-pane">
+          <div class="toolbar">
+            <div class="tabs">
+              <button class="active" data-tab="canvas">Canvas</button>
+              <button data-tab="yaml">YAML</button>
+            </div>
+            <div class="spacer"></div>
+            <button class="btn" id="validate-btn">✓ Validate</button>
+            <button class="btn primary" id="simulate-btn">▶ Run Simulation</button>
+          </div>
+
+          <div class="canvas-body">
+            <div class="canvas-view" id="canvas-view">
+              <div class="phase-flow" id="phase-flow"></div>
+            </div>
+
+            <div class="yaml-view" id="yaml-view" hidden>
+              <textarea id="yaml-editor" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Phase detail -->
+        <aside class="phase-detail" id="phase-detail">
+          <h3 id="detail-label">Phase: Dev Plan</h3>
+          <div class="sub" id="detail-id">dev_plan · 클릭해서 편집</div>
+
+          <div class="field">
+            <label>Phase ID</label>
+            <input type="text" id="f-id" value="dev_plan" />
+          </div>
+          <div class="field">
+            <label>Display Label</label>
+            <input type="text" id="f-label" value="Dev Plan" />
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <select id="f-model">
+              <option value="claude-opus-4-6">claude-opus-4-6</option>
+              <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6</option>
+              <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Effort</label>
+            <select id="f-effort">
+              <option>low</option>
+              <option selected>medium</option>
+              <option>high</option>
+              <option>xhigh</option>
+              <option>max</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Permission Mode</label>
+            <select id="f-perm">
+              <option value="bypassPermissions">bypassPermissions</option>
+              <option value="plan" selected>plan</option>
+              <option value="acceptEdits">acceptEdits</option>
+            </select>
+            <div class="hint">plan 모드면 ExitPlanMode 승인 카드 자동 렌더</div>
+          </div>
+          <div class="field">
+            <label>Automation</label>
+            <div class="flag-row">
+              <input type="checkbox" id="f-auto" />
+              <label for="f-auto">auto — 이전 phase 완료 시 자동 시작</label>
+            </div>
+            <div class="flag-row">
+              <input type="checkbox" id="f-approval" checked />
+              <label for="f-approval">requiresApproval</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Max Turns</label>
+            <input type="number" value="10" />
+          </div>
+          <div class="field">
+            <label>Disallowed Tools</label>
+            <textarea>Glob, Grep, Task, Agent, Bash(find:*), Bash(ls:*)</textarea>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- Skill editor modal -->
+    <div class="modal-backdrop" id="skill-modal" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <span class="skill-icon-lg" id="m-icon">🎯</span>
+          <div class="title-group">
+            <div class="modal-title" id="m-title">pipeline/dev-task</div>
+            <div class="modal-subtitle" id="m-subtitle">Grill-me Q&A + 스펙 정리</div>
+          </div>
+          <span class="kind-badge builtin" id="m-kind">builtin</span>
+          <button class="close-btn" id="m-close">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="builtin-warn" id="m-builtin-warn" hidden>
+            ⚠ 내장 스킬은 읽기 전용입니다. "Fork to Project" 를 누르면 프로젝트 로컬 복사본이 생성되고 자유롭게 편집할
+            수 있습니다.
+          </div>
+
+          <div class="meta-row">
+            <div class="field">
+              <label>Name</label>
+              <input type="text" id="m-name" />
+            </div>
+            <div class="field">
+              <label>Kind</label>
+              <select id="m-kind-select">
+                <option value="builtin">builtin</option>
+                <option value="project">project</option>
+                <option value="control">control</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Description</label>
+            <input type="text" id="m-desc" />
+          </div>
+
+          <div class="field">
+            <label>Skill Body (Markdown 프롬프트)</label>
+            <textarea id="m-body" class="body-editor" spellcheck="false"></textarea>
+            <div class="variable-chips">
+              <span class="var-chip" data-var="{TASK_ID}">{TASK_ID}</span>
+              <span class="var-chip" data-var="{TASK_NAME}">{TASK_NAME}</span>
+              <span class="var-chip" data-var="{PROJECT_NAME}">{PROJECT_NAME}</span>
+              <span class="var-chip" data-var="{PHASE_ID}">{PHASE_ID}</span>
+              <span class="var-chip" data-var="{PREV_OUTPUT}">{PREV_OUTPUT}</span>
+              <span class="var-chip" data-var="$ARGUMENTS">$ARGUMENTS</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Input Parameters (JSON)</label>
+            <textarea
+              id="m-params"
+              style="min-height: 70px; font-family: 'Fira Code', monospace; font-size: 11px"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <span class="preview-hint"
+            >편집 후 저장하면 현재 파이프라인과 이 스킬을 사용하는 모든 phase 에 즉시 반영.</span
+          >
+          <button class="btn" id="m-fork" hidden>⎘ Fork to Project</button>
+          <button class="btn" id="m-cancel">Cancel</button>
+          <button class="btn primary" id="m-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-overlay" id="log-overlay" hidden>
+      <div class="log-header">
+        <span id="log-title">▶ Running pipeline</span>
+        <span
+          style="cursor: pointer; color: var(--fg-dim)"
+          onclick="document.getElementById('log-overlay').hidden = true"
+          >×</span
+        >
+      </div>
+      <div id="log-lines"></div>
+    </div>
+
+    <script>
+      /* ---------------- Skill catalog ---------------- */
+      const SKILLS = {
+        'dev-task': {
+          id: 'dev-task',
+          name: 'pipeline/dev-task',
+          kind: 'builtin',
+          icon: '🎯',
+          desc: 'Grill-me Q&A + 스펙 정리',
+          body: `# dev-task — Grill-me Q&A
+
+당신은 {PROJECT_NAME} 프로젝트의 개발 코치입니다.
+
+## 목표
+사용자가 제시한 태스크 "{TASK_NAME}" 에 대해 **구현 전 반드시 확정**해야 할 요구사항을 Q&A 로 끌어냅니다.
+
+## 규칙
+- **Q1., Q2., Q3. 포맷** 으로 질문 (번호 + 점). 항상 ? 로 종료.
+- 첫 질문 전 Grep/Glob/Read 금지. Context Pack 과 사용자 입력만으로 질문.
+- 한국어 대화.
+
+## 출력 형식
+마지막 질문 이후 사용자가 답변을 모두 끝내면:
+
+## 구현 범위
+| 파일 | 변경 유형 |
+| --- | --- |
+
+## 엣지 케이스
+- ...
+
+## 테스트 전략
+- ...
+
+✅ Grill-me 완료 & 스펙 정리 완료`,
+          params: '{}',
+        },
+        'dev-implement': {
+          id: 'dev-implement',
+          name: 'pipeline/dev-implement',
+          kind: 'builtin',
+          icon: '🔨',
+          desc: '계획서 + 구현',
+          body: `# dev-implement
+
+Plan Mode 에서 스폰되므로 Write/Edit 는 하드 차단됨. 계획서만 작성 후 **ExitPlanMode** 도구 호출.
+
+## 스펙 입력
+메시지 상단의 \`## 📋 GRILL-ME 스펙 요약\` 이 완전한 입력.
+추가 탐색 금지.
+
+## 계획서 템플릿
+\`\`\`markdown
+## 개발 계획: {TASK_ID}
+
+### 복잡도
+{Simple|Medium|Complex}
+
+### 변경 파일 목록
+| # | 파일 | 변경 유형 | 설명 |
+
+### 구현 순서
+1. ...
+
+### 테스트 계획
+| # | 테스트 클래스 | 대상 |
+\`\`\`
+
+작성 후 ExitPlanMode 호출. plan 필드에 위 markdown 그대로 넘김.`,
+          params: '{}',
+        },
+        'dev-review-loop': {
+          id: 'dev-review-loop',
+          name: 'pipeline/dev-review-loop',
+          kind: 'builtin',
+          icon: '🔁',
+          desc: 'PR 리뷰 대응',
+          body: `# dev-review-loop
+
+PR #{PR_NUMBER} 의 리뷰 코멘트에 대응하고 후속 커밋을 생성합니다.
+
+## 절차
+1. 리뷰 코멘트 수집 (gh pr view --comments)
+2. 각 지적사항 → 분류 (수정 필요 / 설명 필요 / 반려)
+3. 수정 필요 항목: 코드 수정 → 테스트 → 커밋
+4. APPROVED 상태가 되면 종료
+
+## 출력
+각 라운드마다 [PIPELINE:review_loop:in_progress] 유지.
+APPROVED 감지 시 [PIPELINE:review_loop:done] + [PIPELINE:done:done].`,
+          params: '{"max_rounds": 5}',
+        },
+        'git-commit': {
+          id: 'git-commit',
+          name: 'git/commit',
+          kind: 'builtin',
+          icon: '💾',
+          desc: '커밋 + 푸시',
+          body: `# git/commit
+
+Conventional Commit 포맷으로 커밋 메시지 생성 후 푸시.
+
+## 규칙
+- \`type(scope): 제목\` (50자 이내, 한국어)
+- Body 에 Why + What
+- prod 브랜치 금지
+
+## 실행
+git diff --cached → 내용 분석 → commit -m → push origin HEAD`,
+          params: '{}',
+        },
+        'git-pr': {
+          id: 'git-pr',
+          name: 'git/pr',
+          kind: 'builtin',
+          icon: '📬',
+          desc: 'PR 생성',
+          body: `# git/pr
+
+PR 템플릿 기반 gh pr create.
+
+## 섹션
+- ⚡️ Quick Summary
+- 📋 변경 사항 & 원인
+- ⚠️ 특이사항
+- ✅ 검증
+- 🆘 리뷰 포인트
+
+## 실행
+gh pr create --base develop --title "..." --body "..." --assignee @me
+
+출력: [PIPELINE:pr:{번호}:{URL}]`,
+          params: '{"base_branch": "develop"}',
+        },
+        'test-run': {
+          id: 'test-run',
+          name: 'test/run',
+          kind: 'builtin',
+          icon: '🧪',
+          desc: '테스트 실행',
+          body: `# test/run
+
+project-context.md 의 Build & Test Commands 섹션에서 테스트 명령을 찾아 실행.
+
+## 감지 예
+- Gradle: ./gradlew :{module}:test
+- npm: npm test
+- pytest: pytest {path}
+- cargo: cargo test
+
+## 출력
+- 전부 통과 → 다음 skill 로 진행
+- 실패 → [PIPELINE:tests_failed] 마커 emit → if: 조건 블록이 분기 결정`,
+          params: '{"scope": "changed_modules"}',
+        },
+        'security-scan': {
+          id: 'security-scan',
+          name: 'security-scan',
+          kind: 'project',
+          icon: '🔒',
+          desc: '의존성 감사',
+          body: `# security-scan (project)
+
+의존성 취약점 + 하드코딩 시크릿 스캔.
+
+## 체크
+- npm audit / pip-audit / cargo audit (tech stack 자동 감지)
+- 변경 파일에서 시크릿 패턴 Grep (sk-, ghp_, AKIA, Bearer)
+- .env* 파일 staging 여부
+
+## 출력
+발견 시 각 이슈를 sev/file/line 으로 나열. 심각 > 0 이면 [PIPELINE:security_blocked] emit.`,
+          params: '{"fail_on_severity": "high"}',
+        },
+        'changelog-gen': {
+          id: 'changelog-gen',
+          name: 'changelog-gen',
+          kind: 'project',
+          icon: '📝',
+          desc: '체인지로그',
+          body: `# changelog-gen (project)
+
+마지막 태그 이후 커밋을 Conventional Commit 타입별로 그룹핑.
+
+## 형식
+## {new_version} — {date}
+### Added
+- ...
+### Changed
+- ...
+### Fixed
+- ...
+
+## 위치
+CHANGELOG.md 상단에 삽입.`,
+          params: '{"from_tag": "latest"}',
+        },
+        'if-tests-fail': {
+          id: 'if-tests-fail',
+          name: 'if: tests_failed',
+          kind: 'control',
+          icon: '⚡',
+          desc: '조건부 분기',
+          body: `# control: if
+
+마커 패턴을 감지해 다음 skill 로 분기.
+
+## 평가
+- 이전 skill 의 stdout/emit 에서 패턴 매칭
+- 매칭 시: next_on_match (기본: 현재 phase 재시작)
+- 미매칭: next_on_default (기본: 다음 skill 진행)
+
+## 파라미터
+- pattern: 정규식
+- next_on_match: phase_id 또는 'retry'
+- next_on_default: phase_id 또는 'continue'`,
+          params:
+            '{\n  "pattern": "\\\\[PIPELINE:tests_failed\\\\]",\n  "next_on_match": "retry",\n  "next_on_default": "continue"\n}',
+        },
+        'loop-until': {
+          id: 'loop-until',
+          name: 'loop: until',
+          kind: 'control',
+          icon: '🔂',
+          desc: '조건 반복',
+          body: `# control: loop
+
+조건 충족까지 이전 skill 들을 반복 실행.
+
+## 종료 조건
+- marker_observed: 특정 [PIPELINE:xxx] 마커 감지
+- max_iterations: 최대 반복 수 도달
+- timeout_seconds: 시간 초과
+
+## 파라미터
+- until: 종료 조건 markdown
+- max: 기본 5
+- scope: 반복 대상 (phase | skills_before)`,
+          params: '{\n  "until": "[PIPELINE:done:*]",\n  "max": 5,\n  "scope": "phase"\n}',
+        },
+        'approval-gate': {
+          id: 'approval-gate',
+          name: 'gate: approval',
+          kind: 'control',
+          icon: '✋',
+          desc: '승인 대기',
+          body: `# control: approval gate
+
+사용자에게 진행 승인 요청. 승인 전까지 phase 진행 차단.
+
+## UI
+- 승인 카드 렌더 (Yes / No / 수정 요청)
+- plan mode 와 동일한 메커니즘 재사용 가능
+
+## 파라미터
+- prompt: 사용자에게 보여줄 질문
+- default_action: timeout 시 행동 (approve | reject | ask)`,
+          params: '{\n  "prompt": "다음 단계로 진행할까요?",\n  "default_action": "ask"\n}',
+        },
+      };
+
+      /* ---------------- Sample pipelines ---------------- */
+      const PIPELINES = {
+        dev: {
+          name: 'dev',
+          displayName: '개발',
+          phases: [
+            {
+              id: 'grill_me',
+              label: 'Grill-me',
+              model: 'claude-opus-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              skills: ['dev-task'],
+            },
+            {
+              id: 'dev_plan',
+              label: 'Dev Plan',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'plan',
+              skills: ['dev-implement'],
+            },
+            {
+              id: 'implement',
+              label: 'Implement',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              auto: true,
+              skills: ['dev-implement', 'test-run', 'if-tests-fail'],
+            },
+            {
+              id: 'commit_pr',
+              label: 'PR',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              skills: ['git-commit', 'git-pr'],
+            },
+            {
+              id: 'review_loop',
+              label: 'Review',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              skills: ['dev-review-loop'],
+            },
+          ],
+        },
+        bugfix: {
+          name: 'bugfix',
+          displayName: '버그 수정',
+          phases: [
+            {
+              id: 'reproduce',
+              label: '재현',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              skills: ['dev-task'],
+            },
+            {
+              id: 'fix',
+              label: '수정',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              auto: true,
+              skills: ['dev-implement', 'test-run', 'if-tests-fail'],
+            },
+            {
+              id: 'commit_pr',
+              label: 'PR',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              auto: true,
+              skills: ['git-commit', 'git-pr'],
+            },
+          ],
+        },
+        release: {
+          name: 'release-prep',
+          displayName: '릴리즈 준비',
+          phases: [
+            {
+              id: 'audit',
+              label: '의존성 감사',
+              model: 'claude-sonnet-4-6',
+              effort: 'medium',
+              permissionMode: 'bypassPermissions',
+              skills: ['security-scan'],
+            },
+            {
+              id: 'changelog',
+              label: '체인지로그',
+              model: 'claude-sonnet-4-6',
+              effort: 'low',
+              permissionMode: 'bypassPermissions',
+              auto: true,
+              skills: ['changelog-gen'],
+            },
+            {
+              id: 'tag',
+              label: '태그',
+              permissionMode: 'plan',
+              skills: ['approval-gate'],
+            },
+          ],
+        },
+      };
+
+      let activePipeline = 'dev';
+      let selectedPhaseId = 'dev_plan';
+
+      /* ---------------- YAML rendering ---------------- */
+      function pipelineToYAML(pipe) {
+        const lines = [`name: ${pipe.name}`, `displayName: ${pipe.displayName}`, `phases:`];
+        for (const p of pipe.phases) {
+          lines.push(`  - id: ${p.id}`);
+          if (p.label) lines.push(`    label: ${p.label}`);
+          if (p.model) lines.push(`    model: ${p.model}`);
+          if (p.effort) lines.push(`    effort: ${p.effort}`);
+          if (p.permissionMode) lines.push(`    permissionMode: ${p.permissionMode}`);
+          if (p.auto) lines.push(`    auto: true`);
+          if (p.skills && p.skills.length) {
+            lines.push(`    skills:`);
+            for (const s of p.skills) lines.push(`      - ${SKILLS[s]?.kind || 'builtin'}:${SKILLS[s]?.name || s}`);
+          }
+        }
+        return lines.join('\n');
+      }
+
+      /* ---------------- Canvas rendering ---------------- */
+      function renderCanvas() {
+        const container = document.getElementById('phase-flow');
+        const pipe = PIPELINES[activePipeline];
+        container.innerHTML = '';
+
+        pipe.phases.forEach((p, i) => {
+          const node = document.createElement('div');
+          node.className = 'phase-node' + (p.id === selectedPhaseId ? ' selected' : '');
+          node.dataset.phaseId = p.id;
+
+          const modelBadge = p.model
+            ? `<span class="badge ${p.model.includes('opus') ? 'opus' : 'sonnet'}">${p.model.includes('opus') ? 'Opus' : 'Sonnet'} 4.6${p.effort ? ' · ' + p.effort : ''}</span>`
+            : '';
+          const planBadge = p.permissionMode === 'plan' ? '<span class="badge plan">plan</span>' : '';
+          const autoBadge = p.auto ? '<span class="badge auto">auto</span>' : '';
+
+          const stackHtml =
+            p.skills && p.skills.length
+              ? p.skills
+                  .map((sid, si) => {
+                    const s = SKILLS[sid];
+                    if (!s) return '';
+                    return `
+                  <div class="stacked-skill ${s.kind}" draggable="true" data-phase-id="${p.id}" data-skill-index="${si}">
+                    <span>${s.icon}</span>
+                    <span class="skill-name">${s.name}</span>
+                    <span class="remove" data-remove-phase="${p.id}" data-remove-index="${si}">×</span>
+                  </div>
+                `;
+                  })
+                  .join('')
+              : '<div class="skill-stack empty">Drop skills here</div>';
+
+          node.innerHTML = `
+            <div class="phase-header" data-phase-id="${p.id}">
+              <span class="phase-drag-handle" draggable="true" data-phase-drag="${p.id}">⋮⋮</span>
+              <div class="phase-icon">${i + 1}</div>
+              <div>
+                <div class="phase-title">${p.label}</div>
+                <div class="phase-id">${p.id}</div>
+              </div>
+              <div class="phase-badges">
+                ${modelBadge}${planBadge}${autoBadge}
+              </div>
+            </div>
+            <div class="skill-stack" data-drop-phase="${p.id}">
+              ${stackHtml}
+            </div>
+          `;
+
+          container.appendChild(node);
+
+          if (i < pipe.phases.length - 1) {
+            const arrow = document.createElement('div');
+            arrow.className = 'arrow';
+            arrow.innerHTML = `↓`;
+            container.appendChild(arrow);
+          }
+        });
+
+        // Trailing drop zone for new phase
+        const trailing = document.createElement('div');
+        trailing.className = 'new-phase-drop';
+        trailing.id = 'new-phase-drop';
+        trailing.textContent = '⊕  Drop a skill here to create a new phase';
+        container.appendChild(trailing);
+
+        wireCanvasEvents();
+      }
+
+      /* ---------------- Wire drag-and-drop events ---------------- */
+      function wireCanvasEvents() {
+        // Phase header click → select
+        document.querySelectorAll('.phase-header').forEach((h) => {
+          h.addEventListener('click', (e) => {
+            if (e.target.closest('[data-phase-drag]')) return;
+            selectedPhaseId = h.dataset.phaseId;
+            renderCanvas();
+            renderDetail();
+          });
+        });
+
+        // Remove stacked skill
+        document.querySelectorAll('[data-remove-phase]').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const phaseId = btn.dataset.removePhase;
+            const idx = Number(btn.dataset.removeIndex);
+            const pipe = PIPELINES[activePipeline];
+            const phase = pipe.phases.find((p) => p.id === phaseId);
+            phase.skills.splice(idx, 1);
+            renderCanvas();
+            renderYAML();
+          });
+        });
+
+        // --- Drop targets on phase stacks ---
+        document.querySelectorAll('[data-drop-phase]').forEach((stack) => {
+          stack.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            stack.classList.add('drop-hover');
+          });
+          stack.addEventListener('dragleave', () => stack.classList.remove('drop-hover'));
+          stack.addEventListener('drop', (e) => {
+            e.preventDefault();
+            stack.classList.remove('drop-hover');
+            const skillId = e.dataTransfer.getData('application/x-skill');
+            const reorderData = e.dataTransfer.getData('application/x-stacked-skill');
+            const phaseId = stack.dataset.dropPhase;
+            const pipe = PIPELINES[activePipeline];
+            const phase = pipe.phases.find((p) => p.id === phaseId);
+            if (!phase.skills) phase.skills = [];
+
+            if (skillId) {
+              // Library → phase: append
+              phase.skills.push(skillId);
+              logDrop(`+ ${SKILLS[skillId].name} → ${phase.id}`);
+            } else if (reorderData) {
+              // Intra-phase or cross-phase reorder
+              const [srcPhaseId, srcIdxStr] = reorderData.split(':');
+              const srcPhase = pipe.phases.find((p) => p.id === srcPhaseId);
+              const srcIdx = Number(srcIdxStr);
+              const moved = srcPhase.skills.splice(srcIdx, 1)[0];
+              phase.skills.push(moved);
+              logDrop(`↻ ${SKILLS[moved].name}: ${srcPhaseId} → ${phase.id}`);
+            }
+            renderCanvas();
+            renderYAML();
+          });
+        });
+
+        // Stacked skill: draggable (for reorder / cross-phase) + click to edit
+        document.querySelectorAll('.stacked-skill').forEach((el) => {
+          el.addEventListener('dragstart', (e) => {
+            const phaseId = el.dataset.phaseId;
+            const idx = el.dataset.skillIndex;
+            e.dataTransfer.setData('application/x-stacked-skill', `${phaseId}:${idx}`);
+            e.dataTransfer.effectAllowed = 'move';
+            el.classList.add('dragging');
+          });
+          el.addEventListener('dragend', () => el.classList.remove('dragging'));
+          el.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove')) return;
+            const phaseId = el.dataset.phaseId;
+            const idx = Number(el.dataset.skillIndex);
+            const pipe = PIPELINES[activePipeline];
+            const phase = pipe.phases.find((p) => p.id === phaseId);
+            const skillId = phase?.skills?.[idx];
+            if (skillId) openSkillModal(skillId);
+          });
+        });
+
+        // New phase drop zone (trailing)
+        const trailing = document.getElementById('new-phase-drop');
+        trailing.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          trailing.classList.add('drop-hover');
+        });
+        trailing.addEventListener('dragleave', () => trailing.classList.remove('drop-hover'));
+        trailing.addEventListener('drop', (e) => {
+          e.preventDefault();
+          trailing.classList.remove('drop-hover');
+          const skillId = e.dataTransfer.getData('application/x-skill');
+          if (!skillId) return;
+          const pipe = PIPELINES[activePipeline];
+          const newId = `phase_${pipe.phases.length + 1}`;
+          pipe.phases.push({
+            id: newId,
+            label: `Phase ${pipe.phases.length + 1}`,
+            model: 'claude-sonnet-4-6',
+            effort: 'medium',
+            permissionMode: 'bypassPermissions',
+            skills: [skillId],
+          });
+          selectedPhaseId = newId;
+          logDrop(`⊕ New phase: ${newId} (${SKILLS[skillId].name})`);
+          renderCanvas();
+          renderDetail();
+          renderYAML();
+        });
+
+        // Phase reorder via drag handle
+        document.querySelectorAll('[data-phase-drag]').forEach((h) => {
+          h.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/x-phase-id', h.dataset.phaseDrag);
+            e.dataTransfer.effectAllowed = 'move';
+          });
+        });
+        document.querySelectorAll('.phase-node').forEach((n) => {
+          n.addEventListener('dragover', (e) => {
+            if (e.dataTransfer.types.includes('application/x-phase-id')) {
+              e.preventDefault();
+              n.classList.add('drop-target');
+            }
+          });
+          n.addEventListener('dragleave', () => n.classList.remove('drop-target'));
+          n.addEventListener('drop', (e) => {
+            const moved = e.dataTransfer.getData('application/x-phase-id');
+            if (!moved) return;
+            e.preventDefault();
+            n.classList.remove('drop-target');
+            const targetId = n.dataset.phaseId;
+            if (moved === targetId) return;
+            const pipe = PIPELINES[activePipeline];
+            const srcIdx = pipe.phases.findIndex((p) => p.id === moved);
+            const tgtIdx = pipe.phases.findIndex((p) => p.id === targetId);
+            const [item] = pipe.phases.splice(srcIdx, 1);
+            pipe.phases.splice(tgtIdx, 0, item);
+            logDrop(`↕ Reorder: ${moved} → position ${tgtIdx + 1}`);
+            renderCanvas();
+            renderYAML();
+          });
+        });
+      }
+
+      /* ---------------- Detail rendering ---------------- */
+      function renderDetail() {
+        const pipe = PIPELINES[activePipeline];
+        const phase = pipe.phases.find((p) => p.id === selectedPhaseId) || pipe.phases[0];
+        if (!phase) return;
+        selectedPhaseId = phase.id;
+        document.getElementById('detail-label').textContent = `Phase: ${phase.label}`;
+        document.getElementById('detail-id').textContent = `${phase.id} · 좌측 스킬을 드래그해 조립`;
+        document.getElementById('f-id').value = phase.id;
+        document.getElementById('f-label').value = phase.label;
+        document.getElementById('f-model').value = phase.model || 'claude-sonnet-4-6';
+        document.getElementById('f-effort').value = phase.effort || 'medium';
+        document.getElementById('f-perm').value = phase.permissionMode || 'bypassPermissions';
+        document.getElementById('f-auto').checked = !!phase.auto;
+        document.getElementById('f-approval').checked = phase.permissionMode === 'plan';
+      }
+
+      function renderYAML() {
+        const pipe = PIPELINES[activePipeline];
+        document.getElementById('yaml-editor').value = pipelineToYAML(pipe);
+      }
+
+      /* ---------------- Library drag sources + click to edit ---------------- */
+      document.querySelectorAll('.library .skill-block[draggable]').forEach((el) => {
+        el.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('application/x-skill', el.dataset.skillId);
+          e.dataTransfer.effectAllowed = 'copy';
+          el.classList.add('dragging');
+        });
+        el.addEventListener('dragend', () => el.classList.remove('dragging'));
+        // Click (non-drag) → open editor modal
+        el.addEventListener('click', () => openSkillModal(el.dataset.skillId));
+      });
+
+      /* ---------------- Skill editor modal ---------------- */
+      let modalSkillId = null;
+
+      function openSkillModal(skillId) {
+        const s = SKILLS[skillId];
+        if (!s) return;
+        modalSkillId = skillId;
+        document.getElementById('m-icon').textContent = s.icon;
+        document.getElementById('m-title').textContent = s.name;
+        document.getElementById('m-subtitle').textContent = s.desc;
+        const kindBadge = document.getElementById('m-kind');
+        kindBadge.textContent = s.kind;
+        kindBadge.className = `kind-badge ${s.kind}`;
+
+        document.getElementById('m-name').value = s.name;
+        document.getElementById('m-kind-select').value = s.kind;
+        document.getElementById('m-desc').value = s.desc;
+        document.getElementById('m-body').value = s.body || '';
+        document.getElementById('m-params').value = s.params || '{}';
+
+        const isBuiltin = s.kind === 'builtin';
+        document.getElementById('m-builtin-warn').hidden = !isBuiltin;
+        document.getElementById('m-fork').hidden = !isBuiltin;
+        document.getElementById('m-body').readOnly = isBuiltin;
+        document.getElementById('m-name').readOnly = isBuiltin;
+        document.getElementById('m-kind-select').disabled = isBuiltin;
+        document.getElementById('m-desc').readOnly = isBuiltin;
+        document.getElementById('m-params').readOnly = isBuiltin;
+        document.getElementById('m-save').style.display = isBuiltin ? 'none' : '';
+
+        document.getElementById('skill-modal').hidden = false;
+      }
+
+      function closeSkillModal() {
+        document.getElementById('skill-modal').hidden = true;
+        modalSkillId = null;
+      }
+
+      document.getElementById('m-close').addEventListener('click', closeSkillModal);
+      document.getElementById('m-cancel').addEventListener('click', closeSkillModal);
+      document.getElementById('skill-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'skill-modal') closeSkillModal();
+      });
+
+      document.getElementById('m-save').addEventListener('click', () => {
+        if (!modalSkillId) return;
+        const s = SKILLS[modalSkillId];
+        s.name = document.getElementById('m-name').value;
+        s.kind = document.getElementById('m-kind-select').value;
+        s.desc = document.getElementById('m-desc').value;
+        s.body = document.getElementById('m-body').value;
+        s.params = document.getElementById('m-params').value;
+        logDrop(`✓ Saved skill: ${s.name}`);
+        closeSkillModal();
+        renderCanvas();
+      });
+
+      document.getElementById('m-fork').addEventListener('click', () => {
+        if (!modalSkillId) return;
+        const orig = SKILLS[modalSkillId];
+        const forkedId = `${orig.id}-custom`;
+        if (SKILLS[forkedId]) {
+          alert('이미 포크된 스킬이 존재합니다: ' + forkedId);
+          return;
+        }
+        SKILLS[forkedId] = {
+          ...orig,
+          id: forkedId,
+          name: `${orig.name} (fork)`,
+          kind: 'project',
+        };
+        // Add to library UI
+        const section = [...document.querySelectorAll('.section-title')].find((t) => t.textContent.includes('Project'));
+        if (section) {
+          const newEl = document.createElement('div');
+          newEl.className = 'skill-block project';
+          newEl.draggable = true;
+          newEl.dataset.skillId = forkedId;
+          newEl.innerHTML = `
+            <span class="skill-icon">${orig.icon}</span>
+            <div class="skill-info">
+              <div class="skill-name">${SKILLS[forkedId].name}</div>
+              <div class="skill-desc">${orig.desc}</div>
+            </div>
+          `;
+          section.insertAdjacentElement('afterend', newEl);
+          newEl.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/x-skill', forkedId);
+            e.dataTransfer.effectAllowed = 'copy';
+          });
+          newEl.addEventListener('click', () => openSkillModal(forkedId));
+        }
+        logDrop(`⎘ Forked: ${orig.name} → ${SKILLS[forkedId].name}`);
+        openSkillModal(forkedId); // reopen with fork (now editable)
+      });
+
+      // Variable chip insertion
+      document.querySelectorAll('.var-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          const textarea = document.getElementById('m-body');
+          if (textarea.readOnly) return;
+          const pos = textarea.selectionStart;
+          textarea.value = textarea.value.slice(0, pos) + chip.dataset.var + textarea.value.slice(pos);
+          textarea.focus();
+          textarea.selectionStart = textarea.selectionEnd = pos + chip.dataset.var.length;
+        });
+      });
+
+      // ESC to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('skill-modal').hidden) {
+          closeSkillModal();
+        }
+      });
+
+      /* ---------------- Pipeline switcher ---------------- */
+      document.querySelectorAll('.pipe-item[data-pipe]').forEach((el) => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('.pipe-item[data-pipe]').forEach((x) => x.classList.remove('active'));
+          el.classList.add('active');
+          activePipeline = el.dataset.pipe;
+          selectedPhaseId = PIPELINES[activePipeline].phases[0]?.id;
+          renderCanvas();
+          renderDetail();
+          renderYAML();
+        });
+      });
+
+      /* ---------------- Tabs ---------------- */
+      document.querySelectorAll('.tabs button').forEach((b) => {
+        b.addEventListener('click', () => {
+          document.querySelectorAll('.tabs button').forEach((x) => x.classList.remove('active'));
+          b.classList.add('active');
+          const tab = b.dataset.tab;
+          document.getElementById('canvas-view').hidden = tab !== 'canvas';
+          document.getElementById('yaml-view').hidden = tab !== 'yaml';
+          if (tab === 'yaml') renderYAML();
+        });
+      });
+
+      /* ---------------- Simulation ---------------- */
+      function logDrop(msg) {
+        const overlay = document.getElementById('log-overlay');
+        const lines = document.getElementById('log-lines');
+        overlay.hidden = false;
+        document.getElementById('log-title').textContent = '◆ Canvas edits';
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const el = document.createElement('div');
+        el.className = 'log-line skill';
+        el.innerHTML = `<span class="ts">${time}</span> ${msg}`;
+        lines.appendChild(el);
+        lines.scrollTop = lines.scrollHeight;
+      }
+
+      function simulate() {
+        const pipe = PIPELINES[activePipeline];
+        const overlay = document.getElementById('log-overlay');
+        const lines = document.getElementById('log-lines');
+        document.getElementById('log-title').textContent = `▶ Running: ${pipe.name}`;
+        overlay.hidden = false;
+        lines.innerHTML = '';
+
+        const log = (msg, cls = '') => {
+          const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+          const el = document.createElement('div');
+          el.className = 'log-line ' + cls;
+          el.innerHTML = `<span class="ts">${time}</span> ${msg}`;
+          lines.appendChild(el);
+          lines.scrollTop = lines.scrollHeight;
+        };
+
+        document.querySelectorAll('.phase-node').forEach((n) => n.classList.remove('active', 'done'));
+
+        log(`Loading pipeline '${pipe.name}'`);
+        log(`→ Validating schema ... ✓`);
+
+        let pi = 0;
+        const runPhase = () => {
+          if (pi >= pipe.phases.length) {
+            log('✅ Pipeline completed', 'auto');
+            return;
+          }
+          const p = pipe.phases[pi];
+          const node = document.querySelector(`[data-phase-id="${p.id}"]`);
+          if (pi > 0) {
+            const prev = pipe.phases[pi - 1];
+            document.querySelector(`[data-phase-id="${prev.id}"]`)?.classList.add('done');
+          }
+          node?.classList.add('active');
+
+          const tag = p.auto ? ' [auto]' : p.permissionMode === 'plan' ? ' [plan → approval]' : '';
+          log(`▸ Phase '${p.id}' (${p.model || 'default'} · ${p.permissionMode})${tag}`);
+
+          let si = 0;
+          const runSkill = () => {
+            if (si >= (p.skills || []).length) {
+              // Phase done
+              if (p.permissionMode === 'plan') {
+                log(`  ExitPlanMode → 승인 카드`, 'cond');
+                setTimeout(() => {
+                  log(`  User approved → re-spawn bypass`, 'auto');
+                  pi++;
+                  setTimeout(runPhase, 400);
+                }, 700);
+              } else {
+                pi++;
+                setTimeout(runPhase, 400);
+              }
+              return;
+            }
+            const skillId = p.skills[si];
+            const s = SKILLS[skillId];
+            if (s.kind === 'control' && s.id === 'if-tests-fail' && Math.random() < 0.4) {
+              log(`  ⚡ ${s.name} → condition met, retry '${p.id}'`, 'cond');
+              si = 0; // restart skills
+              setTimeout(runSkill, 500);
+              return;
+            }
+            log(`  └ ${s.icon} ${s.name}`, 'skill');
+            si++;
+            setTimeout(runSkill, 350);
+          };
+          setTimeout(runSkill, 300);
+        };
+        runPhase();
+      }
+
+      document.getElementById('simulate-btn').addEventListener('click', simulate);
+      document.getElementById('validate-btn').addEventListener('click', () => {
+        const pipe = PIPELINES[activePipeline];
+        const totalSkills = pipe.phases.reduce((s, p) => s + (p.skills?.length || 0), 0);
+        alert(`✓ Schema valid\n${pipe.phases.length} phases, ${totalSkills} skills`);
+      });
+
+      /* ---------------- Init ---------------- */
+      renderCanvas();
+      renderDetail();
+      renderYAML();
+    </script>
+  </body>
+</html>

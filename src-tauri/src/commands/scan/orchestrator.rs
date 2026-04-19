@@ -102,20 +102,11 @@ pub fn do_scan(
     let claude_md_final = doc_entry_for(&root, "CLAUDE.md");
     let agents_md_final = doc_entry_for(&root, "AGENTS.md");
     let ai_docs_final = collect_ai_docs(&root);
-    let claude_content_final = if claude_md_final.grade != DocGrade::Missing {
-        read_to_string_safe(&root.join("CLAUDE.md"))
-    } else {
-        None
-    };
-    let agents_content_final = if agents_md_final.grade != DocGrade::Missing {
-        read_to_string_safe(&root.join("AGENTS.md"))
-    } else {
-        None
-    };
     let quality_final = overall_quality(&claude_md_final, &agents_md_final, &ai_docs_final);
     let used_fallback_final = matches!(quality_final, ProjectQuality::Sparse);
 
-    // 8) Compose context file
+    // 8) Compose context file — CLAUDE.md/AGENTS.md 본문은 embed 안 함.
+    //    Claude CLI 가 cwd 에서 자동 로드하므로 중복이고, scan 시점 스냅샷이라 stale 리스크.
     let context = compose_context_md(
         project_name,
         &scanned_at,
@@ -127,8 +118,6 @@ pub fn do_scan(
         sot_status,
         quality_final,
         used_fallback_final,
-        &claude_content_final,
-        &agents_content_final,
         &tree_entries,
         &lang_hist,
         &readme_excerpt,

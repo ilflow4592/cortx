@@ -67,16 +67,21 @@ export async function buildContextSummary(
     '- NEVER skip tests. Run tests and fix failures until ALL tests pass before asking to commit.',
     '- 한국어로만 대화합니다.',
     '- Grill-me questions MUST use Q1., Q2., Q3. format (NOT "질문 1:" or "질문1:"). Always end with ?.',
-    '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Read/Bash 호출 금지. project-context.md와 Context Pack fullText만 사용.',
+    '- Grill-me 첫 질문(**Q1.**) 출력 전까지 Grep/Glob/Bash find 호출 금지. project-context.md와 CLAUDE.md와 Context Pack fullText만 사용.',
     '- Context Pack에 Notion/Slack/GitHub fullText가 있으면 해당 MCP 도구 재호출 금지 (mcp__notion__*, mcp__slack__*, mcp__github__*).',
   );
 
-  // Pre-load project-context.md (중복 주입 방지: continuation 때는 이미 이전 세션에 포함)
+  // Pre-load project-context.md (continuation 때는 이미 이전 세션에 포함되어 있어 skip).
+  // CLAUDE.md/AGENTS.md 본문은 embed 하지 않음 — Claude CLI 가 cwd 에서 자동 로드.
   const projectContextMd = cwd ? await loadProjectContextMd(cwd) : '';
   if (projectContextMd) {
     summaryParts.push('', '---', '', '## CORTX_PROJECT_CONTEXT (pre-loaded)');
-    summaryParts.push('project-context.md가 이미 아래에 포함돼 있습니다. 같은 파일을 Read 도구로 다시 읽지 마세요.');
-    summaryParts.push('Tech Stack, Rule Files, 임베드된 CLAUDE.md/AGENTS.md 본문이 모두 포함됨.');
+    summaryParts.push(
+      'project-context.md 가 이미 아래에 포함돼 있습니다 (Tech Stack / Build Commands / Rule Files 메타데이터 / 필요 시 파일 트리).',
+    );
+    summaryParts.push(
+      'CLAUDE.md / AGENTS.md 본문은 **Claude CLI 가 cwd 에서 자동 로드** — 이 파일에 embed 되지 않음. 필요하면 Read 로 최신 내용 확인.',
+    );
     summaryParts.push('', projectContextMd);
   }
 

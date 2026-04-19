@@ -22,10 +22,14 @@ export function useProjectScan(): void {
       const scanning = useScanStatusStore.getState().scanning;
       projects.forEach((p) => {
         if (!p.metadata && p.localPath && !scanning.has(p.id)) {
+          // 자동 스캔은 autoFill=false — 사용자 프로젝트에 CLAUDE.md 를
+          // 조용히 생성하지 않음. 초안이 필요하면 Project Settings 에서
+          // 명시적으로 트리거.
           void triggerProjectScan({
             projectId: p.id,
             projectName: p.name,
             projectPath: p.localPath,
+            autoFill: false,
           });
         }
       });
@@ -78,12 +82,14 @@ export async function triggerProjectScan(params: {
       }),
     ]);
 
-    // 2) 그 다음 invoke
+    // 2) 그 다음 invoke. autoFill 기본값 false — 사용자 프로젝트에 조용히
+    //    CLAUDE.md / ARCHITECTURE.md 를 생성하지 않음. 초안이 필요하면 호출측이
+    //    명시적으로 autoFill: true 전달 (Project Settings → "Generate CLAUDE.md").
     await invoke('scan_project', {
       projectId: params.projectId,
       projectName: params.projectName,
       projectPath: params.projectPath,
-      autoFill: params.autoFill ?? true,
+      autoFill: params.autoFill ?? false,
     });
 
     // 안전장치: 30초 내 이벤트 미수신 시 자동 해제
