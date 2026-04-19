@@ -1,4 +1,5 @@
-/** Conductor 스타일 검색 가능한 브랜치 드롭다운. 외부 클릭으로 닫힘. */
+/** Conductor 스타일 검색 가능한 브랜치 드롭다운. 외부 클릭으로 닫힘.
+ *  키보드: ↑/↓ 로 항목 이동, Enter 로 선택, Escape 로 닫기. */
 import { useState, useEffect, useRef } from 'react';
 
 interface Props {
@@ -10,8 +11,10 @@ interface Props {
 export function BranchPicker({ value, branches, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [focusIdx, setFocusIdx] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -28,6 +31,45 @@ export function BranchPicker({ value, branches, onChange }: Props) {
 
   const filtered = branches.filter((b) => b.toLowerCase().includes(search.toLowerCase()));
 
+  // 포커스된 항목이 보이도록 스크롤
+  useEffect(() => {
+    if (!open) return;
+    const list = listRef.current;
+    if (!list) return;
+    const item = list.querySelector<HTMLElement>(`[data-branch-idx="${focusIdx}"]`);
+    if (item) item.scrollIntoView({ block: 'nearest' });
+  }, [focusIdx, open]);
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (filtered.length === 0) {
+      if (e.key === 'Escape') setOpen(false);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusIdx((i) => (i + 1) % filtered.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusIdx((i) => (i - 1 + filtered.length) % filtered.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = filtered[focusIdx];
+      if (pick) {
+        onChange(pick);
+        setOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setFocusIdx(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setFocusIdx(filtered.length - 1);
+    }
+  };
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
@@ -35,6 +77,7 @@ export function BranchPicker({ value, branches, onChange }: Props) {
         onClick={() => {
           setOpen(!open);
           setSearch('');
+          setFocusIdx(0);
         }}
         style={{
           display: 'inline-flex',
@@ -83,7 +126,11 @@ export function BranchPicker({ value, branches, onChange }: Props) {
             <input
               ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setFocusIdx(0);
+              }}
+              onKeyDown={handleKey}
               placeholder="Select target branch..."
               style={{
                 flex: 1,
@@ -97,45 +144,46 @@ export function BranchPicker({ value, branches, onChange }: Props) {
             />
           </div>
 
-          <div style={{ maxHeight: 240, overflowY: 'auto', padding: 4 }}>
+          <div ref={listRef} style={{ maxHeight: 240, overflowY: 'auto', padding: 4 }}>
             {filtered.length === 0 && (
               <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--fg-faint)' }}>No branches found</div>
             )}
-            {filtered.map((b) => (
-              <button
-                key={b}
-                onClick={() => {
-                  onChange(b);
-                  setOpen(false);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: value === b ? 'rgba(99,102,241,0.06)' : 'none',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 13,
-                  color: value === b ? 'var(--fg-primary)' : 'var(--fg-muted)',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => {
-                  if (value !== b) e.currentTarget.style.background = '#12121a';
-                }}
-                onMouseLeave={(e) => {
-                  if (value !== b) e.currentTarget.style.background = 'none';
-                }}
-              >
-                <span style={{ width: 16, textAlign: 'center', fontSize: 12, color: '#818cf8' }}>
-                  {value === b ? '✓' : ''}
-                </span>
-                {b}
-              </button>
-            ))}
+            {filtered.map((b, idx) => {
+              const isFocused = idx === focusIdx;
+              const isSelected = value === b;
+              const bg = isFocused ? 'rgba(129,140,248,0.18)' : isSelected ? 'rgba(99,102,241,0.06)' : 'none';
+              return (
+                <button
+                  key={b}
+                  data-branch-idx={idx}
+                  onClick={() => {
+                    onChange(b);
+                    setOpen(false);
+                  }}
+                  onMouseEnter={() => setFocusIdx(idx)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: bg,
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 13,
+                    color: isSelected || isFocused ? 'var(--fg-primary)' : 'var(--fg-muted)',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ width: 16, textAlign: 'center', fontSize: 12, color: '#818cf8' }}>
+                    {isSelected ? '✓' : ''}
+                  </span>
+                  {b}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
