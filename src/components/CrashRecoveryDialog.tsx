@@ -14,6 +14,7 @@ import { runPipeline } from '../utils/pipelineExec';
 import { PHASE_ORDER } from '../constants/pipeline';
 import { TaskList } from './crash-recovery/TaskList';
 import type { Task } from '../types/task';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   onClose: () => void;
@@ -23,6 +24,7 @@ export function CrashRecoveryDialog({ onClose }: Props) {
   const tasks = useTaskStore((s) => s.tasks);
   const projects = useProjectStore((s) => s.projects);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  useEscapeKey(onClose);
 
   // Interrupted = active status + pipeline enabled + at least one phase in_progress
   const interruptedTasks = useMemo(() => {

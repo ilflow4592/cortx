@@ -22,6 +22,7 @@ import { usePipelineConfig } from '../../hooks/usePipelineConfig';
 import { UpperTabBar, type UpperTab } from './UpperTabBar';
 import { LowerTabBar, type LowerTab } from './LowerTabBar';
 import { ResizeHandle } from './ResizeHandle';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 export function RightPanel({
   cwd,
@@ -43,6 +44,8 @@ export function RightPanel({
   const [splitRatio, setSplitRatio] = useState(0.35);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showOpenMenu, setShowOpenMenu] = useState(false);
+  useEscapeKey(() => setShowResetModal(false), showResetModal);
+  useEscapeKey(() => setShowOpenMenu(false), showOpenMenu);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
   const pipelineConfig = usePipelineConfig(activeTaskId);

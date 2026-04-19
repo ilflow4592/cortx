@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Zap, Settings } from 'lucide-react';
 import type { PipelineState } from '../../types/task';
 import type { PipelineConfig } from '../../services/pipelineConfig';
@@ -6,6 +6,7 @@ import { PipelineHeader } from './dashboard/PipelineHeader';
 import { PhasesList } from './dashboard/PhasesList';
 import { CustomPhasesList } from './dashboard/CustomPhasesList';
 import { TokenUsageTable } from './dashboard/TokenUsageTable';
+import { listCustomPipelines } from '../../services/customPipelineStore';
 
 // PipelineBuilder 는 DnD + 여러 서브컴포넌트로 무거움 → lazy load
 const PipelineBuilder = lazy(() =>
@@ -26,7 +27,34 @@ export function DashboardTab({
   taskId: string;
 }) {
   const [showBuilder, setShowBuilder] = useState(false);
-  const isCustomMode = pipeline?.pipelineMode === 'custom';
+  // pipelineMode === 'custom' 이라도 activeCustomPipeline 이 없거나 builtin 소스면
+  // 실질 builtin. 추가로 활성 configId 가 실제 디스크에 존재하는지까지 확인 —
+  // 유령 참조(삭제된 커스텀 config)면 dashboard 도 Built-in 으로 표시.
+  const active = pipeline?.activeCustomPipeline;
+  const activeSource = active?.source;
+  const shouldCheckConfig = pipeline?.pipelineMode === 'custom' && !!active && activeSource !== 'builtin';
+  // key: { cwd, configId, source } — 바뀔 때마다 재검증. missing 확인된 경우만 false.
+  const [missingKey, setMissingKey] = useState<string | null>(null);
+  const configKey = active ? `${cwd}::${active.configId}::${activeSource}` : null;
+  useEffect(() => {
+    if (!shouldCheckConfig || !active || !configKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listCustomPipelines(cwd);
+        if (cancelled) return;
+        const exists = list.some((p) => p.id === active.configId && p.source === active.source);
+        setMissingKey(exists ? null : configKey);
+      } catch {
+        if (!cancelled) setMissingKey(configKey);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldCheckConfig, configKey, active, cwd]);
+  const configMissing = missingKey !== null && missingKey === configKey;
+  const isCustomMode = shouldCheckConfig && !configMissing;
 
   if (!pipeline?.enabled) {
     return (
@@ -104,7 +132,7 @@ export function DashboardTab({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '4px 8px 0',
+          padding: '10px 8px',
           gap: 6,
         }}
       >

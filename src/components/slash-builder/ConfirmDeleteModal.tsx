@@ -2,6 +2,7 @@
  * Slash command 삭제 확인 오버레이. SlashCommandBuilder 에서 추출.
  */
 import type { SlashCommand } from './api';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface Props {
   target: SlashCommand;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ConfirmDeleteModal({ target, onCancel, onConfirm }: Props) {
+  useEscapeKey(onCancel);
   return (
     <div
       style={{

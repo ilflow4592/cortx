@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { X, Copy } from 'lucide-react';
 import type { SkillEntry } from '../../services/skillLibrary';
 import { forkSkillToProject, readSkillBody, writeSkillBody } from '../../services/skillLibrary';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface Props {
   entry: SkillEntry;
@@ -15,6 +16,7 @@ export function SkillEditorModal({ entry, cwd, onClose, onSaved }: Props) {
   const [body, setBody] = useState<string>('');
   const [status, setStatus] = useState<string>('loading...');
   const [saving, setSaving] = useState(false);
+  useEscapeKey(onClose);
 
   useEffect(() => {
     let cancelled = false;

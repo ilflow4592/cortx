@@ -34,6 +34,7 @@ import { BuiltinBanner } from './_BuiltinBanner';
 import { CfgHeaderInputs } from './_CfgHeaderInputs';
 import { BuilderToolbar } from './_BuilderToolbar';
 import { isAnyPhaseInProgress, skillRefLabel, createEmptyConfig } from './_builderUtils';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 interface Props {
   taskId: string;
@@ -50,6 +51,9 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [promptReq, setPromptReq] = useState<PromptRequest | null>(null);
+
+  // PromptModal 이 열려있는 동안엔 Builder 자체의 Esc 닫기는 비활성 — 내부 prompt 먼저 소비.
+  useEscapeKey(onClose, !promptReq);
 
   /** Tauri WebKit 에서 window.prompt 차단되므로 커스텀 모달 사용 */
   const askText = (title: string, defaultValue?: string, message?: string): Promise<string | null> =>
@@ -75,19 +79,27 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
   const editLocked = runtimeLock || builtinLock;
 
   // 최초 목록 로드 — 캐시 강제 무효화 후 재조회 (외부에서 파일 삭제/수정된 경우
-  // 유령 항목이 드롭다운에 남지 않게).
+  // 유령 항목이 드롭다운에 남지 않게). 태스크에 active 한 custom pipeline 이
+  // 있으면 그걸 선택, 없으면 목록의 첫 항목으로 fallback.
   useEffect(() => {
     (async () => {
       invalidateList(cwd);
       const list = await listCustomPipelines(cwd);
       setPipelines(list);
-      if (list.length > 0 && !activeId) {
+      if (activeId) return;
+      const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+      const active = task?.pipeline?.activeCustomPipeline;
+      const matched = active && list.find((p) => p.id === active.configId && p.source === active.source);
+      if (matched) {
+        setActiveId(matched.id);
+        setActiveSource(matched.source);
+      } else if (list.length > 0) {
         setActiveId(list[0].id);
         setActiveSource(list[0].source);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cwd]);
+  }, [cwd, taskId]);
 
   // activeId/source 변경 → 해당 파이프라인 본문 로드
   useEffect(() => {
@@ -376,9 +388,45 @@ export function PipelineBuilder({ taskId, cwd, onClose }: Props) {
           status={status}
           onSelectPipeline={(id) => {
             const meta = pipelines.find((p) => p.id === id);
-            if (meta) {
-              setActiveId(meta.id);
-              setActiveSource(meta.source);
+            if (!meta) return;
+            // 실행 중(any phase === in_progress) 이면 활성 파이프라인 교체 금지.
+            if (runtimeLock) {
+              setStatus('실행 중 — 교체 불가');
+              return;
+            }
+            setActiveId(meta.id);
+            setActiveSource(meta.source);
+            // Dashboard 즉시 반영 — builtin 이면 내장 모드로, 그 외엔 커스텀 모드로 태스크 상태 싱크.
+            // pipeline 이 아직 없으면 enabled=true 로 신규 초기화. phaseStates 는 cfg 로드 후 CustomPhasesList 가
+            // 'pending' 으로 폴백 렌더링.
+            const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
+            if (!task) return;
+            const base = task.pipeline ?? { enabled: true, phases: {} as never };
+            if (meta.source === 'builtin') {
+              useTaskStore.getState().updateTask(taskId, {
+                pipeline: {
+                  ...base,
+                  enabled: true,
+                  pipelineMode: 'builtin',
+                  activeCustomPipeline: undefined,
+                },
+              });
+            } else {
+              useTaskStore.getState().updateTask(taskId, {
+                pipeline: {
+                  ...base,
+                  enabled: true,
+                  pipelineMode: 'custom',
+                  activeCustomPipeline: {
+                    configId: meta.id,
+                    source: meta.source,
+                    currentPhaseIndex: 0,
+                    currentSkillIndex: 0,
+                    phaseStates: {},
+                    artifacts: {},
+                  },
+                },
+              });
             }
           }}
           onNew={handleNew}

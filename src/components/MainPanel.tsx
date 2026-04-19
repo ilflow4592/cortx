@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useContextHistoryStore } from '../stores/contextHistoryStore';
 import { useLayoutStore } from '../stores/layoutStore';
@@ -42,6 +42,24 @@ export function MainPanel() {
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
   const RIGHT_PANEL_MIN = 300;
   const RIGHT_PANEL_MAX = 700;
+  const MAIN_MIN = 350;
+  const contentSplitRef = useRef<HTMLDivElement>(null);
+  // 컨테이너 폭 - 메인 최소폭 기준의 동적 상한. 창이 min 에 닿으면 양방향 리사이즈 차단.
+  const computeEffectiveMax = useCallback(() => {
+    const containerW = contentSplitRef.current?.clientWidth ?? Infinity;
+    return Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, containerW - MAIN_MIN));
+  }, []);
+  // 창이 축소되어 rightPanelWidth 가 유효 최대치를 초과하면 되맞춤 — overflow 방지.
+  useEffect(() => {
+    const el = contentSplitRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const effMax = computeEffectiveMax();
+      setRightPanelWidth((w) => (w > effMax ? effMax : w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [computeEffectiveMax]);
   const [claudeResetKey, setClaudeResetKey] = useState(0);
   const tasks = useTaskStore((s) => s.tasks);
   const activeTaskId = useTaskStore((s) => s.activeTaskId);
@@ -164,6 +182,7 @@ export function MainPanel() {
       <TaskTabBar tabs={tabs} activeTab={activeTab} onSelect={selectTab} onCloseEditor={closeEditor} />
 
       <div
+        ref={contentSplitRef}
         className="content-split"
         style={{
           gridTemplateColumns: showRightPanel ? `minmax(350px, 1fr) ${rightPanelWidth}px` : 'minmax(350px, 1fr)',
@@ -238,9 +257,11 @@ export function MainPanel() {
               aria-valuemax={RIGHT_PANEL_MAX}
               tabIndex={0}
               onKeyDown={(e) => {
+                const effMax = computeEffectiveMax();
+                if (effMax <= RIGHT_PANEL_MIN) return;
                 if (e.key === 'ArrowLeft') {
                   e.preventDefault();
-                  setRightPanelWidth(Math.min(RIGHT_PANEL_MAX, rightPanelWidth + 20));
+                  setRightPanelWidth(Math.min(effMax, rightPanelWidth + 20));
                 } else if (e.key === 'ArrowRight') {
                   e.preventDefault();
                   setRightPanelWidth(Math.max(RIGHT_PANEL_MIN, rightPanelWidth - 20));
@@ -250,8 +271,13 @@ export function MainPanel() {
                 const startX = e.clientX;
                 const startWidth = rightPanelWidth;
                 const onMove = (ev: MouseEvent) => {
+                  const effMax = computeEffectiveMax();
+                  if (effMax <= RIGHT_PANEL_MIN) {
+                    setRightPanelWidth(RIGHT_PANEL_MIN);
+                    return;
+                  }
                   const delta = startX - ev.clientX;
-                  setRightPanelWidth(Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, startWidth + delta)));
+                  setRightPanelWidth(Math.max(RIGHT_PANEL_MIN, Math.min(effMax, startWidth + delta)));
                 };
                 const onUp = () => {
                   document.removeEventListener('mousemove', onMove);

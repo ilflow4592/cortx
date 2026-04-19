@@ -1,5 +1,6 @@
 /** Discard file / Discard all 공통 확인 모달. */
 import { Trash2 } from 'lucide-react';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 export interface DiscardTarget {
   type: 'file' | 'all';
@@ -13,6 +14,7 @@ interface DiscardConfirmDialogProps {
 }
 
 export function DiscardConfirmDialog({ target, onCancel, onConfirm }: DiscardConfirmDialogProps) {
+  useEscapeKey(onCancel);
   return (
     <div
       style={{
