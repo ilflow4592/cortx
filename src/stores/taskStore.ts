@@ -9,6 +9,8 @@
  */
 import { create } from 'zustand';
 import type { Task, TaskStatus, TaskLayer, ChatMessage, InterruptEntry, InterruptReason } from '../types/task';
+import { useContextPackStore } from './contextPackStore';
+import { useContextHistoryStore } from './contextHistoryStore';
 
 /** 작업 스토어의 상태(state)와 액션(action) 정의 */
 interface TaskState {
@@ -66,11 +68,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     return id;
   },
 
-  removeTask: (id) =>
+  removeTask: (id) => {
     set((s) => ({
       tasks: s.tasks.filter((t) => t.id !== id),
       activeTaskId: s.activeTaskId === id ? null : s.activeTaskId,
-    })),
+    }));
+    // 연결된 per-task 데이터(context pack items/keywords/lastCollectedAt, history snapshots/collectHistory/deltaItems) 정리
+    useContextPackStore.getState().purgeTask(id);
+    useContextHistoryStore.getState().purgeTask(id);
+  },
 
   updateTask: (id, updates) =>
     set((s) => ({

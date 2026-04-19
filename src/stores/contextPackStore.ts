@@ -66,6 +66,8 @@ interface ContextPackState {
 
   clearCollected: (taskId: string) => void;
   cancelCollect: (taskId: string) => void;
+  /** 태스크 삭제 시 호출 — 해당 taskId 에 연결된 모든 per-task 데이터 제거 + persist */
+  purgeTask: (taskId: string) => void;
 
   // Collection
   collectAll: (
@@ -182,6 +184,28 @@ export const useContextPackStore = create<ContextPackState>((set, get) => ({
       collecting: { ...s.collecting, [taskId]: false },
       collectAborts: { ...s.collectAborts, [taskId]: undefined as unknown as AbortController },
     }));
+  },
+
+  purgeTask: (taskId) => {
+    const { collectAborts } = get();
+    collectAborts[taskId]?.abort();
+    set((s) => {
+      const strip = <T>(m: Record<string, T>) => {
+        if (!(taskId in m)) return m;
+        const next = { ...m };
+        delete next[taskId];
+        return next;
+      };
+      return {
+        items: strip(s.items),
+        keywords: strip(s.keywords),
+        collecting: strip(s.collecting),
+        collectAborts: strip(s.collectAborts),
+        collectProgresses: strip(s.collectProgresses),
+        lastCollectedAt: strip(s.lastCollectedAt),
+      };
+    });
+    get().persist();
   },
 
   // 자동 수집된 아이템만 제거하고 pinned 아이템은 보존

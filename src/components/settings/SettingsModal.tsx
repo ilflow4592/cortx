@@ -8,8 +8,9 @@ const IntegrationsSettings = lazy(() =>
 const AppearanceSettings = lazy(() => import('./AppearanceSettings').then((m) => ({ default: m.AppearanceSettings })));
 const TelemetrySettings = lazy(() => import('./TelemetrySettings').then((m) => ({ default: m.TelemetrySettings })));
 const GuardrailsSettings = lazy(() => import('./GuardrailsSettings').then((m) => ({ default: m.GuardrailsSettings })));
+const DangerZoneSettings = lazy(() => import('./DangerZoneSettings').then((m) => ({ default: m.DangerZoneSettings })));
 
-type STab = 'integrations' | 'appearance' | 'telemetry' | 'guardrails';
+type STab = 'integrations' | 'appearance' | 'telemetry' | 'guardrails' | 'danger';
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<STab>('integrations');
@@ -42,6 +43,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <button className={`modal-tab ${tab === 'guardrails' ? 'active' : ''}`} onClick={() => setTab('guardrails')}>
           🛡️ Guardrails
         </button>
+        <button className={`modal-tab ${tab === 'danger' ? 'active' : ''}`} onClick={() => setTab('danger')}>
+          ⚠️ Danger Zone
+        </button>
       </div>
       <div className="modal-body">
         <Suspense fallback={<div style={{ padding: 20, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
@@ -49,6 +53,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           {tab === 'appearance' && <AppearanceSettings />}
           {tab === 'telemetry' && <TelemetrySettings />}
           {tab === 'guardrails' && <GuardrailsSettings />}
+          {tab === 'danger' && <DangerZoneSettings />}
         </Suspense>
       </div>
     </ModalBackdrop>

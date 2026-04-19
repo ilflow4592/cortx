@@ -39,6 +39,8 @@ interface ContextHistoryState {
   appendHistory: (taskId: string, entry: CollectHistoryEntry) => void;
   takeSnapshot: (taskId: string) => void;
   detectDelta: (taskId: string, branchName: string) => Promise<void>;
+  /** 태스크 삭제 시 호출 — snapshot/history/delta 항목 제거 + persist */
+  purgeTask: (taskId: string) => void;
 
   // Persistence
   loadState: () => void;
@@ -59,6 +61,23 @@ export const CONTEXT_HISTORY_INITIAL_STATE: Pick<ContextHistoryState, 'snapshots
 
 export const useContextHistoryStore = create<ContextHistoryState>((set, get) => ({
   ...CONTEXT_HISTORY_INITIAL_STATE,
+
+  purgeTask: (taskId) => {
+    set((s) => {
+      const strip = <T>(m: Record<string, T>) => {
+        if (!(taskId in m)) return m;
+        const next = { ...m };
+        delete next[taskId];
+        return next;
+      };
+      return {
+        snapshots: strip(s.snapshots),
+        collectHistory: strip(s.collectHistory),
+        deltaItems: strip(s.deltaItems),
+      };
+    });
+    get().persist();
+  },
 
   // collectAll 성공 시 pack store가 호출 — 최대 20건 유지
   appendHistory: (taskId, entry) => {
