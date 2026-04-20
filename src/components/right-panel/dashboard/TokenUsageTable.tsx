@@ -41,7 +41,7 @@ export function TokenUsageTable({ pipeline }: Props) {
   // PR 제목 lazy fetch — `gh pr view` 로 한 번만 조회, prUrl 이 바뀔 때 재조회.
   const prUrl = pipeline.prUrl;
   const [prTitle, setPrTitle] = useState<string | null>(null);
-   
+
   useEffect(() => {
     const repo = parsePrRepo(prUrl);
     if (!repo) return;
@@ -100,13 +100,13 @@ export function TokenUsageTable({ pipeline }: Props) {
               </div>
             )}
             {pipeline.prNumber && (
-              <div className="wt-row">
-                <span>PR</span>
+              <div className="wt-row" style={{ gap: 12, alignItems: 'center' }}>
+                <span style={{ flexShrink: 0 }}>PR</span>
                 {pipeline.prUrl ? (
                   <button
                     type="button"
                     onClick={() => openExternal(pipeline.prUrl!)}
-                    title={pipeline.prUrl}
+                    title={`${prTitle ? prTitle + ' · ' : ''}${pipeline.prUrl}`}
                     className="val"
                     style={{
                       background: 'none',
@@ -118,8 +118,10 @@ export function TokenUsageTable({ pipeline }: Props) {
                       textAlign: 'right',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 4,
-                      maxWidth: '100%',
+                      gap: 6,
+                      flex: 1,
+                      minWidth: 0,
+                      justifyContent: 'flex-end',
                     }}
                   >
                     <span
@@ -127,6 +129,7 @@ export function TokenUsageTable({ pipeline }: Props) {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        minWidth: 0,
                       }}
                     >
                       #{pipeline.prNumber}
