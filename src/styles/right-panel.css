@@ -163,3 +163,34 @@
   line-height: 1.6;
   margin-bottom: 12px;
 }
+
+/* Diff hunk view — uniform selection highlight (teal) across add/del/ctx */
+.diff-hunk-view {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.diff-line-text {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.diff-line-num {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.diff-line-add {
+  color: #34d399;
+}
+.diff-line-del {
+  color: #ef4444;
+}
+.diff-line-ctx {
+  color: var(--fg-subtle);
+}
+.diff-line-text::selection {
+  background-color: #2a6e8f;
+  color: #ffffff;
+}
+.diff-line-text::-moz-selection {
+  background-color: #2a6e8f;
+  color: #ffffff;
+}

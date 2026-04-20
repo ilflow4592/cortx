@@ -7,12 +7,16 @@ interface DiffHunkViewProps {
 export function DiffHunkView({ hunks }: DiffHunkViewProps) {
   return (
     <div
+      className="diff-hunk-view"
       style={{
         flex: 1,
         overflowY: 'auto',
         fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
         fontSize: 12,
         lineHeight: 1.7,
+        userSelect: 'text',
+        WebkitUserSelect: 'text',
+        cursor: 'text',
       }}
     >
       {hunks.length === 0 && (
@@ -45,6 +49,7 @@ export function DiffHunkView({ hunks }: DiffHunkViewProps) {
               }}
             >
               <span
+                className="diff-line-num"
                 style={{
                   width: 48,
                   textAlign: 'right',
@@ -57,10 +62,14 @@ export function DiffHunkView({ hunks }: DiffHunkViewProps) {
                 {line.num || ''}
               </span>
               <span
+                className={`diff-line-text diff-line-${line.type}`}
                 style={{
-                  color: line.type === 'add' ? '#34d399' : line.type === 'del' ? '#ef4444' : 'var(--fg-subtle)',
                   whiteSpace: 'pre',
-                  overflow: 'hidden',
+                  userSelect: 'text',
+                  WebkitUserSelect: 'text',
+                  display: 'inline-block',
+                  flex: 1,
+                  minWidth: 0,
                 }}
               >
                 {line.type === 'add' ? '+' : line.type === 'del' ? '-' : ' '} {line.content}

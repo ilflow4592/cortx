@@ -131,7 +131,7 @@ body {
 }
 
 ::selection {
-  background: var(--accent-bg);
+  background: rgba(90, 165, 165, 0.45);
   color: var(--fg-primary);
 }
 
