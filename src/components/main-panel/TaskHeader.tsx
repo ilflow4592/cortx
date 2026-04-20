@@ -4,7 +4,7 @@
  * 윈도우 드래그/더블클릭 최대화 영역도 포함. MainPanel에서 ~100줄을 분리.
  */
 import { Play, Pause, Check, Trash2, RotateCcw, Undo2 } from 'lucide-react';
-import type { Task, InterruptReason, PhaseStatus } from '../../types/task';
+import type { Task, InterruptReason, PhaseStatus, PipelinePhase } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
 import { useContextHistoryStore } from '../../stores/contextHistoryStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -125,12 +125,16 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
               if (cur?.pipeline?.enabled) {
                 const now = new Date().toISOString();
                 const phases = { ...cur.pipeline.phases };
-                const snapshot: Partial<Record<keyof typeof phases, PhaseStatus>> = {
-                  review_loop: phases.review_loop?.status ?? 'pending',
-                  done: phases.done?.status ?? 'pending',
-                };
-                phases.review_loop = { ...phases.review_loop, status: 'done', completedAt: now };
-                phases.done = { ...phases.done, status: 'done', completedAt: now };
+                const snapshot: Partial<Record<PipelinePhase, PhaseStatus>> = {};
+                for (const key of Object.keys(phases) as PipelinePhase[]) {
+                  const entry = phases[key];
+                  snapshot[key] = entry?.status ?? 'pending';
+                  phases[key] = {
+                    ...entry,
+                    status: 'done',
+                    completedAt: entry?.completedAt ?? now,
+                  };
+                }
                 updateTask(task.id, {
                   pipeline: { ...cur.pipeline, phases, completeSnapshot: snapshot },
                 });
@@ -153,18 +157,15 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
               if (cur?.pipeline?.enabled) {
                 const phases = { ...cur.pipeline.phases };
                 const snap = cur.pipeline.completeSnapshot ?? {};
-                const restoreReview: PhaseStatus = snap.review_loop ?? 'in_progress';
-                const restoreDone: PhaseStatus = snap.done ?? 'pending';
-                phases.review_loop = {
-                  ...phases.review_loop,
-                  status: restoreReview,
-                  completedAt: restoreReview === 'done' ? phases.review_loop?.completedAt : undefined,
-                };
-                phases.done = {
-                  ...phases.done,
-                  status: restoreDone,
-                  completedAt: restoreDone === 'done' ? phases.done?.completedAt : undefined,
-                };
+                for (const key of Object.keys(phases) as PipelinePhase[]) {
+                  const entry = phases[key];
+                  const restore = snap[key] ?? 'pending';
+                  phases[key] = {
+                    ...entry,
+                    status: restore,
+                    completedAt: restore === 'done' ? entry?.completedAt : undefined,
+                  };
+                }
                 updateTask(task.id, {
                   pipeline: { ...cur.pipeline, phases, completeSnapshot: undefined },
                 });
