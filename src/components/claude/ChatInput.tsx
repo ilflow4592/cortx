@@ -5,6 +5,22 @@ import type { SlashCommand } from './types';
 import type { PipelineState, PipelinePhase } from '../../types/task';
 import { filterSlashCommandsByPipeline, isPipelineCommandRunning } from './pipelineCommandFilter';
 import { PHASE_MODELS, PHASE_EFFORT, modelVersionFor } from '../../constants/pipeline';
+import type { ClaudeCliSettings } from '../../types/generated/ClaudeCliSettings';
+
+const MODEL_ALIAS_LABEL: Record<string, string> = {
+  opus: 'Opus',
+  sonnet: 'Sonnet',
+  haiku: 'Haiku',
+};
+
+async function fetchCliSettings(): Promise<ClaudeCliSettings | null> {
+  try {
+    const mod = await import('@tauri-apps/api/core');
+    return await mod.invoke<ClaudeCliSettings>('claude_cli_settings_read');
+  } catch {
+    return null;
+  }
+}
 
 // Pipeline command priority order for the slash menu
 const PIPELINE_ORDER: Record<string, number> = {
@@ -46,6 +62,7 @@ export function ChatInput({
   const [slashFilter, setSlashFilter] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
   const [showClearHint, setShowClearHint] = useState(false);
+  const [cliSettings, setCliSettings] = useState<ClaudeCliSettings | null>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const clearHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = useT();
@@ -64,13 +81,31 @@ export function ChatInput({
     };
   }, []);
 
+  // CLI `/model` 설정을 뱃지에 표시. 창 focus 마다 새로고침 — 사용자가 별도
+  // 터미널 claude 세션에서 /model 변경해도 Cortx 재진입 시 반영.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      fetchCliSettings().then((s) => {
+        if (!cancelled) setCliSettings(s);
+      });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+
   const pipelineFiltered = useMemo(
     () => filterSlashCommandsByPipeline(slashCommands, pipeline),
     [slashCommands, pipeline],
   );
 
   // 뱃지 — Cortx 가 모델을 오버라이드하는 단계(dev_plan/implement/review_loop = Sonnet)
-  // 만 명시 표시. 그 외에는 "Default" = CLI `/model` 설정 반영 (Cortx 는 모름).
+  // 만 명시 표시. 그 외에는 `~/.claude/settings.json` 의 model/effortLevel 을 읽어
+  // "Sonnet · high" 처럼 표시. CLI `/model` 에서 바꾸면 창 focus 시 새로고침.
   const activeModelBadge = useMemo(() => {
     const phases = pipeline?.phases;
     const activePhase = (
@@ -83,12 +118,14 @@ export function ChatInput({
       const effort = PHASE_EFFORT[activePhase];
       return effort ? `${model} ${version} · ${effort}` : `${model} ${version}`;
     }
-    if (activePhase) {
-      const effort = PHASE_EFFORT[activePhase];
-      return effort ? `Default · ${effort}` : 'Default';
-    }
-    return 'Default';
-  }, [pipeline]);
+    const cliModelRaw = cliSettings?.model;
+    const cliModel = cliModelRaw ? (MODEL_ALIAS_LABEL[cliModelRaw.toLowerCase()] ?? cliModelRaw) : null;
+    const cliEffort = cliSettings?.effortLevel;
+    const phaseEffort = activePhase ? PHASE_EFFORT[activePhase] : '';
+    const effort = cliEffort || phaseEffort || '';
+    if (cliModel) return effort ? `${cliModel} · ${effort}` : cliModel;
+    return effort ? `Default · ${effort}` : 'Default';
+  }, [pipeline, cliSettings]);
 
   const filteredCommands = showSlashMenu
     ? pipelineFiltered

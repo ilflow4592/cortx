@@ -16,6 +16,7 @@ pub mod builtin_pipelines;
 pub mod builtin_skills;
 pub mod custom_pipeline;
 pub mod pty_proxy;
+pub mod settings;
 pub mod slash;
 pub mod spawn;
 pub mod window;

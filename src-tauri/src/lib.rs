@@ -112,6 +112,7 @@ pub fn run() {
             commands::claude::spawn::claude_stop,
             commands::claude::spawn::claude_stop_task,
             commands::claude::spawn::claude_send,
+            commands::claude::settings::claude_cli_settings_read,
             commands::claude::pty_proxy::pty_spawn,
             commands::claude::pty_proxy::pty_write,
             commands::claude::pty_proxy::pty_resize,
