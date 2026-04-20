@@ -22,6 +22,8 @@ interface ModalBackdropProps {
   dialog?: boolean;
   /** accessibility label — 기본 'Dialog' */
   ariaLabel?: string;
+  /** true 시 배경 클릭/Esc 로 닫기 차단 — 장기 작업 중 우발적 닫힘 방지 */
+  dismissLocked?: boolean;
 }
 
 export function ModalBackdrop({
@@ -32,20 +34,24 @@ export function ModalBackdrop({
   dialogStyle,
   dialog = true,
   ariaLabel = 'Dialog',
+  dismissLocked = false,
 }: ModalBackdropProps) {
   useEffect(() => {
+    if (dismissLocked) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, dismissLocked]);
 
   const onBackdropClick = (e: MouseEvent) => {
+    if (dismissLocked) return;
     if (e.target === e.currentTarget) onClose();
   };
 
   const onBackdropKey = (e: KeyboardEvent) => {
+    if (dismissLocked) return;
     if (e.key === 'Enter' || e.key === ' ') {
       if (e.target === e.currentTarget) {
         e.preventDefault();
