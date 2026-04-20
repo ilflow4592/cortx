@@ -2,7 +2,7 @@
 import { type ReactNode } from 'react';
 import { CheckCircle2, Loader2, SkipForward, Circle, Download } from 'lucide-react';
 import type { PhaseStatus, PipelineState } from '../../../types/task';
-import { PHASE_ORDER, PHASE_NAMES, PHASE_MODELS, MODEL_VERSION, PHASE_EFFORT } from '../../../constants/pipeline';
+import { PHASE_ORDER, PHASE_NAMES, PHASE_MODELS, PHASE_EFFORT, modelVersionFor } from '../../../constants/pipeline';
 import type { PipelineConfig } from '../../../services/pipelineConfig';
 import { formatTokens } from './types';
 
@@ -133,9 +133,7 @@ export function PhasesList({ pipeline, cwd, config }: Props) {
                     gap: 4,
                   }}
                 >
-                  <span>
-                    {model} {MODEL_VERSION}
-                  </span>
+                  <span>{modelVersionFor(model) ? `${model} ${modelVersionFor(model)}` : model}</span>
                   {PHASE_EFFORT[phase] && (
                     <span
                       style={{

@@ -40,19 +40,20 @@ export const PHASE_MODELS: Record<PipelinePhase, string> = {
   done: '-',
 };
 
-/** 모델 계열별 버전 — UI 뱃지 표시용. Rust 실제 모델 ID 와 동기화 유지. */
+/**
+ * 모델 계열별 버전 — pipeline 뱃지 표시용. Cortx 가 명시적으로 강제하는 모델에만
+ * 적용 (현재 Sonnet 만 해당 — dev_plan/implement/review_loop). 일반 채팅은 CLI
+ * `/model` 설정에 위임하므로 version 표시 불가 → "Default" 뱃지로 대체.
+ * Anthropic 이 Sonnet/Haiku 를 bump 하면 이 표만 갱신하면 됨.
+ */
 export const MODEL_VERSIONS: Record<string, string> = {
-  Opus: '4.7',
   Sonnet: '4.6',
   Haiku: '4.5',
 };
 
-/** 일반 채팅 기본 모델 버전 (Opus 4.7 / 1M context). pipeline 비활성 뱃지 fallback. */
-export const MODEL_VERSION = MODEL_VERSIONS.Opus;
-
 export function modelVersionFor(modelName: string | undefined): string {
-  if (!modelName) return MODEL_VERSION;
-  return MODEL_VERSIONS[modelName] ?? MODEL_VERSION;
+  if (!modelName) return '';
+  return MODEL_VERSIONS[modelName] ?? '';
 }
 
 /**

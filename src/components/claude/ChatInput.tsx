@@ -4,7 +4,7 @@ import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
 import type { PipelineState, PipelinePhase } from '../../types/task';
 import { filterSlashCommandsByPipeline, isPipelineCommandRunning } from './pipelineCommandFilter';
-import { PHASE_MODELS, PHASE_EFFORT, MODEL_VERSION, modelVersionFor } from '../../constants/pipeline';
+import { PHASE_MODELS, PHASE_EFFORT, modelVersionFor } from '../../constants/pipeline';
 
 // Pipeline command priority order for the slash menu
 const PIPELINE_ORDER: Record<string, number> = {
@@ -69,20 +69,25 @@ export function ChatInput({
     [slashCommands, pipeline],
   );
 
-  // 활성 단계에서 사용 중인 모델/버전/effort 를 뱃지에 표시. 파이프라인 비활성이면
-  // Opus (grill_me 기본) 을 기본값으로.
+  // 뱃지 — Cortx 가 모델을 오버라이드하는 단계(dev_plan/implement/review_loop = Sonnet)
+  // 만 명시 표시. 그 외에는 "Default" = CLI `/model` 설정 반영 (Cortx 는 모름).
   const activeModelBadge = useMemo(() => {
     const phases = pipeline?.phases;
     const activePhase = (
       phases ? Object.keys(phases).find((p) => phases[p as PipelinePhase]?.status === 'in_progress') : undefined
     ) as PipelinePhase | undefined;
-    const fallback: PipelinePhase = 'grill_me';
-    const phase = activePhase ?? fallback;
-    const model = PHASE_MODELS[phase];
-    const effort = PHASE_EFFORT[phase];
-    if (!model || model === '-') return `Opus ${MODEL_VERSION}`;
-    const version = modelVersionFor(model);
-    return effort ? `${model} ${version} · ${effort}` : `${model} ${version}`;
+    const CORTX_OVERRIDE: PipelinePhase[] = ['dev_plan', 'implement', 'review_loop'];
+    if (activePhase && CORTX_OVERRIDE.includes(activePhase)) {
+      const model = PHASE_MODELS[activePhase];
+      const version = modelVersionFor(model);
+      const effort = PHASE_EFFORT[activePhase];
+      return effort ? `${model} ${version} · ${effort}` : `${model} ${version}`;
+    }
+    if (activePhase) {
+      const effort = PHASE_EFFORT[activePhase];
+      return effort ? `Default · ${effort}` : 'Default';
+    }
+    return 'Default';
   }, [pipeline]);
 
   const filteredCommands = showSlashMenu

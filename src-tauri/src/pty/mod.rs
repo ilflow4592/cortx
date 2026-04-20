@@ -150,7 +150,9 @@ impl PtyManager {
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
         let session_id_owned = session_id.map(|s| s.to_string());
-        let model_owned = model.unwrap_or("claude-opus-4-7").to_string();
+        // None 이면 `--model` 플래그 생략 → CLI 내부 `/model` 설정이 적용.
+        // Cortx 가 특정 phase 에서 모델 강제할 때만 Some(id) 전달.
+        let model_owned: Option<String> = model.map(|s| s.to_string());
         let effort_owned = effort.map(|s| s.to_string());
         let disallowed_tools_owned: Vec<String> = disallowed_tools.to_vec();
         // None 이면 기존 동작(bypassPermissions) 유지. "plan" 지정 시 Claude CLI 가
@@ -199,7 +201,7 @@ impl PtyManager {
             let system_prompt = build_system_prompt(&summary_owned, &files_owned);
             let add_dirs = derive_add_dirs(&files_owned);
 
-            let mut cmd_builder = ClaudeCommand::new(msg_file.path(), &model_owned)
+            let mut cmd_builder = ClaudeCommand::new(msg_file.path(), model_owned.as_deref())
                 .with_permission_mode(&permission_mode_owned)
                 .with_session(session_id_owned.as_deref())
                 .with_effort(effort_owned.as_deref())

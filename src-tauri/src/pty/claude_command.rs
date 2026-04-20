@@ -9,7 +9,10 @@ pub struct ClaudeCommand {
 }
 
 impl ClaudeCommand {
-    pub fn new(msg_path: &str, model: &str) -> Self {
+    /// `model = None` 이면 `--model` 플래그 자체를 생략 → CLI 내부 `/model` 설정이
+    /// source of truth. Anthropic 이 기본 모델을 올려도 Cortx 코드 수정 없이 자동 반영.
+    /// `Some(id)` 는 Cortx 가 의도적으로 오버라이드 (예: implement 단계 Sonnet 강제).
+    pub fn new(msg_path: &str, model: Option<&str>) -> Self {
         let mut parts: Vec<String> = vec![
             format!("cat {} |", shell_escape(msg_path)),
             "claude".into(),
@@ -18,14 +21,15 @@ impl ClaudeCommand {
             "--output-format".into(),
             "stream-json".into(),
             "--verbose".into(),
-            "--model".into(),
-            model.into(),
             "--max-turns".into(),
             "30".into(),
         ];
-        // Opus 사용 시 rate limit/장애 대비 Sonnet으로 자동 fallback
-        if model.contains("opus") {
-            parts.extend(["--fallback-model".into(), "claude-sonnet-4-6".into()]);
+        if let Some(id) = model {
+            parts.extend(["--model".into(), id.into()]);
+            // Opus 사용 시 rate limit/장애 대비 Sonnet으로 자동 fallback
+            if id.contains("opus") {
+                parts.extend(["--fallback-model".into(), "claude-sonnet-4-6".into()]);
+            }
         }
         Self { parts }
     }
@@ -110,7 +114,7 @@ mod tests {
 
     #[test]
     fn with_disallowed_tools_joins_patterns_with_comma() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-opus-4-6"))
             .with_disallowed_tools(&["mcp__notion__*".into(), "mcp__slack__*".into()])
             .build();
         assert!(
@@ -122,7 +126,7 @@ mod tests {
 
     #[test]
     fn with_disallowed_tools_empty_omits_flag() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-opus-4-6"))
             .with_disallowed_tools(&[])
             .build();
         assert!(!cmd.contains("--disallowedTools"), "got: {}", cmd);
@@ -132,14 +136,14 @@ mod tests {
     fn with_effort_allows_valid_levels() {
         for level in ["low", "medium", "high", "max"] {
             let cmd =
-                ClaudeCommand::new("/tmp/msg", "claude-opus-4-6").with_effort(Some(level)).build();
+                ClaudeCommand::new("/tmp/msg", Some("claude-opus-4-6")).with_effort(Some(level)).build();
             assert!(cmd.contains(&format!("--effort {}", level)));
         }
     }
 
     #[test]
     fn with_effort_rejects_invalid_values() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6")
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-opus-4-6"))
             .with_effort(Some("extreme"))
             .build();
         assert!(!cmd.contains("--effort"));
@@ -147,20 +151,20 @@ mod tests {
 
     #[test]
     fn opus_model_adds_sonnet_fallback() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-opus-4-6").build();
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-opus-4-6")).build();
         assert!(cmd.contains("--fallback-model claude-sonnet-4-6"));
     }
 
     #[test]
     fn sonnet_model_omits_fallback() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6").build();
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-sonnet-4-6")).build();
         assert!(!cmd.contains("--fallback-model"));
     }
 
     #[test]
     fn with_permission_mode_accepts_valid_modes() {
         for mode in ["bypassPermissions", "plan", "acceptEdits", "default", "dontAsk", "auto"] {
-            let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6")
+            let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-sonnet-4-6"))
                 .with_permission_mode(mode)
                 .build();
             assert!(
@@ -174,7 +178,7 @@ mod tests {
 
     #[test]
     fn with_permission_mode_rejects_invalid() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6")
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-sonnet-4-6"))
             .with_permission_mode("yolo")
             .build();
         assert!(!cmd.contains("--permission-mode"));
@@ -182,8 +186,15 @@ mod tests {
 
     #[test]
     fn new_does_not_set_permission_mode_by_default() {
-        let cmd = ClaudeCommand::new("/tmp/msg", "claude-sonnet-4-6").build();
+        let cmd = ClaudeCommand::new("/tmp/msg", Some("claude-sonnet-4-6")).build();
         assert!(!cmd.contains("--permission-mode"));
+    }
+
+    #[test]
+    fn none_model_omits_model_and_fallback_flags() {
+        let cmd = ClaudeCommand::new("/tmp/msg", None).build();
+        assert!(!cmd.contains("--model"), "got: {}", cmd);
+        assert!(!cmd.contains("--fallback-model"), "got: {}", cmd);
     }
 }
 

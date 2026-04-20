@@ -137,14 +137,20 @@ async function resolveSkillBody(skillRef: CustomSkillRef, cwd: string | undefine
   }
 }
 
+/**
+ * Custom pipeline alias → Claude CLI model ID.
+ * 사용자가 skill 에서 특정 모델을 명시 지정할 때만 사용. alias 가 없거나
+ * "Opus" 인 경우 null → `--model` 플래그 생략 → CLI `/model` default 적용.
+ * Sonnet/Haiku 는 명시 override 목적이라 model ID 를 고정해 둠. Anthropic 이
+ * minor 버전 올리면 이 매핑을 갱신해야 함.
+ */
 function modelIdFromAlias(alias: string | undefined): string | null {
   switch (alias) {
-    case 'Opus':
-      return 'claude-opus-4-7';
     case 'Sonnet':
       return 'claude-sonnet-4-6';
     case 'Haiku':
       return 'claude-haiku-4-5';
+    case 'Opus':
     default:
       return null;
   }
