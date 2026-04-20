@@ -168,6 +168,12 @@ git status                   # 작업 트리 상태 확인
 2. `.cortx/trash/` 는 `.gitignore` 에 등록되어 있어 commit/PR 에는 "파일 삭제됨" 으로만 기록됨.
 3. 같은 세션에서 여러 파일 삭제 시 **동일 timestamp 디렉토리 재사용** 가능.
 4. ⛔ 절대 금지: `rm`, `rm -rf`, `git rm`, `find ... -delete`. 파일 내용을 빈 껍데기로 덮어쓰는 우회도 금지 — 반드시 `mv` 사용.
+5. **⛔ 의존 심볼 동반 삭제 (컴파일 실패 예방)**: 클래스·함수·컴포넌트를 trash 로 이동할 때, **해당 심볼을 참조하는 다른 파일들도 함께 처리**해야 합니다. 그대로 두면 컴파일/타입체크 단계에서 PR CI 가 전부 FAIL:
+   - 해당 심볼의 **테스트 파일** (예: `FooController.java` 삭제 → `FooControllerTest.java` 도 같이 trash 이동). 패키지 규칙에 따라 `src/test/...` 미러 경로 자동 확인.
+   - 해당 심볼의 **mock/fixture/builder** (예: `FooTestFixture`, `FooMock`).
+   - 해당 심볼을 `import` / `use` 하는 **다른 프로덕션 파일** — 삭제 대신 대체 구현으로 교체해야 함. 그냥 import 만 지워서 컴파일 실패 나면 안 됨.
+   - Kotlin/Java: `grep -r "\\bClassName\\b" src/` 로 참조 확인. TS: `grep -r "ClassName" src/`. 참조 0 을 **반드시 확인한 뒤** 삭제.
+   - **검증 게이트**: 삭제 후 Step 3 전에 해당 모듈 `compileJava` / `tsc` / `cargo check` 등 **컴파일 단계만** 먼저 돌려서 참조 누락 없는지 확인. 여기서 실패하면 이동한 파일을 도로 복원하지 말고, **누락된 참조를 다 처리**한 뒤 다시 검증.
 
 **Lombok 우선 사용 (Java 프로젝트)**: `build.gradle`/`pom.xml` 에 `lombok` 의존성이 있으면 boilerplate 를 Lombok 어노테이션으로 대체:
 
@@ -193,23 +199,31 @@ git status                   # 작업 트리 상태 확인
 - **정적 이슈만 자동 수정** (unused import 제거, import 정리, 세미콜론 등 스타일 이슈) — 수정 후 재검증 (최대 2회).
 - **설계 변경이 필요한 항목**(`@Transactional` 추가, `Clock` 주입, 시크릿 외부화 등)은 **사용자에게 보고 후 결정**. 임의로 구조 변경 금지.
 
-### Step 3: 테스트 실행 및 통과
+### Step 3: 테스트 실행 및 통과 — **구현 완료의 유일한 조건**
 
-**반드시 테스트를 실행하고, 전체 통과할 때까지 반복합니다.**
+⛔ **implement 단계의 완료 조건은 "변경이 발생한 각 모듈의 테스트가 모두 통과"입니다.**
+컴파일 통과·단일 테스트 하나만 통과·"로컬에서 돌려보세요" 같은 위임 — **전부 불가**. 반드시 Cortx 세션 안에서 직접 실행해 초록(PASS)을 확인해야 합니다.
 
 1. 기존 테스트 패턴과 동일 스타일로 테스트 코드 작성/수정 (Java/Spring이면 `@DisplayName` 한국어 등, 프로젝트 관례 유지).
-2. 테스트 실행: **project-context.md의 `## Build & Test Commands` 섹션 참조.** 예:
-   - Gradle: `./gradlew :{module}:test --tests "{TestClass}"`
-   - npm: `npm test` 또는 `npx vitest run {path}`
-   - pytest: `pytest {path}::{Class}::{method}`
-   - cargo: `cargo test {name}`
-   - go: `go test ./{pkg}`
-
-   `{module}` 결정 가이드: settings 파일(`settings.gradle`, `pom.xml`, `package.json` workspaces 등)에서 **실제 변경 파일이 속한** 모듈 이름을 확인해 사용. 추측 금지.
-
-3. **실패하면 코드를 수정하고 다시 실행. 모든 테스트가 통과할 때까지 반복합니다.**
-4. 관련 모듈 전체 테스트도 실행하여 기존 테스트가 깨지지 않았는지 확인 (Build & Test Commands의 "Test (all)" 명령).
-5. **테스트가 전부 통과한 후에만 Step 4로 진행합니다.** 테스트를 건너뛰지 마세요.
+2. **변경된 모듈 목록을 먼저 확정**하세요:
+   - 이번 구현에서 파일을 수정·추가한 **모든 모듈**(Gradle subproject / Maven module / npm workspace 등)을 나열.
+   - settings 파일(`settings.gradle`, `pom.xml`, `package.json` workspaces 등)에서 확인. 추측 금지.
+   - 예: TOMS 계열은 `toms-server`, `toms-admin-server`, `tims` 등이 각각 독립 모듈이므로 **변경된 모듈마다 개별 테스트 실행**.
+3. **각 모듈마다** 테스트 실행 (project-context.md의 `## Build & Test Commands` 참조):
+   - Gradle: `./gradlew :{module}:test` (모듈 전체). 특정 클래스만 돌리는 `--tests` 는 디버깅 용도로만 사용하고, 최종 게이트는 반드시 모듈 전체 테스트.
+   - npm: 해당 workspace 의 `npm test` / `npx vitest run`
+   - pytest: 해당 패키지 `pytest {pkg}`
+   - cargo: `cargo test -p {crate}`
+   - go: `go test ./{pkg}/...`
+4. **실패 발생 시 코드 수정 → 재실행 루프**. 모든 변경 모듈에서 **FAIL 0 + ERROR 0** 을 확인할 때까지 반복. 일부만 통과시킨 상태로 Step 4 진입 금지.
+5. 테스트 결과 요약을 채팅에 출력:
+   ```
+   ✅ 테스트 결과
+   - toms-server: 123 passed, 0 failed, 0 skipped
+   - toms-admin-server: 88 passed, 0 failed, 0 skipped
+   - tims: 56 passed, 0 failed, 0 skipped
+   ```
+6. **게이트 통과 전까지 `[PIPELINE:implement:done]` 마커를 절대 출력하지 마세요.** 실패한 모듈이 하나라도 남아있으면 Step 4 로 넘어가지 말고, 사용자에게 "테스트 실패 — {모듈명} 에서 {N}건 실패. 계속 수정할까요?" 라고 보고한 뒤 사용자 지시 대기.
 
 ### Step 4: 커밋 & PR 생성
 
