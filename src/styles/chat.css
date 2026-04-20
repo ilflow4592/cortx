@@ -262,6 +262,100 @@
   border-radius: 3px;
   background: linear-gradient(135deg, #d4a574, #c4956a);
 }
+
+/* Model picker button — 모델/effort 선택 팝오버 트리거 */
+.model-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 7px 11px;
+  background: linear-gradient(180deg, var(--bg-surface-hover) 0%, var(--bg-chip) 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+.model-picker-btn:hover {
+  background: linear-gradient(180deg, var(--accent-bg) 0%, var(--bg-surface-hover) 100%);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.model-picker-btn:active {
+  transform: translateY(1px);
+}
+.model-picker-btn.open {
+  background: var(--accent-bg);
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.model-picker-btn.locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.model-picker-btn.locked:hover {
+  background: linear-gradient(180deg, var(--bg-surface-hover) 0%, var(--bg-chip) 100%);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+.model-picker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #5ee8b8, #34d399 55%, #1e9c73);
+  box-shadow:
+    0 0 6px rgba(52, 211, 153, 0.55),
+    inset 0 0 2px rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+.model-picker-label {
+  letter-spacing: 0.1px;
+}
+.model-picker-chevron {
+  color: var(--fg-muted);
+  transition: transform 180ms ease;
+  margin-left: 2px;
+}
+.model-picker-btn.open .model-picker-chevron {
+  transform: rotate(180deg);
+  color: var(--accent-bright);
+}
+
+/* 채팅 입력창 좌측에 겹쳐 띄우는 첨부 파일 표시 */
+.chat-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.chat-input-wrap textarea {
+  width: 100%;
+}
+.chat-attach-indicator {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent-bright);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  pointer-events: none;
+  user-select: none;
+}
 .send-btn {
   width: 36px;
   height: 36px;

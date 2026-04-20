@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ArrowUp, Square, Paperclip } from 'lucide-react';
+import { ArrowUp, Square, Paperclip, ChevronDown } from 'lucide-react';
 import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
 import type { PipelineState, PipelinePhase } from '../../types/task';
@@ -345,21 +345,35 @@ export function ChatInput({
         </div>
       )}
 
-      <textarea
-        ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-        value={input}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
-        placeholder={t('chat.placeholder')}
-        rows={1}
-        style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
-        onInput={(e) => {
-          const t = e.currentTarget;
-          t.style.height = 'auto';
-          t.style.height = Math.min(t.scrollHeight, 120) + 'px';
-        }}
-      />
+      <div className="chat-input-wrap">
+        <textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
+          placeholder={t('chat.placeholder')}
+          rows={1}
+          style={{
+            resize: 'none',
+            overflow: 'hidden',
+            minHeight: 40,
+            maxHeight: 120,
+            paddingLeft: contextTotalCount > 0 ? 46 : 14,
+          }}
+          onInput={(e) => {
+            const t = e.currentTarget;
+            t.style.height = 'auto';
+            t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+          }}
+        />
+        {contextTotalCount > 0 && (
+          <span className="chat-attach-indicator" title={`${contextTotalCount} context items attached`}>
+            <Paperclip size={12} strokeWidth={1.8} />
+            {contextTotalCount}
+          </span>
+        )}
+      </div>
 
       {hasMessages && !loading && (
         <button
@@ -384,41 +398,14 @@ export function ChatInput({
       <div style={{ position: 'relative' }}>
         <button
           type="button"
-          className="model-select"
+          className={`model-picker-btn${showPicker ? ' open' : ''}${cortxOverridePhase ? ' locked' : ''}`}
           onClick={() => !cortxOverridePhase && setShowPicker((v) => !v)}
           disabled={cortxOverridePhase}
           title={cortxOverridePhase ? 'Pipeline 단계가 모델을 강제 중' : '모델 및 effort 설정'}
-          style={{
-            cursor: cortxOverridePhase ? 'not-allowed' : 'pointer',
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            font: 'inherit',
-            color: 'inherit',
-            display: 'inline-flex',
-            alignItems: 'center',
-            opacity: cortxOverridePhase ? 0.7 : 1,
-          }}
         >
-          <span
-            style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }}
-          />
-          {activeModelBadge}
-          {contextTotalCount > 0 && (
-            <span
-              style={{
-                color: 'var(--accent-bright)',
-                marginLeft: 6,
-                fontSize: 10,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-              }}
-            >
-              <Paperclip size={11} strokeWidth={1.5} />
-              {contextTotalCount}
-            </span>
-          )}
+          <span className="model-picker-dot" aria-hidden="true" />
+          <span className="model-picker-label">{activeModelBadge}</span>
+          <ChevronDown size={12} strokeWidth={2} className="model-picker-chevron" />
         </button>
         {showPicker && !cortxOverridePhase && (
           <ModelPicker
