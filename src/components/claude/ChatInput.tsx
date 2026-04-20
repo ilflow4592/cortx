@@ -345,35 +345,28 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="chat-input-wrap">
-        <textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
-          placeholder={t('chat.placeholder')}
-          rows={1}
-          style={{
-            resize: 'none',
-            overflow: 'hidden',
-            minHeight: 40,
-            maxHeight: 120,
-            paddingLeft: contextTotalCount > 0 ? 46 : 14,
-          }}
-          onInput={(e) => {
-            const t = e.currentTarget;
-            t.style.height = 'auto';
-            t.style.height = Math.min(t.scrollHeight, 120) + 'px';
-          }}
-        />
-        {contextTotalCount > 0 && (
-          <span className="chat-attach-indicator" title={`${contextTotalCount} context items attached`}>
-            <Paperclip size={12} strokeWidth={1.8} />
-            {contextTotalCount}
-          </span>
-        )}
-      </div>
+      {contextTotalCount > 0 && (
+        <span className="chat-attach-indicator" title={`${contextTotalCount} context items attached`}>
+          <Paperclip size={12} strokeWidth={1.8} />
+          {contextTotalCount}
+        </span>
+      )}
+
+      <textarea
+        ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+        value={input}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
+        placeholder={t('chat.placeholder')}
+        rows={1}
+        style={{ resize: 'none', overflow: 'hidden', minHeight: 40, maxHeight: 120 }}
+        onInput={(e) => {
+          const t = e.currentTarget;
+          t.style.height = 'auto';
+          t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+        }}
+      />
 
       {hasMessages && !loading && (
         <button

@@ -329,32 +329,20 @@
   color: var(--accent-bright);
 }
 
-/* 채팅 입력창 좌측에 겹쳐 띄우는 첨부 파일 표시 */
-.chat-input-wrap {
-  position: relative;
-  flex: 1;
-  display: flex;
-}
-.chat-input-wrap textarea {
-  width: 100%;
-}
+/* 첨부 파일 인디케이터 — 채팅 입력창 바깥 좌측에 별도 pill 로 표시 */
 .chat-attach-indicator {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 7px;
-  font-size: 10px;
+  gap: 4px;
+  padding: 5px 9px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--accent-bright);
   background: var(--accent-bg);
   border: 1px solid var(--accent);
   border-radius: 999px;
-  pointer-events: none;
   user-select: none;
+  flex-shrink: 0;
 }
 .send-btn {
   width: 36px;
