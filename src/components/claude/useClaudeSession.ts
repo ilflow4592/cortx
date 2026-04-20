@@ -90,7 +90,7 @@ export function useClaudeSession(
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const currentReqIdRef = useRef<string>('');
   const claudeSessionIdRef = useRef<string>(sessionCache.get(taskId) || '');
-  const messagesRef = useRef<Message[]>([]);
+  const messagesRef = useRef<Message[]>(messageCache.get(taskId) || []);
 
   useEffect(() => {
     // unmount 후 setState 호출 방지 — cwd 변경/탭 전환 시 경주 조건 차단
@@ -121,14 +121,24 @@ export function useClaudeSession(
     };
   }, []);
 
-  // Sync from messageCache + loadingCache for background-running pipelines
+  // Sync from messageCache + loadingCache for background-running pipelines.
+  // activity 메시지(Using Bash... 등)가 in-place 로 교체되는 경우에도 화면에
+  // 반영되도록 length 뿐 아니라 last id/content 변경까지 감지.
   useEffect(() => {
+    const signature = (list: Message[]): string =>
+      list.length === 0
+        ? '0'
+        : `${list.length}:${list[list.length - 1].id}:${list[list.length - 1].content.length}:${list[list.length - 1].role}`;
     const interval = setInterval(() => {
       const cached = messageCache.get(taskId);
-      if (cached && cached.length > 0 && cached.length > messages.length) {
-        const filtered = cached.filter((m) => m.content.trim());
-        setMessagesRaw(filtered);
-        messagesRef.current = filtered;
+      if (cached && cached.length > 0) {
+        if (signature(cached) !== signature(messagesRef.current)) {
+          // activity 메시지는 toolName + startedAt 기반 라벨을 렌더링하므로 content 가 빈
+          // 문자열이어도 필터로 날리지 않는다. 일반 assistant/user 메시지는 content 필수.
+          const filtered = cached.filter((m) => m.role === 'activity' || m.content.trim());
+          setMessagesRaw(filtered);
+          messagesRef.current = filtered;
+        }
       }
       // Sync loading state from loadingCache (set by pipelineExec)
       const cachedLoading = loadingCache.get(taskId) || false;
@@ -136,13 +146,13 @@ export function useClaudeSession(
         setLoadingRaw(cachedLoading);
       }
       // Also clear messages if cache was emptied (e.g. by Reset Selected)
-      if ((!cached || cached.length === 0) && messages.length > 0) {
+      if ((!cached || cached.length === 0) && messagesRef.current.length > 0) {
         setMessagesRaw([]);
         messagesRef.current = [];
       }
     }, 300);
     return () => clearInterval(interval);
-  }, [taskId, messages.length, loading]);
+  }, [taskId, loading]);
 
   /**
    * 스트리밍 텍스트에서 파이프라인 마커를 파싱해 store에 적용하고, 마커가 제거된

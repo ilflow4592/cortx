@@ -159,6 +159,21 @@ git status                   # 작업 트리 상태 확인
 - Null Safety, SOLID, 유지보수성 준수.
 - 프로젝트별 특수 규칙(JPQL 집계 반환, Repository 타입 등)은 해당 프로젝트 CLAUDE.md 참조.
 
+**파일 삭제 규칙**: Cortx 환경은 `rm` / `git rm` 명령이 훅으로 차단됨. 파일을 제거해야 할 땐:
+
+1. 워크트리 루트의 **`.cortx/trash/{YYYYMMDD-HHMMSS}/<원본 상대경로>`** 로 `mv` 이동.
+   - 예: `src/main/java/.../CountryController.java` → `.cortx/trash/20260420-103000/src/main/java/.../CountryController.java`
+   - timestamp 디렉토리는 `date +%Y%m%d-%H%M%S` 로 생성.
+2. `.cortx/trash/` 는 `.gitignore` 에 등록되어 있어 commit/PR 에는 "파일 삭제됨" 으로만 기록됨.
+3. 같은 세션에서 여러 파일 삭제 시 **동일 timestamp 디렉토리 재사용** 가능.
+4. ⛔ 절대 금지: `rm`, `rm -rf`, `git rm`, `find ... -delete`. 파일 내용을 빈 껍데기로 덮어쓰는 우회도 금지 — 반드시 `mv` 사용.
+
+**Lombok 우선 사용 (Java 프로젝트)**: `build.gradle`/`pom.xml` 에 `lombok` 의존성이 있으면 boilerplate 를 Lombok 어노테이션으로 대체:
+
+- ✅ 허용: `@Getter`, `@AllArgsConstructor`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Builder`, `@ToString`, `@EqualsAndHashCode`, `@Slf4j`, `@Value`.
+- ⛔ **`@Setter` / `@Data` 사용 금지** — 불변성 훼손 (`@Data` 는 `@Setter` 포함). 필드 변경이 필요하면 생성자 / Builder / 명시적 도메인 메서드로 구현.
+- 기준: 동일한 boilerplate 를 Lombok 으로 대체 가능하면 항상 어노테이션 우선. 기존 파일에 수동 getter/constructor 가 있으면 **신규 코드에만 Lombok 적용** (기존 코드 대량 리팩터링 금지 — 변경 범위 최소화 원칙 유지).
+
 ### Step 2.5: Quality Gate
 
 **공통 (언어 독립)**:

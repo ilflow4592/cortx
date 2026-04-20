@@ -3,7 +3,14 @@ import { useTaskStore } from '../stores/taskStore';
 import { useProjectStore } from '../stores/projectStore';
 import type { TaskLayer } from '../types/task';
 import { slugify } from './new-task-modal/types';
-import { listBranches, pullBaseBranch, createWorktree, readCortxConfig, runSetupScripts } from './new-task-modal/api';
+import {
+  listBranches,
+  pullBaseBranch,
+  createWorktree,
+  readCortxConfig,
+  runSetupScripts,
+  ensureTrashGitignore,
+} from './new-task-modal/api';
 import { TaskFormFields } from './new-task-modal/TaskFormFields';
 import { CreateWorktreeProgress } from './new-task-modal/CreateWorktreeProgress';
 import { ModalBackdrop } from './common/ModalBackdrop';
@@ -87,6 +94,14 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           }
         } else {
           setStatus('Worktree created!');
+        }
+
+        // .cortx/trash/ 패턴을 워크트리 .gitignore 에 보장 — Claude 삭제 대체 경로.
+        // 실패해도 워크트리는 유효 → 조용히 무시.
+        try {
+          await ensureTrashGitignore(worktreePath);
+        } catch {
+          /* best effort */
         }
 
         // Run setup scripts

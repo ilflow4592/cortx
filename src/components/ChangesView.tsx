@@ -11,10 +11,12 @@ import { ToolBar } from './changes-view/ToolBar';
 export function ChangesView({
   cwd,
   branchName,
+  baseBranch,
   onOpenFile,
 }: {
   cwd: string;
   branchName: string;
+  baseBranch?: string;
   onOpenFile?: (path: string) => void;
 }) {
   const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([]);
@@ -33,14 +35,14 @@ export function ChangesView({
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
-        const files = await fetchChangedFiles(cwd);
+        const files = await fetchChangedFiles(cwd, baseBranch);
         setChangedFiles(files);
       } catch {
         /* skip */
       }
       setLoading(false);
     },
-    [cwd],
+    [cwd, baseBranch],
   );
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export function ChangesView({
     setViewMode(mode);
 
     if (mode === 'diff') {
-      const diff = await fetchFileDiff(cwd, file);
+      const diff = await fetchFileDiff(cwd, file, baseBranch);
       setDiffHunks(parseDiff(diff));
       setFileContent(null);
     } else {

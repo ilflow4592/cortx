@@ -107,7 +107,13 @@ export function RightPanel({
           {upperTab === 'projects' && <ProjectFiles cwd={cwd} onOpenFile={onOpenFile} />}
           {upperTab === 'changes' && (
             <Suspense fallback={<div style={{ padding: 16, color: 'var(--fg-faint)', fontSize: 12 }}>Loading...</div>}>
-              <ChangesView key={resetKey} cwd={cwd} branchName={branchName} onOpenFile={onOpenDiff} />
+              <ChangesView
+                key={resetKey}
+                cwd={cwd}
+                branchName={branchName}
+                baseBranch={taskProject?.baseBranch}
+                onOpenFile={onOpenDiff}
+              />
             </Suspense>
           )}
         </div>

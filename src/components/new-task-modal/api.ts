@@ -36,9 +36,11 @@ export async function listBranches(cwd: string): Promise<string[]> {
 }
 
 export async function pullBaseBranch(repoPath: string, baseBranch: string): Promise<ShellResult> {
+  // --all --prune: 모든 remote 의 최신 refs 받고 삭제된 원격 브랜치도 정리 —
+  // ProjectSettings 의 Fetch+Pull 버튼과 동일 명령.
   return invoke<ShellResult>('run_shell_command', {
     cwd: repoPath,
-    command: `git fetch origin && git checkout ${baseBranch} && git pull origin ${baseBranch}`,
+    command: `git fetch --all --prune && git checkout ${baseBranch} && git pull origin ${baseBranch}`,
   });
 }
 
@@ -57,4 +59,21 @@ export async function readCortxConfig(repoPath: string): Promise<CortxConfig> {
 
 export async function runSetupScripts(cwd: string, scripts: string[]): Promise<void> {
   await invoke('run_setup_scripts', { cwd, scripts });
+}
+
+/**
+ * 워크트리 루트의 `.gitignore` 에 `.cortx/trash/` 패턴을 보장한다.
+ * Claude 가 rm 훅 차단을 우회해 삭제 대상을 `.cortx/trash/{timestamp}/` 로
+ * 이동하도록 하는 컨벤션의 git 추적 차단.
+ *
+ * 이미 패턴이 있으면 no-op. 파일이 없으면 새로 생성.
+ * 실패해도 워크트리 생성은 성공 — best effort.
+ */
+export async function ensureTrashGitignore(worktreePath: string): Promise<void> {
+  // grep -q 로 이미 있는지 확인 후 없을 때만 append. 파일 자체가 없으면 새로 생성.
+  const script = [
+    `touch .gitignore`,
+    `grep -qxF '.cortx/trash/' .gitignore 2>/dev/null || printf '\\n# cortx — Claude 삭제 대기 파일\\n.cortx/trash/\\n' >> .gitignore`,
+  ].join(' && ');
+  await invoke<ShellResult>('run_shell_command', { cwd: worktreePath, command: script });
 }

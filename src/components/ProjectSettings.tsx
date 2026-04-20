@@ -19,6 +19,33 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
   const { projects, updateProject } = useProjectStore();
   const project = projects.find((p) => p.id === projectId);
   const [branches, setBranches] = useState<string[]>([]);
+  const [pullState, setPullState] = useState<{ kind: 'idle' | 'running' | 'ok' | 'error'; msg?: string }>({
+    kind: 'idle',
+  });
+
+  const baseBranch = project?.baseBranch || 'main';
+  const cwd = project?.localPath;
+  const handleFetchAndPull = async () => {
+    if (!cwd || pullState.kind === 'running') return;
+    setPullState({ kind: 'running' });
+    try {
+      const fetchRes = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd,
+        command: 'git fetch --all --prune',
+      });
+      if (!fetchRes.success) throw new Error(fetchRes.output || 'git fetch 실패');
+      // base branch 로 체크아웃 후 pull — 워킹트리가 더럽거나 체크아웃 실패 시 메시지 반환.
+      const pullRes = await invoke<{ success: boolean; output: string }>('run_shell_command', {
+        cwd,
+        command: `git checkout ${baseBranch} && git pull origin ${baseBranch}`,
+      });
+      if (!pullRes.success) throw new Error(pullRes.output || 'git pull 실패');
+      setPullState({ kind: 'ok', msg: '최신화 완료' });
+      setTimeout(() => setPullState((s) => (s.kind === 'ok' ? { kind: 'idle' } : s)), 3000);
+    } catch (err) {
+      setPullState({ kind: 'error', msg: String(err instanceof Error ? err.message : err).slice(0, 200) });
+    }
+  };
 
   useEffect(() => {
     if (!project?.localPath) return;
@@ -109,11 +136,41 @@ export function ProjectSettings({ projectId, onClose }: { projectId: string; onC
           <span className="field-hint" style={{ marginBottom: 8 }}>
             Each task creates an isolated worktree branched from this.
           </span>
-          <BranchPicker
-            value={project.baseBranch || 'main'}
-            branches={branches}
-            onChange={(b) => update({ baseBranch: b })}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <BranchPicker
+              value={project.baseBranch || 'main'}
+              branches={branches}
+              onChange={(b) => update({ baseBranch: b })}
+            />
+            <button
+              type="button"
+              onClick={handleFetchAndPull}
+              disabled={!cwd || pullState.kind === 'running'}
+              title={`git fetch --all --prune && git checkout ${baseBranch} && git pull origin ${baseBranch}`}
+              style={{
+                padding: '6px 12px',
+                background: 'var(--bg-chip)',
+                border: '1px solid #27272a',
+                borderRadius: 8,
+                color: 'var(--fg-muted)',
+                fontSize: 12,
+                cursor: !cwd || pullState.kind === 'running' ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: !cwd || pullState.kind === 'running' ? 0.6 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              {pullState.kind === 'running' ? '↻ 최신화 중...' : `↓ Fetch + Pull ${baseBranch}`}
+            </button>
+            {pullState.kind === 'ok' && <span style={{ fontSize: 11, color: '#10b981' }}>✓ {pullState.msg}</span>}
+            {pullState.kind === 'error' && (
+              <span style={{ fontSize: 11, color: '#ef4444', wordBreak: 'break-all' }} title={pullState.msg}>
+                ✗ {pullState.msg}
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ height: 1, background: 'var(--border-subtle)', margin: '12px 0' }} />
