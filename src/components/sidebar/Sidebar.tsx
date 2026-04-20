@@ -14,7 +14,7 @@ import { SelectionActionsPanel } from './SelectionActionsPanel';
 import { TodaySummary } from './TodaySummary';
 import { useResetSelectedTasks } from './useResetSelectedTasks';
 import { messageCache } from '../../utils/chatState';
-import type { Task } from '../../types/task';
+import type { Task, PipelinePhase } from '../../types/task';
 
 // Tauri API 동적 import (CLAUDE.md 규칙 + quality gate).
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -193,7 +193,29 @@ export function Sidebar() {
           </>
         )}
 
-        <DoneTasksList tasks={doneList} onUndone={(id) => setTaskStatus(id, 'waiting')} />
+        <DoneTasksList
+          tasks={doneList}
+          onUndone={(id) => {
+            setTaskStatus(id, 'waiting');
+            const cur = useTaskStore.getState().tasks.find((t) => t.id === id);
+            if (cur?.pipeline?.enabled) {
+              const phases = { ...cur.pipeline.phases };
+              const snap = cur.pipeline.completeSnapshot ?? {};
+              for (const key of Object.keys(phases) as PipelinePhase[]) {
+                const entry = phases[key];
+                const restore = snap[key] ?? 'pending';
+                phases[key] = {
+                  ...entry,
+                  status: restore,
+                  completedAt: restore === 'done' ? entry?.completedAt : undefined,
+                };
+              }
+              useTaskStore
+                .getState()
+                .updateTask(id, { pipeline: { ...cur.pipeline, phases, completeSnapshot: undefined } });
+            }
+          }}
+        />
       </div>
 
       <SelectionActionsPanel

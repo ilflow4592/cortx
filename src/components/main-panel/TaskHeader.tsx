@@ -3,7 +3,7 @@
  *
  * 윈도우 드래그/더블클릭 최대화 영역도 포함. MainPanel에서 ~100줄을 분리.
  */
-import { Play, Pause, Check, Trash2, RotateCcw, Undo2 } from 'lucide-react';
+import { Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
 import type { Task, InterruptReason, PhaseStatus, PipelinePhase } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
 import { useContextHistoryStore } from '../../stores/contextHistoryStore';
@@ -116,7 +116,7 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
             <Play size={12} strokeWidth={1.5} /> {t('action.resume')}
           </button>
         )}
-        {task.status !== 'done' ? (
+        {task.status !== 'done' && (
           <button
             className="mh-btn done"
             onClick={() => {
@@ -142,38 +142,6 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
             }}
           >
             <Check size={12} strokeWidth={1.5} /> {t('action.done')}
-          </button>
-        ) : (
-          <button
-            className="mh-btn"
-            style={{
-              background: 'none',
-              border: '1px solid var(--border-strong)',
-              color: 'var(--fg-secondary)',
-            }}
-            onClick={() => {
-              setTaskStatus(task.id, 'waiting');
-              const cur = useTaskStore.getState().tasks.find((tt) => tt.id === task.id);
-              if (cur?.pipeline?.enabled) {
-                const phases = { ...cur.pipeline.phases };
-                const snap = cur.pipeline.completeSnapshot ?? {};
-                for (const key of Object.keys(phases) as PipelinePhase[]) {
-                  const entry = phases[key];
-                  const restore = snap[key] ?? 'pending';
-                  phases[key] = {
-                    ...entry,
-                    status: restore,
-                    completedAt: restore === 'done' ? entry?.completedAt : undefined,
-                  };
-                }
-                updateTask(task.id, {
-                  pipeline: { ...cur.pipeline, phases, completeSnapshot: undefined },
-                });
-              }
-            }}
-            title="완료 취소 → 이전 상태로 복원"
-          >
-            <Undo2 size={12} strokeWidth={1.5} /> 완료 취소
           </button>
         )}
         <button
