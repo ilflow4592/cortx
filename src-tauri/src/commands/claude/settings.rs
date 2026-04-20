@@ -67,7 +67,8 @@ pub fn claude_cli_settings_write(
         }
     }
     if let Some(e) = effort_level.as_deref() {
-        if !matches!(e, "low" | "medium" | "high" | "max") {
+        // Opus 는 xhigh 추가 지원. 여기선 union 으로 허용 — 잘못된 조합은 CLI 가 거부.
+        if !matches!(e, "low" | "medium" | "high" | "xhigh" | "max") {
             return Err(format!("invalid effort level: {e}"));
         }
     }

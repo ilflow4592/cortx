@@ -10,6 +10,7 @@ import {
   modelVersionFor,
   MODEL_ALIAS_TO_LABEL,
   MODEL_VERSIONS,
+  effortLevelsFor,
   type EffortLevel,
 } from '../../constants/pipeline';
 import type { ClaudeCliSettings } from '../../types/generated/ClaudeCliSettings';
@@ -142,8 +143,11 @@ export function ChatInput({
 
   const handleChangeModel = useCallback(
     (m: ModelAlias) => {
-      setCliSettings((s) => ({ ...(s ?? {}), model: m }));
-      void writeCliSettings(m, cliEffort);
+      // 새 model 이 현재 effort 를 지원하지 않으면 'high' 로 폴백 (공통 가용 최대치).
+      const allowed = effortLevelsFor(m);
+      const nextEffort: EffortLevel = allowed.includes(cliEffort) ? cliEffort : 'high';
+      setCliSettings((s) => ({ ...(s ?? {}), model: m, effortLevel: nextEffort }));
+      void writeCliSettings(m, nextEffort);
     },
     [cliEffort],
   );

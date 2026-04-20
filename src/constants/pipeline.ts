@@ -62,8 +62,17 @@ export const MODEL_ALIAS_TO_LABEL: Record<string, string> = {
   haiku: 'Haiku',
 };
 
-export const EFFORT_LEVELS = ['low', 'medium', 'high', 'max'] as const;
-export type EffortLevel = (typeof EFFORT_LEVELS)[number];
+/**
+ * Effort 레벨. Opus 는 5단계 (xhigh 추가), Sonnet/Haiku 는 4단계.
+ * CLI 가 model-specific 하게 검증하므로 UI 도 분기.
+ */
+export const EFFORT_LEVELS_OPUS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const EFFORT_LEVELS_OTHER = ['low', 'medium', 'high', 'max'] as const;
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export function effortLevelsFor(alias: string | null | undefined): readonly EffortLevel[] {
+  return alias === 'opus' ? EFFORT_LEVELS_OPUS : EFFORT_LEVELS_OTHER;
+}
 
 /**
  * 단계별 effort 레벨 — runPipeline 에서 `--effort` 플래그로 CLI 에 전달되는 값과

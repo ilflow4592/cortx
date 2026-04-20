@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
-import { MODEL_VERSIONS, MODEL_ALIAS_TO_LABEL, EFFORT_LEVELS, type EffortLevel } from '../../constants/pipeline';
+import { MODEL_VERSIONS, MODEL_ALIAS_TO_LABEL, effortLevelsFor, type EffortLevel } from '../../constants/pipeline';
 
 export type ModelAlias = 'opus' | 'sonnet' | 'haiku';
 
@@ -122,13 +122,21 @@ export function ModelPicker({ model, effort, onChangeModel, onChangeEffort, onCl
       >
         Effort
       </div>
-      <EffortStepper active={activeEffort} onChange={onChangeEffort} />
+      <EffortStepper active={activeEffort} levels={effortLevelsFor(activeModel)} onChange={onChangeEffort} />
     </div>
   );
 }
 
-function EffortStepper({ active, onChange }: { active: EffortLevel; onChange: (e: EffortLevel) => void }) {
-  const activeIdx = EFFORT_LEVELS.indexOf(active);
+function EffortStepper({
+  active,
+  levels,
+  onChange,
+}: {
+  active: EffortLevel;
+  levels: readonly EffortLevel[];
+  onChange: (e: EffortLevel) => void;
+}) {
+  const activeIdx = Math.max(0, levels.indexOf(active));
   return (
     <div style={{ padding: '0 10px 8px', position: 'relative' }}>
       <div style={{ position: 'relative', height: 28 }}>
@@ -150,7 +158,7 @@ function EffortStepper({ active, onChange }: { active: EffortLevel; onChange: (e
             position: 'absolute',
             top: 13,
             left: 7,
-            width: `calc((100% - 14px) * ${activeIdx} / ${EFFORT_LEVELS.length - 1})`,
+            width: `calc((100% - 14px) * ${activeIdx} / ${levels.length - 1})`,
             height: 2,
             background: 'var(--accent-bright)',
             borderRadius: 1,
@@ -166,7 +174,7 @@ function EffortStepper({ active, onChange }: { active: EffortLevel; onChange: (e
             height: '100%',
           }}
         >
-          {EFFORT_LEVELS.map((lv, i) => {
+          {levels.map((lv, i) => {
             const filled = i <= activeIdx;
             const isActive = i === activeIdx;
             return (
@@ -202,11 +210,11 @@ function EffortStepper({ active, onChange }: { active: EffortLevel; onChange: (e
           color: 'var(--fg-muted)',
         }}
       >
-        {EFFORT_LEVELS.map((lv) => (
+        {levels.map((lv) => (
           <span
             key={lv}
             style={{
-              width: 40,
+              flex: 1,
               textAlign: 'center',
               color: lv === active ? 'var(--accent-bright)' : 'var(--fg-muted)',
               fontWeight: lv === active ? 600 : 400,
