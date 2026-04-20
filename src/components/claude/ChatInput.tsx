@@ -4,14 +4,16 @@ import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
 import type { PipelineState, PipelinePhase } from '../../types/task';
 import { filterSlashCommandsByPipeline, isPipelineCommandRunning } from './pipelineCommandFilter';
-import { PHASE_MODELS, PHASE_EFFORT, modelVersionFor } from '../../constants/pipeline';
+import {
+  PHASE_MODELS,
+  PHASE_EFFORT,
+  modelVersionFor,
+  MODEL_ALIAS_TO_LABEL,
+  MODEL_VERSIONS,
+  type EffortLevel,
+} from '../../constants/pipeline';
 import type { ClaudeCliSettings } from '../../types/generated/ClaudeCliSettings';
-
-const MODEL_ALIAS_LABEL: Record<string, string> = {
-  opus: 'Opus',
-  sonnet: 'Sonnet',
-  haiku: 'Haiku',
-};
+import { ModelPicker, type ModelAlias } from './ModelPicker';
 
 async function fetchCliSettings(): Promise<ClaudeCliSettings | null> {
   try {
@@ -19,6 +21,15 @@ async function fetchCliSettings(): Promise<ClaudeCliSettings | null> {
     return await mod.invoke<ClaudeCliSettings>('claude_cli_settings_read');
   } catch {
     return null;
+  }
+}
+
+async function writeCliSettings(model: ModelAlias | null, effortLevel: EffortLevel | null): Promise<void> {
+  try {
+    const mod = await import('@tauri-apps/api/core');
+    await mod.invoke('claude_cli_settings_write', { model, effortLevel });
+  } catch {
+    /* best effort */
   }
 }
 
@@ -63,6 +74,7 @@ export function ChatInput({
   const [slashIndex, setSlashIndex] = useState(0);
   const [showClearHint, setShowClearHint] = useState(false);
   const [cliSettings, setCliSettings] = useState<ClaudeCliSettings | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const clearHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = useT();
@@ -103,29 +115,46 @@ export function ChatInput({
     [slashCommands, pipeline],
   );
 
-  // 뱃지 — Cortx 가 모델을 오버라이드하는 단계(dev_plan/implement/review_loop = Sonnet)
-  // 만 명시 표시. 그 외에는 `~/.claude/settings.json` 의 model/effortLevel 을 읽어
-  // "Sonnet · high" 처럼 표시. CLI `/model` 에서 바꾸면 창 focus 시 새로고침.
-  const activeModelBadge = useMemo(() => {
+  // 활성 phase. Cortx 가 Sonnet 강제하는 단계면 뱃지/Picker 는 그걸 우선.
+  const activePhase = useMemo(() => {
     const phases = pipeline?.phases;
-    const activePhase = (
+    return (
       phases ? Object.keys(phases).find((p) => phases[p as PipelinePhase]?.status === 'in_progress') : undefined
     ) as PipelinePhase | undefined;
-    const CORTX_OVERRIDE: PipelinePhase[] = ['dev_plan', 'implement', 'review_loop'];
-    if (activePhase && CORTX_OVERRIDE.includes(activePhase)) {
+  }, [pipeline]);
+
+  const cortxOverridePhase = activePhase && ['dev_plan', 'implement', 'review_loop'].includes(activePhase);
+
+  const cliAlias = (cliSettings?.model?.toLowerCase() as ModelAlias | undefined) ?? 'opus';
+  const cliEffort = (cliSettings?.effortLevel as EffortLevel | undefined) ?? 'medium';
+
+  const activeModelBadge = useMemo(() => {
+    if (cortxOverridePhase && activePhase) {
       const model = PHASE_MODELS[activePhase];
       const version = modelVersionFor(model);
       const effort = PHASE_EFFORT[activePhase];
       return effort ? `${model} ${version} · ${effort}` : `${model} ${version}`;
     }
-    const cliModelRaw = cliSettings?.model;
-    const cliModel = cliModelRaw ? (MODEL_ALIAS_LABEL[cliModelRaw.toLowerCase()] ?? cliModelRaw) : null;
-    const cliEffort = cliSettings?.effortLevel;
-    const phaseEffort = activePhase ? PHASE_EFFORT[activePhase] : '';
-    const effort = cliEffort || phaseEffort || '';
-    if (cliModel) return effort ? `${cliModel} · ${effort}` : cliModel;
-    return effort ? `Default · ${effort}` : 'Default';
-  }, [pipeline, cliSettings]);
+    const label = MODEL_ALIAS_TO_LABEL[cliAlias] ?? 'Opus';
+    const version = MODEL_VERSIONS[label] ?? '';
+    return `${label} ${version} · ${cliEffort}`.trim();
+  }, [activePhase, cortxOverridePhase, cliAlias, cliEffort]);
+
+  const handleChangeModel = useCallback(
+    (m: ModelAlias) => {
+      setCliSettings((s) => ({ ...(s ?? {}), model: m }));
+      void writeCliSettings(m, cliEffort);
+    },
+    [cliEffort],
+  );
+
+  const handleChangeEffort = useCallback(
+    (e: EffortLevel) => {
+      setCliSettings((s) => ({ ...(s ?? {}), effortLevel: e }));
+      void writeCliSettings(cliAlias, e);
+    },
+    [cliAlias],
+  );
 
   const filteredCommands = showSlashMenu
     ? pipelineFiltered
@@ -348,25 +377,53 @@ export function ChatInput({
         </button>
       )}
 
-      <div className="model-select" style={{ cursor: 'default' }}>
-        <span
-          style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }}
-        />
-        {activeModelBadge}
-        {contextTotalCount > 0 && (
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="model-select"
+          onClick={() => !cortxOverridePhase && setShowPicker((v) => !v)}
+          disabled={cortxOverridePhase}
+          title={cortxOverridePhase ? 'Pipeline 단계가 모델을 강제 중' : '모델 및 effort 설정'}
+          style={{
+            cursor: cortxOverridePhase ? 'not-allowed' : 'pointer',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            font: 'inherit',
+            color: 'inherit',
+            display: 'inline-flex',
+            alignItems: 'center',
+            opacity: cortxOverridePhase ? 0.7 : 1,
+          }}
+        >
           <span
-            style={{
-              color: 'var(--accent-bright)',
-              marginLeft: 6,
-              fontSize: 10,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
-            <Paperclip size={11} strokeWidth={1.5} />
-            {contextTotalCount}
-          </span>
+            style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 4px #34d399' }}
+          />
+          {activeModelBadge}
+          {contextTotalCount > 0 && (
+            <span
+              style={{
+                color: 'var(--accent-bright)',
+                marginLeft: 6,
+                fontSize: 10,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+              }}
+            >
+              <Paperclip size={11} strokeWidth={1.5} />
+              {contextTotalCount}
+            </span>
+          )}
+        </button>
+        {showPicker && !cortxOverridePhase && (
+          <ModelPicker
+            model={cliAlias}
+            effort={cliEffort}
+            onChangeModel={handleChangeModel}
+            onChangeEffort={handleChangeEffort}
+            onClose={() => setShowPicker(false)}
+          />
         )}
       </div>
 

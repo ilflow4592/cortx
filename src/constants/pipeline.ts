@@ -41,12 +41,11 @@ export const PHASE_MODELS: Record<PipelinePhase, string> = {
 };
 
 /**
- * 모델 계열별 버전 — pipeline 뱃지 표시용. Cortx 가 명시적으로 강제하는 모델에만
- * 적용 (현재 Sonnet 만 해당 — dev_plan/implement/review_loop). 일반 채팅은 CLI
- * `/model` 설정에 위임하므로 version 표시 불가 → "Default" 뱃지로 대체.
- * Anthropic 이 Sonnet/Haiku 를 bump 하면 이 표만 갱신하면 됨.
+ * 모델 계열별 버전 — 뱃지 / Picker 표시용. Anthropic 이 minor 버전을 bump 하면
+ * 이 표만 갱신. (CLI 자체 default 는 그대로 따라가지만 UI 표기는 별도.)
  */
 export const MODEL_VERSIONS: Record<string, string> = {
+  Opus: '4.7',
   Sonnet: '4.6',
   Haiku: '4.5',
 };
@@ -55,6 +54,16 @@ export function modelVersionFor(modelName: string | undefined): string {
   if (!modelName) return '';
   return MODEL_VERSIONS[modelName] ?? '';
 }
+
+/** CLI alias ("opus"/"sonnet"/"haiku") → 표시명 ("Opus 4.7" 등) */
+export const MODEL_ALIAS_TO_LABEL: Record<string, string> = {
+  opus: 'Opus',
+  sonnet: 'Sonnet',
+  haiku: 'Haiku',
+};
+
+export const EFFORT_LEVELS = ['low', 'medium', 'high', 'max'] as const;
+export type EffortLevel = (typeof EFFORT_LEVELS)[number];
 
 /**
  * 단계별 effort 레벨 — runPipeline 에서 `--effort` 플래그로 CLI 에 전달되는 값과
