@@ -115,13 +115,31 @@ Context Pack에 제공된 내용을 읽고 태스크 스펙을 파악합니다.
 - 엣지 케이스
 - 테스트 전략
 
-[PIPELINE:save:done]
-
-### Step 3: 다음 단계 안내
+요약을 다 출력한 뒤 **반드시 아래 안내 문구로 마무리**:
 
 ```
-✅ Grill-me 완료 & 스펙 정리 완료
-
-👉 다음 단계: /pipeline:dev-implement
-(개발 계획 수립 → 사용자 확인 → 구현)
+---
+요약에 대해 질문·수정할 부분 있으면 말씀해주세요. 다음 단계로 넘어가실 땐 `/pipeline:dev-implement` 를 입력하세요.
 ```
+
+⛔ **[PIPELINE:save:done] 마커는 여기서 출력하지 마세요.** save 단계는 `/pipeline:dev-implement` 가 호출될 때 종료됩니다.
+
+### Step 3: 피드백 / 재요약 루프
+
+Step 2 이후 사용자가 `/pipeline:dev-implement` 를 입력할 때까지 이 루프에 머무릅니다.
+
+규칙:
+
+1. **사용자 질문/피드백에 먼저 성실히 답변**하세요. 필요한 경우 기존 요약의 해당 항목을 수정해서 짧게 제시.
+2. 답변 끝에 **반드시** 아래 문장을 덧붙이세요:
+   ```
+   Grill-me 결과 요약을 다시 해드릴까요? (응 → 전체 요약 재출력 / `/pipeline:dev-implement` → 다음 단계)
+   ```
+3. 사용자가 "응", "네", "ㅇ", "yes", "재요약", "다시" 등 긍정 응답을 주면 **Step 2 형식대로 최신 버전의 전체 요약을 다시 출력**. (`[PIPELINE:grill_me:done]` / `[PIPELINE:save:in_progress]` 마커는 한 번만 나갔으므로 재출력하지 않음.)
+4. 사용자가 "아니", "아니요", "괜찮아" 등 부정 응답이면 요약은 생략하고 "다음 단계로 넘어가시려면 `/pipeline:dev-implement` 를 입력해주세요." 한 줄만.
+5. 이 루프에서는 **새 코드 탐색/파일 수정 금지**. 이미 알고 있는 grill-me 맥락 안에서만 답변.
+6. 사용자가 `/pipeline:dev-implement` 를 입력하면 이 세션은 종료됩니다 (Cortx 가 재스폰).
+
+### Step 4: 다음 단계 안내 (참고)
+
+save 단계는 `/pipeline:dev-implement` 스킬 시작부에서 `[PIPELINE:save:done]` 로 닫힙니다. 이 스킬에서는 save 를 완료 처리하지 않습니다.

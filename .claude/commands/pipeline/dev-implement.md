@@ -58,6 +58,7 @@
 
 ### Step 1: 개발 계획 수립
 
+[PIPELINE:save:done]
 [PIPELINE:dev_plan:in_progress]
 
 **스펙 입력**: 이 메시지 상단의 두 섹션이 완전한 입력입니다:
