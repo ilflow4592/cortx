@@ -11,12 +11,10 @@ import { ToolBar } from './changes-view/ToolBar';
 export function ChangesView({
   cwd,
   branchName,
-  baseBranch,
   onOpenFile,
 }: {
   cwd: string;
   branchName: string;
-  baseBranch?: string;
   onOpenFile?: (path: string) => void;
 }) {
   const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([]);
@@ -35,14 +33,14 @@ export function ChangesView({
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
-        const files = await fetchChangedFiles(cwd, baseBranch);
+        const files = await fetchChangedFiles(cwd);
         setChangedFiles(files);
       } catch {
         /* skip */
       }
       setLoading(false);
     },
-    [cwd, baseBranch],
+    [cwd],
   );
 
   useEffect(() => {
@@ -69,15 +67,16 @@ export function ChangesView({
     if (!confirmDiscard) return;
     if (confirmDiscard.type === 'file' && confirmDiscard.path) {
       const escaped = confirmDiscard.path.replace(/'/g, "'\\''");
-      // Try unstaged first, then revert committed changes
-      await run(`git checkout -- '${escaped}' 2>/dev/null`);
-      await run(`git checkout origin/develop -- '${escaped}' 2>/dev/null`);
+      // tracked 파일: HEAD 로 복원 (staged + unstaged 동시 리셋).
+      // untracked 신규 파일: HEAD 복원 실패 → 물리 삭제.
+      await run(
+        `git ls-files --error-unmatch '${escaped}' >/dev/null 2>&1 && git checkout HEAD -- '${escaped}' 2>/dev/null || rm -f '${escaped}' 2>/dev/null`,
+      );
     } else if (confirmDiscard.type === 'all') {
-      // Reset all: unstaged + staged + committed (back to develop base)
-      await run(`git checkout -- . 2>/dev/null`);
+      // working tree 전체 초기화 — HEAD 기준 hard reset + untracked 제거.
+      // 로컬 커밋은 유지, tracked 변경만 되돌림. `-x` 없어서 .gitignore 된 파일은 보존.
+      await run(`git reset --hard HEAD 2>/dev/null`);
       await run(`git clean -fd 2>/dev/null`);
-      await run(`git reset origin/develop 2>/dev/null || git reset HEAD~1 2>/dev/null`);
-      await run(`git checkout -- . 2>/dev/null`);
     }
     setConfirmDiscard(null);
     await loadChanges(true);
@@ -88,7 +87,7 @@ export function ChangesView({
     setViewMode(mode);
 
     if (mode === 'diff') {
-      const diff = await fetchFileDiff(cwd, file, baseBranch);
+      const diff = await fetchFileDiff(cwd, file);
       setDiffHunks(parseDiff(diff));
       setFileContent(null);
     } else {
