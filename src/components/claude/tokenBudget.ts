@@ -6,7 +6,7 @@
  * - 한글: 약 2-3 chars = 1 token
  * - 코드: 약 3 chars = 1 token
  *
- * Anthropic Opus 4.6 컨텍스트 한계 1M, 안전 기본값 200K.
+ * Anthropic Opus 4.7 (1M context) 기준, 안전 기본값 200K.
  */
 
 export interface TokenBudgetCheck {

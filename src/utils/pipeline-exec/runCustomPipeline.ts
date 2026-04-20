@@ -140,7 +140,7 @@ async function resolveSkillBody(skillRef: CustomSkillRef, cwd: string | undefine
 function modelIdFromAlias(alias: string | undefined): string | null {
   switch (alias) {
     case 'Opus':
-      return 'claude-opus-4-6';
+      return 'claude-opus-4-7';
     case 'Sonnet':
       return 'claude-sonnet-4-6';
     case 'Haiku':

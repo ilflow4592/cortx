@@ -125,7 +125,7 @@ const handlers: Record<BuiltinCommandName, BuiltinHandler> = {
   model: async ({ taskId, sysMsg }) => {
     const task = useTaskStore.getState().tasks.find((t) => t.id === taskId);
     const isImpl = task?.pipeline?.phases?.implement?.status === 'in_progress';
-    const model = isImpl ? 'claude-sonnet-4-6 (Implement phase)' : 'claude-opus-4-6 (default)';
+    const model = isImpl ? 'claude-sonnet-4-6 (Implement phase)' : 'claude-opus-4-7 (default)';
     sysMsg(`**Current model:** ${model}`);
   },
 

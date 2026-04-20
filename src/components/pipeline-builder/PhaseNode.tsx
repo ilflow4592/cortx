@@ -4,6 +4,7 @@ import { X, GripVertical } from 'lucide-react';
 import type { CustomPhase, CustomSkillRef } from '../../types/customPipeline';
 import { DND_SKILL_MIME, DND_STACKED_SKILL_MIME, DND_PHASE_MIME } from './dragTypes';
 import { setDragPayload, getDragPayload, parseDragJson } from './dndUtils';
+import { modelVersionFor } from '../../constants/pipeline';
 
 interface Props {
   phase: CustomPhase;
@@ -174,7 +175,7 @@ export function PhaseNode({ phase, selected, disabled, onSelect, onSkillsChange,
               background: phase.model === 'Opus' ? 'rgba(171,152,199,0.08)' : 'var(--accent-bg)',
             }}
           >
-            {phase.model} 4.6 · {phase.effort || 'medium'}
+            {phase.model} {modelVersionFor(phase.model)} · {phase.effort || 'medium'}
           </span>
         )}
         {phase.permissionMode === 'plan' && (

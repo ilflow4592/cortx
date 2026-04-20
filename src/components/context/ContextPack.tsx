@@ -26,7 +26,7 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 const MODEL_OPTIONS: ModelOption[] = [
   { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
   { value: 'claude-sonnet-4-6', label: 'Sonnet' },
-  { value: 'claude-opus-4-6', label: 'Opus' },
+  { value: 'claude-opus-4-7', label: 'Opus' },
 ];
 
 function sourceIcon(t: string) {

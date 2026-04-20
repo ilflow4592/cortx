@@ -5,6 +5,7 @@ import type { PipelineState } from '../../../types/task';
 import type { CustomPipelineConfig, CustomSkillStatus, CustomSkillRef } from '../../../types/customPipeline';
 import { readCustomPipeline } from '../../../services/customPipelineStore';
 import { logger } from '../../../utils/logger';
+import { modelVersionFor } from '../../../constants/pipeline';
 
 function phaseIcon(status: CustomSkillStatus): ReactNode {
   switch (status) {
@@ -167,7 +168,7 @@ export function CustomPhasesList({ pipeline, cwd }: Props) {
                       background: phase.model === 'Opus' ? 'rgba(171,152,199,0.08)' : 'var(--accent-bg)',
                     }}
                   >
-                    {phase.model} 4.6 · {phase.effort ?? 'medium'}
+                    {phase.model} {modelVersionFor(phase.model)} · {phase.effort ?? 'medium'}
                   </span>
                 )}
                 {phase.permissionMode === 'plan' && (

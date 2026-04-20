@@ -40,8 +40,20 @@ export const PHASE_MODELS: Record<PipelinePhase, string> = {
   done: '-',
 };
 
-/** Model 세대 버전 — UI 뱃지 표시용. runPipeline/Rust 실제 모델 ID 와 동기화 유지. */
-export const MODEL_VERSION = '4.6';
+/** 모델 계열별 버전 — UI 뱃지 표시용. Rust 실제 모델 ID 와 동기화 유지. */
+export const MODEL_VERSIONS: Record<string, string> = {
+  Opus: '4.7',
+  Sonnet: '4.6',
+  Haiku: '4.5',
+};
+
+/** 일반 채팅 기본 모델 버전 (Opus 4.7 / 1M context). pipeline 비활성 뱃지 fallback. */
+export const MODEL_VERSION = MODEL_VERSIONS.Opus;
+
+export function modelVersionFor(modelName: string | undefined): string {
+  if (!modelName) return MODEL_VERSION;
+  return MODEL_VERSIONS[modelName] ?? MODEL_VERSION;
+}
 
 /**
  * 단계별 effort 레벨 — runPipeline 에서 `--effort` 플래그로 CLI 에 전달되는 값과

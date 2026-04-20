@@ -150,7 +150,7 @@ impl PtyManager {
         let files_owned: Vec<String> = context_files.to_vec();
         let summary_owned = context_summary.to_string();
         let session_id_owned = session_id.map(|s| s.to_string());
-        let model_owned = model.unwrap_or("claude-opus-4-6").to_string();
+        let model_owned = model.unwrap_or("claude-opus-4-7").to_string();
         let effort_owned = effort.map(|s| s.to_string());
         let disallowed_tools_owned: Vec<String> = disallowed_tools.to_vec();
         // None 이면 기존 동작(bypassPermissions) 유지. "plan" 지정 시 Claude CLI 가

@@ -4,7 +4,7 @@ import { useT } from '../../i18n';
 import type { SlashCommand } from './types';
 import type { PipelineState, PipelinePhase } from '../../types/task';
 import { filterSlashCommandsByPipeline, isPipelineCommandRunning } from './pipelineCommandFilter';
-import { PHASE_MODELS, PHASE_EFFORT, MODEL_VERSION } from '../../constants/pipeline';
+import { PHASE_MODELS, PHASE_EFFORT, MODEL_VERSION, modelVersionFor } from '../../constants/pipeline';
 
 // Pipeline command priority order for the slash menu
 const PIPELINE_ORDER: Record<string, number> = {
@@ -70,7 +70,7 @@ export function ChatInput({
   );
 
   // 활성 단계에서 사용 중인 모델/버전/effort 를 뱃지에 표시. 파이프라인 비활성이면
-  // Opus (grill_me 기본) 을 기본값으로. 하드코딩된 "Opus 4.6" 대체.
+  // Opus (grill_me 기본) 을 기본값으로.
   const activeModelBadge = useMemo(() => {
     const phases = pipeline?.phases;
     const activePhase = (
@@ -81,7 +81,8 @@ export function ChatInput({
     const model = PHASE_MODELS[phase];
     const effort = PHASE_EFFORT[phase];
     if (!model || model === '-') return `Opus ${MODEL_VERSION}`;
-    return effort ? `${model} ${MODEL_VERSION} · ${effort}` : `${model} ${MODEL_VERSION}`;
+    const version = modelVersionFor(model);
+    return effort ? `${model} ${version} · ${effort}` : `${model} ${version}`;
   }, [pipeline]);
 
   const filteredCommands = showSlashMenu
