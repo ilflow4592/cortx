@@ -141,10 +141,10 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
   };
 
   return (
-    <ModalBackdrop onClose={onClose} ariaLabel="New Task">
+    <ModalBackdrop onClose={onClose} ariaLabel="New Task" dismissLocked>
       <div className="modal-header">
         <h2>New Task</h2>
-        <button className="modal-close" onClick={onClose}>
+        <button className="modal-close" onClick={onClose} disabled={creating} aria-label="Close">
           ×
         </button>
       </div>
@@ -171,7 +171,13 @@ export function NewTaskModal({ onClose, defaultProjectId }: { onClose: () => voi
           <button type="button" className="btn btn-ghost" onClick={onClose} disabled={creating}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary" disabled={!title.trim() || creating}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={!title.trim() || creating}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            {creating && <span className="spinner spinner-sm" aria-hidden="true" />}
             {creating ? 'Creating...' : 'Create Task'}
           </button>
         </div>

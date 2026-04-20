@@ -24,6 +24,14 @@
   animation: spin 0.6s linear infinite;
   flex-shrink: 0;
 }
+.spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+  /* 버튼 내부에선 accent 대신 currentColor 사용 — 배경 대비 가시성 확보 */
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+}
 .spin {
   animation: spin 1s linear infinite;
 }
