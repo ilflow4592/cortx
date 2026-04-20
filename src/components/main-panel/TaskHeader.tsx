@@ -4,7 +4,7 @@
  * 윈도우 드래그/더블클릭 최대화 영역도 포함. MainPanel에서 ~100줄을 분리.
  */
 import { Play, Pause, Check, Trash2, RotateCcw, Undo2 } from 'lucide-react';
-import type { Task, InterruptReason } from '../../types/task';
+import type { Task, InterruptReason, PhaseStatus } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
 import { useContextHistoryStore } from '../../stores/contextHistoryStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -123,13 +123,17 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
               setTaskStatus(task.id, 'done');
               const cur = useTaskStore.getState().tasks.find((tt) => tt.id === task.id);
               if (cur?.pipeline?.enabled) {
+                const now = new Date().toISOString();
                 const phases = { ...cur.pipeline.phases };
-                phases.done = {
-                  ...phases.done,
-                  status: 'done',
-                  completedAt: new Date().toISOString(),
+                const snapshot: Partial<Record<keyof typeof phases, PhaseStatus>> = {
+                  review_loop: phases.review_loop?.status ?? 'pending',
+                  done: phases.done?.status ?? 'pending',
                 };
-                updateTask(task.id, { pipeline: { ...cur.pipeline, phases } });
+                phases.review_loop = { ...phases.review_loop, status: 'done', completedAt: now };
+                phases.done = { ...phases.done, status: 'done', completedAt: now };
+                updateTask(task.id, {
+                  pipeline: { ...cur.pipeline, phases, completeSnapshot: snapshot },
+                });
               }
             }}
           >
@@ -148,11 +152,25 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
               const cur = useTaskStore.getState().tasks.find((tt) => tt.id === task.id);
               if (cur?.pipeline?.enabled) {
                 const phases = { ...cur.pipeline.phases };
-                phases.done = { ...phases.done, status: 'pending', completedAt: undefined };
-                updateTask(task.id, { pipeline: { ...cur.pipeline, phases } });
+                const snap = cur.pipeline.completeSnapshot ?? {};
+                const restoreReview: PhaseStatus = snap.review_loop ?? 'in_progress';
+                const restoreDone: PhaseStatus = snap.done ?? 'pending';
+                phases.review_loop = {
+                  ...phases.review_loop,
+                  status: restoreReview,
+                  completedAt: restoreReview === 'done' ? phases.review_loop?.completedAt : undefined,
+                };
+                phases.done = {
+                  ...phases.done,
+                  status: restoreDone,
+                  completedAt: restoreDone === 'done' ? phases.done?.completedAt : undefined,
+                };
+                updateTask(task.id, {
+                  pipeline: { ...cur.pipeline, phases, completeSnapshot: undefined },
+                });
               }
             }}
-            title="완료 취소 → waiting"
+            title="완료 취소 → 이전 상태로 복원"
           >
             <Undo2 size={12} strokeWidth={1.5} /> 완료 취소
           </button>

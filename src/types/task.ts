@@ -93,6 +93,11 @@ export interface PipelineState {
   pipelineMode?: 'builtin' | 'custom';
   /** 커스텀 모드일 때 실행 중인 파이프라인 런타임 상태 */
   activeCustomPipeline?: import('./customPipeline').ActiveCustomPipeline;
+  /**
+   * 상단 "완료" 버튼으로 Review/Done 을 강제 완료했을 때의 이전 상태 스냅샷.
+   * "완료 취소" 시 이 값으로 복원. 미존재 = 아직 강제 완료 적용된 적 없음.
+   */
+  completeSnapshot?: Partial<Record<PipelinePhase, PhaseStatus>>;
 }
 
 /**
