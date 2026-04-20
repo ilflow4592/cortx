@@ -3,7 +3,7 @@
  *
  * 윈도우 드래그/더블클릭 최대화 영역도 포함. MainPanel에서 ~100줄을 분리.
  */
-import { Play, Pause, Check, Trash2, RotateCcw } from 'lucide-react';
+import { Play, Pause, Check, Trash2, RotateCcw, Undo2 } from 'lucide-react';
 import type { Task, InterruptReason } from '../../types/task';
 import { useTaskStore } from '../../stores/taskStore';
 import { useContextHistoryStore } from '../../stores/contextHistoryStore';
@@ -116,9 +116,45 @@ export function TaskHeader({ task, onPauseRequest, onDeleteRequest }: Props) {
             <Play size={12} strokeWidth={1.5} /> {t('action.resume')}
           </button>
         )}
-        {task.status !== 'done' && (
-          <button className="mh-btn done" onClick={() => setTaskStatus(task.id, 'done')}>
+        {task.status !== 'done' ? (
+          <button
+            className="mh-btn done"
+            onClick={() => {
+              setTaskStatus(task.id, 'done');
+              const cur = useTaskStore.getState().tasks.find((tt) => tt.id === task.id);
+              if (cur?.pipeline?.enabled) {
+                const phases = { ...cur.pipeline.phases };
+                phases.done = {
+                  ...phases.done,
+                  status: 'done',
+                  completedAt: new Date().toISOString(),
+                };
+                updateTask(task.id, { pipeline: { ...cur.pipeline, phases } });
+              }
+            }}
+          >
             <Check size={12} strokeWidth={1.5} /> {t('action.done')}
+          </button>
+        ) : (
+          <button
+            className="mh-btn"
+            style={{
+              background: 'none',
+              border: '1px solid var(--border-strong)',
+              color: 'var(--fg-secondary)',
+            }}
+            onClick={() => {
+              setTaskStatus(task.id, 'waiting');
+              const cur = useTaskStore.getState().tasks.find((tt) => tt.id === task.id);
+              if (cur?.pipeline?.enabled) {
+                const phases = { ...cur.pipeline.phases };
+                phases.done = { ...phases.done, status: 'pending', completedAt: undefined };
+                updateTask(task.id, { pipeline: { ...cur.pipeline, phases } });
+              }
+            }}
+            title="완료 취소 → waiting"
+          >
+            <Undo2 size={12} strokeWidth={1.5} /> 완료 취소
           </button>
         )}
         <button
