@@ -16,7 +16,8 @@ import { isAllowedInSession } from './dangerousCommandAlert';
 import { requestDangerDecision } from './dangerousCommandQueue';
 import { scanSensitivePath, extractToolPaths, isPathOutsideWorkspace } from './fileAccessGuard';
 import { scanNetworkExfil } from './networkExfilGuard';
-import type { Message } from './types';
+import type { Message, RawEvent } from './types';
+import { classifyEvent } from './rawEventFormatter';
 
 export interface ContentBlock {
   type: string;
@@ -80,16 +81,32 @@ export class ClaudeEventProcessor {
   private turnCounter = 0;
   private response = '';
   private ctx: ClaudeEventProcessorContext;
+  /** 다음 commit 시점에 Message에 첨부할 raw 이벤트 버퍼. 확장 로그 뷰에서 사용. */
+  private pendingEvents: RawEvent[] = [];
 
   constructor(ctx: ClaudeEventProcessorContext) {
     this.ctx = ctx;
   }
 
   process(line: string): void {
+    let parsed: unknown;
+    let parseOk = true;
     try {
-      const evt = JSON.parse(line) as ClaudeEvent;
-      this.dispatch(evt);
+      parsed = JSON.parse(line);
     } catch {
+      parseOk = false;
+    }
+
+    if (parseOk) {
+      this.pendingEvents.push({
+        kind: classifyEvent(parsed),
+        raw: line,
+        parsed,
+        timestamp: Date.now(),
+      });
+      this.dispatch(parsed as ClaudeEvent);
+    } else {
+      this.pendingEvents.push({ kind: 'plain', raw: line, timestamp: Date.now() });
       this.handlePlainText(line);
     }
   }
@@ -259,10 +276,20 @@ export class ClaudeEventProcessor {
         const resultId = `${this.ctx.reqId}-result`;
         this.response = resultText;
         const content = this.response;
+        const events = this.pendingEvents;
+        this.pendingEvents = [];
         this.ctx.setMessages((prev) => {
           const filtered = prev.filter((m) => m.id !== this.ctx.activityId);
-          return [...filtered, { id: resultId, role: 'assistant', content }];
+          return [...filtered, { id: resultId, role: 'assistant', content, rawEvents: events }];
         });
+      } else if (this.pendingEvents.length > 0 && this.currentMsgId) {
+        // 동일 텍스트 → 새 메시지는 만들지 않지만, 누적된 result 이벤트는 마지막 메시지에 붙여 로그 확장 뷰에서 확인 가능하게.
+        const events = this.pendingEvents;
+        this.pendingEvents = [];
+        const msgId = this.currentMsgId;
+        this.ctx.setMessages((prev) =>
+          prev.map((m) => (m.id === msgId ? { ...m, rawEvents: [...(m.rawEvents ?? []), ...events] } : m)),
+        );
       }
     }
 
@@ -297,12 +324,16 @@ export class ClaudeEventProcessor {
     }
     const msgId = this.currentMsgId;
     const content = this.response;
+    const events = this.pendingEvents;
+    this.pendingEvents = [];
     this.ctx.setMessages((prev) => {
       const existing = prev.find((m) => m.id === msgId);
       if (existing) {
-        return prev.map((m) => (m.id === msgId ? { ...m, content } : m));
+        return prev.map((m) =>
+          m.id === msgId ? { ...m, content, rawEvents: [...(m.rawEvents ?? []), ...events] } : m,
+        );
       }
-      return [...prev, { id: msgId, role: 'assistant', content }];
+      return [...prev, { id: msgId, role: 'assistant', content, rawEvents: events }];
     });
   }
 
@@ -310,13 +341,17 @@ export class ClaudeEventProcessor {
     const msgId = this.currentMsgId;
     const content = this.response;
     const activityId = this.ctx.activityId;
+    const events = this.pendingEvents;
+    this.pendingEvents = [];
     this.ctx.setMessages((prev) => {
       const existing = prev.find((m) => m.id === msgId);
       if (existing) {
-        return prev.map((m) => (m.id === msgId ? { ...m, content } : m));
+        return prev.map((m) =>
+          m.id === msgId ? { ...m, content, rawEvents: [...(m.rawEvents ?? []), ...events] } : m,
+        );
       }
       const filtered = prev.filter((m) => m.id !== activityId);
-      return [...filtered, { id: msgId, role: 'assistant', content }];
+      return [...filtered, { id: msgId, role: 'assistant', content, rawEvents: events }];
     });
   }
 }

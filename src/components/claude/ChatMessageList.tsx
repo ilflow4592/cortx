@@ -1,11 +1,12 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, ChevronRight } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useT } from '../../i18n';
-import type { Message } from './types';
+import type { Message, RawEvent } from './types';
 import type { PipelineState } from '../../types/task';
 import { PlanApprovalCard } from './PlanApprovalCard';
+import { colorForKind, summarizeEvent } from './rawEventFormatter';
 
 /**
  * Live elapsed-seconds counter for an activity message. Updates every second
@@ -43,6 +44,8 @@ interface ChatMessageListProps {
   endRef: React.RefObject<HTMLDivElement | null>;
   taskId: string;
   pipeline?: PipelineState;
+  expandedMessageIds: Set<string>;
+  onToggleRawEvents: (messageId: string) => void;
 }
 
 /**
@@ -60,6 +63,8 @@ export function ChatMessageList({
   endRef,
   taskId,
   pipeline,
+  expandedMessageIds,
+  onToggleRawEvents,
 }: ChatMessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -136,7 +141,7 @@ export function ChatMessageList({
   return (
     <div ref={parentRef} className="chat-messages" style={{ overflowY: 'auto' }}>
       {messages.map((msg) => (
-        <MessageItem key={msg.id} msg={msg} />
+        <MessageItem key={msg.id} msg={msg} expanded={expandedMessageIds.has(msg.id)} onToggleRaw={onToggleRawEvents} />
       ))}
 
       {showThinking && (
@@ -169,7 +174,15 @@ export function ChatMessageList({
  * so Markdown parsing doesn't run for unchanged messages during streaming.
  */
 const MessageItem = memo(
-  function MessageItem({ msg }: { msg: Message }) {
+  function MessageItem({
+    msg,
+    expanded,
+    onToggleRaw,
+  }: {
+    msg: Message;
+    expanded: boolean;
+    onToggleRaw: (id: string) => void;
+  }) {
     if (msg.role === 'activity') {
       const multiline = msg.content.includes('\n');
       return (
@@ -208,13 +221,47 @@ const MessageItem = memo(
       );
     }
 
+    const rawEventCount = msg.rawEvents?.length ?? 0;
+    const showRawToggle = msg.role === 'assistant' && rawEventCount > 0;
+
     return (
       <div className="msg">
         <div className={`msg-avatar ${msg.role === 'user' ? 'user' : 'ai'}`}>{msg.role === 'user' ? 'U' : 'C'}</div>
         <div className="msg-body">
-          <div className="msg-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>{msg.role === 'user' ? 'You' : 'Claude Code'}</span>
-            <GuardrailMarks marks={msg.guardrailMarks} />
+          <div
+            className="msg-name"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{msg.role === 'user' ? 'You' : 'Claude Code'}</span>
+              <GuardrailMarks marks={msg.guardrailMarks} />
+            </span>
+            {showRawToggle && (
+              <button
+                type="button"
+                onClick={() => onToggleRaw(msg.id)}
+                title={expanded ? 'Collapse raw log (⌘/Ctrl+O)' : 'Expand raw log (⌘/Ctrl+O)'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  fontSize: 10,
+                  padding: '2px 6px',
+                  border: '1px solid var(--border, #333)',
+                  borderRadius: 3,
+                  background: expanded ? 'var(--bg-surface-hover, #2a2a2a)' : 'transparent',
+                  color: 'var(--fg-dim)',
+                  cursor: 'pointer',
+                  fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                }}
+              >
+                <ChevronRight
+                  size={10}
+                  style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}
+                />
+                {rawEventCount} event{rawEventCount === 1 ? '' : 's'}
+              </button>
+            )}
           </div>
           <div className="msg-text" style={{ wordBreak: 'break-word' }}>
             {msg.role === 'assistant' ? (
@@ -223,6 +270,7 @@ const MessageItem = memo(
               <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
             )}
           </div>
+          {showRawToggle && expanded && <RawEventsPanel events={msg.rawEvents!} />}
         </div>
       </div>
     );
@@ -232,8 +280,106 @@ const MessageItem = memo(
     prev.msg.content === next.msg.content &&
     prev.msg.role === next.msg.role &&
     prev.msg.startedAt === next.msg.startedAt &&
-    (prev.msg.guardrailMarks?.length || 0) === (next.msg.guardrailMarks?.length || 0),
+    (prev.msg.guardrailMarks?.length || 0) === (next.msg.guardrailMarks?.length || 0) &&
+    (prev.msg.rawEvents?.length || 0) === (next.msg.rawEvents?.length || 0) &&
+    prev.expanded === next.expanded &&
+    prev.onToggleRaw === next.onToggleRaw,
 );
+
+function RawEventsPanel({ events }: { events: RawEvent[] }) {
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        border: '1px solid var(--border, #333)',
+        borderRadius: 4,
+        background: 'var(--bg-surface, #1a1a1a)',
+        fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+        fontSize: 11,
+      }}
+    >
+      {events.map((ev, i) => (
+        <RawEventRow key={i} event={ev} />
+      ))}
+    </div>
+  );
+}
+
+function RawEventRow({ event }: { event: RawEvent }) {
+  const [open, setOpen] = useState(false);
+  const summary = summarizeEvent(event);
+  const colors = colorForKind(event.kind);
+  return (
+    <div style={{ borderBottom: '1px solid var(--border-subtle, #222)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: '100%',
+          textAlign: 'left',
+          padding: '4px 8px',
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--fg)',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: 'inherit',
+        }}
+      >
+        <ChevronRight size={10} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }} />
+        <span
+          style={{
+            display: 'inline-block',
+            padding: '0 5px',
+            border: `1px solid ${colors.border}`,
+            background: colors.bg,
+            color: colors.fg,
+            borderRadius: 2,
+            fontSize: 9,
+            fontWeight: 600,
+            minWidth: 64,
+            textAlign: 'center',
+          }}
+        >
+          {event.kind}
+        </span>
+        <span
+          style={{
+            color: 'var(--fg-dim)',
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {summary.label}
+          {summary.detail && <span style={{ color: 'var(--fg-faint)' }}> — {summary.detail}</span>}
+        </span>
+      </button>
+      {open && (
+        <pre
+          style={{
+            margin: 0,
+            padding: '6px 10px 10px 26px',
+            maxHeight: 400,
+            overflow: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            color: 'var(--fg-dim)',
+            fontSize: 10.5,
+            lineHeight: 1.5,
+          }}
+        >
+          {summary.pretty}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 const MARK_LABEL: Record<string, { label: string; color: string }> = {
   secret_masked: { label: '🛡 secret masked', color: '#ef4444' },

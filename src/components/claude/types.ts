@@ -5,6 +5,25 @@ export interface GuardrailMark {
   detail?: string;
 }
 
+export type RawEventKind =
+  | 'tool_use'
+  | 'tool_result'
+  | 'thinking'
+  | 'assistant'
+  | 'system'
+  | 'result'
+  | 'error'
+  | 'content_block_delta'
+  | 'plain'
+  | 'unknown';
+
+export interface RawEvent {
+  kind: RawEventKind;
+  raw: string;
+  parsed?: unknown;
+  timestamp: number;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'activity';
@@ -14,6 +33,8 @@ export interface Message {
   startedAt?: number;
   /** 이 메시지에 적용된 guardrail 후처리 — UI에 배지로 표시 */
   guardrailMarks?: GuardrailMark[];
+  /** 이 턴 동안 Claude CLI가 emit한 stream-json 원본 이벤트들 (확장 로그 뷰용) */
+  rawEvents?: RawEvent[];
 }
 
 export interface SlashCommand {

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { useClaudeSession } from './useClaudeSession';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
@@ -23,6 +24,32 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
 
   const pipeline = useTaskStore((s) => s.tasks.find((t) => t.id === taskId)?.pipeline);
 
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(() => new Set());
+
+  const toggleRawEvents = useCallback((messageId: string) => {
+    setExpandedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }, []);
+
+  // Ctrl/Cmd+O: CLI Claude의 "확장 로그" 토글 UX를 재현. 가장 최근 raw 이벤트가 있는
+  // assistant 메시지를 펼치거나 접는다. input에 포커스가 있어도 동작.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== 'o' && e.key !== 'O') return;
+      const target = [...messages].reverse().find((m) => m.role === 'assistant' && (m.rawEvents?.length ?? 0) > 0);
+      if (!target) return;
+      e.preventDefault();
+      toggleRawEvents(target.id);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [messages, toggleRawEvents]);
+
   // The Stop button must stay visible while Claude is actively working.
   // `loading` alone is unreliable: it can flip to false mid-stream due to
   // claude-done firing prematurely or loadingCache sync races. As a defensive
@@ -43,6 +70,8 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
         endRef={endRef}
         taskId={taskId}
         pipeline={pipeline}
+        expandedMessageIds={expandedMessageIds}
+        onToggleRawEvents={toggleRawEvents}
       />
       <ChatInput
         input={input}
