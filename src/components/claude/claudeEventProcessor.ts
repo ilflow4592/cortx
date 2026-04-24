@@ -150,14 +150,18 @@ export class ClaudeEventProcessor {
 
     if (textBlocks.length > 0) {
       const newText = textBlocks.join('');
-      if (!this.currentMsgId) {
-        this.turnCounter++;
-        this.currentMsgId = `${this.ctx.reqId}-turn-${this.turnCounter}`;
-        this.response = this.ctx.processMarkers(newText).trimStart();
-      } else {
-        this.response = this.ctx.processMarkers(this.response + newText).trimStart();
+      // 빈 text 블록(`{type:'text', text:''}`) 은 commit 하지 않음 — 빈 assistant 메시지가
+      // UI에 빈 row로 남는 문제 방지. tool_use 만 있는 이벤트에 섞여 오는 경우가 있음.
+      if (newText) {
+        if (!this.currentMsgId) {
+          this.turnCounter++;
+          this.currentMsgId = `${this.ctx.reqId}-turn-${this.turnCounter}`;
+          this.response = this.ctx.processMarkers(newText).trimStart();
+        } else {
+          this.response = this.ctx.processMarkers(this.response + newText).trimStart();
+        }
+        this.commitAssistantTurn();
       }
-      this.commitAssistantTurn();
     }
 
     if (toolBlocks.length > 0) {
