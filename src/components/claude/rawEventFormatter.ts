@@ -5,7 +5,10 @@
  * tool_use / tool_result / thinking 등은 버린다. 로그 확장 뷰는 버퍼에 저장된
  * raw 이벤트를 여기서 분류·요약한다.
  */
-import type { RawEvent, RawEventKind } from './types';
+import type { RawEvent, RawEventKind, ViolationInfo } from './types';
+import { scanDangerousCommand, extractBashCommand } from './dangerousCommandGuard';
+import { scanSensitivePath, extractToolPaths, isPathOutsideWorkspace } from './fileAccessGuard';
+import { scanNetworkExfil } from './networkExfilGuard';
 
 interface AssistantBlock {
   type?: string;
@@ -166,6 +169,67 @@ export function colorForKind(kind: RawEventKind): { bg: string; fg: string; bord
     default:
       return { bg: 'rgba(100, 116, 139, 0.12)', fg: '#94a3b8', border: '#475569' };
   }
+}
+
+/**
+ * tool_use 이벤트를 기존 가드(dangerousCommand/fileAccess/networkExfil) 에 태워
+ * 위반 목록을 산출. 기존 `claudeEventProcessor.handleAssistant` 의 검출 로직을
+ * RawEvent 단위로 재사용할 수 있게 래핑.
+ */
+export function detectViolations(ev: RawEvent, cwd?: string): ViolationInfo[] {
+  if (ev.kind !== 'tool_use' || !ev.parsed) return [];
+  const blocks = (ev.parsed as { message?: { content?: Array<Record<string, unknown>> } })?.message?.content;
+  if (!Array.isArray(blocks)) return [];
+  const violations: ViolationInfo[] = [];
+
+  for (const block of blocks) {
+    if (block?.type !== 'tool_use') continue;
+    const name = typeof block.name === 'string' ? block.name : '';
+    const input = block.input;
+
+    // Bash — 파괴적 명령
+    const cmd = extractBashCommand(name, input);
+    if (cmd) {
+      for (const m of scanDangerousCommand(cmd)) {
+        violations.push({
+          category: 'dangerous_command',
+          severity: m.severity,
+          description: m.description,
+          detail: m.snippet,
+        });
+      }
+      for (const m of scanNetworkExfil(cmd)) {
+        violations.push({
+          category: 'network_exfil',
+          severity: 'high',
+          description: `외부 호스트 통신: ${m.host}`,
+          detail: m.tool,
+        });
+      }
+    }
+
+    // Read/Edit/Glob/Grep — 민감 파일 + 워크스페이스 경계
+    for (const p of extractToolPaths(name, input)) {
+      for (const m of scanSensitivePath(p)) {
+        violations.push({
+          category: 'sensitive_file_access',
+          severity: m.severity,
+          description: m.description,
+          detail: p,
+        });
+      }
+      if (cwd && isPathOutsideWorkspace(p, cwd)) {
+        violations.push({
+          category: 'workspace_boundary_violation',
+          severity: 'high',
+          description: '워크스페이스 바깥 파일 접근',
+          detail: p,
+        });
+      }
+    }
+  }
+
+  return violations;
 }
 
 function prettify(ev: RawEvent): string {

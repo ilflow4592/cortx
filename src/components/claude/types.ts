@@ -17,11 +17,24 @@ export type RawEventKind =
   | 'plain'
   | 'unknown';
 
+export type ViolationSeverity = 'critical' | 'high' | 'medium';
+
+export interface ViolationInfo {
+  /** 위반 카테고리 — UI 툴팁 & 하이라이트 결정 */
+  category: 'dangerous_command' | 'sensitive_file_access' | 'workspace_boundary_violation' | 'network_exfil';
+  severity: ViolationSeverity;
+  description: string;
+  /** 위반 대상 상세 (예: 경로, 명령 스니펫) */
+  detail?: string;
+}
+
 export interface RawEvent {
   kind: RawEventKind;
   raw: string;
   parsed?: unknown;
   timestamp: number;
+  /** 하네스 가드가 감지한 규칙 위반들 — UI 에서 빨간 하이라이트 + hover 툴팁 */
+  violations?: ViolationInfo[];
 }
 
 export interface Message {

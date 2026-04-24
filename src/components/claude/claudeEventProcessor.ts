@@ -17,7 +17,7 @@ import { requestDangerDecision } from './dangerousCommandQueue';
 import { scanSensitivePath, extractToolPaths, isPathOutsideWorkspace } from './fileAccessGuard';
 import { scanNetworkExfil } from './networkExfilGuard';
 import type { Message, RawEvent } from './types';
-import { classifyEvent } from './rawEventFormatter';
+import { classifyEvent, detectViolations } from './rawEventFormatter';
 
 export interface ContentBlock {
   type: string;
@@ -98,12 +98,14 @@ export class ClaudeEventProcessor {
     }
 
     if (parseOk) {
-      this.pendingEvents.push({
+      const rawEvt = {
         kind: classifyEvent(parsed),
         raw: line,
         parsed,
         timestamp: Date.now(),
-      });
+      };
+      const violations = detectViolations(rawEvt, this.ctx.cwd);
+      this.pendingEvents.push(violations.length > 0 ? { ...rawEvt, violations } : rawEvt);
       this.dispatch(parsed as ClaudeEvent);
     } else {
       this.pendingEvents.push({ kind: 'plain', raw: line, timestamp: Date.now() });

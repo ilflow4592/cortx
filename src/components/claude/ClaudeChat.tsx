@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useClaudeSession } from './useClaudeSession';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
+import { ChatSearchBox } from './ChatSearchBox';
 import { useTaskStore } from '../../stores/taskStore';
 import type { ClaudeChatProps } from './types';
 
@@ -25,6 +26,7 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
   const pipeline = useTaskStore((s) => s.tasks.find((t) => t.id === taskId)?.pipeline);
 
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(() => new Set());
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const toggleRawEvents = useCallback((messageId: string) => {
     setExpandedMessageIds((prev) => {
@@ -40,11 +42,17 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key !== 'o' && e.key !== 'O') return;
-      const target = [...messages].reverse().find((m) => m.role === 'assistant' && (m.rawEvents?.length ?? 0) > 0);
-      if (!target) return;
-      e.preventDefault();
-      toggleRawEvents(target.id);
+      if (e.key === 'o' || e.key === 'O') {
+        const target = [...messages].reverse().find((m) => m.role === 'assistant' && (m.rawEvents?.length ?? 0) > 0);
+        if (!target) return;
+        e.preventDefault();
+        toggleRawEvents(target.id);
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -61,18 +69,21 @@ export function ClaudeChat({ taskId, cwd, onSwitchTab }: ClaudeChatProps) {
 
   return (
     <>
-      <ChatMessageList
-        messages={messages}
-        loading={loading}
-        error={error}
-        contextTotalCount={contextTotalCount}
-        contextFileCount={contextFileCount}
-        endRef={endRef}
-        taskId={taskId}
-        pipeline={pipeline}
-        expandedMessageIds={expandedMessageIds}
-        onToggleRawEvents={toggleRawEvents}
-      />
+      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {searchOpen && <ChatSearchBox onClose={() => setSearchOpen(false)} />}
+        <ChatMessageList
+          messages={messages}
+          loading={loading}
+          error={error}
+          contextTotalCount={contextTotalCount}
+          contextFileCount={contextFileCount}
+          endRef={endRef}
+          taskId={taskId}
+          pipeline={pipeline}
+          expandedMessageIds={expandedMessageIds}
+          onToggleRawEvents={toggleRawEvents}
+        />
+      </div>
       <ChatInput
         input={input}
         loading={isBusy}

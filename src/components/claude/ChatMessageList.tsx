@@ -3,7 +3,7 @@ import { Paperclip, ChevronRight } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useT } from '../../i18n';
-import type { Message, RawEvent } from './types';
+import type { Message, RawEvent, ViolationInfo } from './types';
 import type { PipelineState } from '../../types/task';
 import { PlanApprovalCard } from './PlanApprovalCard';
 import { colorForKind, summarizeEvent } from './rawEventFormatter';
@@ -295,7 +295,8 @@ function RawEventsPanel({ events }: { events: RawEvent[] }) {
         borderRadius: 4,
         background: 'var(--bg-surface, #1a1a1a)',
         fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-        fontSize: 11,
+        fontSize: 12,
+        color: 'var(--fg, #e5e5e5)',
       }}
     >
       {events.map((ev, i) => (
@@ -307,10 +308,35 @@ function RawEventsPanel({ events }: { events: RawEvent[] }) {
 
 function RawEventRow({ event }: { event: RawEvent }) {
   const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(false);
   const summary = summarizeEvent(event);
   const colors = colorForKind(event.kind);
+  const hasViolations = (event.violations?.length ?? 0) > 0;
+  const topSeverity = hasViolations
+    ? event.violations!.reduce<'critical' | 'high' | 'medium'>(
+        (acc, v) => (v.severity === 'critical' ? 'critical' : acc === 'critical' ? acc : v.severity),
+        'medium',
+      )
+    : null;
+  const violationBg =
+    topSeverity === 'critical'
+      ? 'rgba(239, 68, 68, 0.18)'
+      : topSeverity === 'high'
+        ? 'rgba(239, 68, 68, 0.12)'
+        : 'rgba(245, 158, 11, 0.12)';
+  const violationBorder = topSeverity === 'critical' ? '#ef4444' : topSeverity === 'high' ? '#dc2626' : '#f59e0b';
+
   return (
-    <div style={{ borderBottom: '1px solid var(--border-subtle, #222)' }}>
+    <div
+      style={{
+        borderBottom: '1px solid var(--border-subtle, #222)',
+        background: hasViolations ? violationBg : 'transparent',
+        borderLeft: hasViolations ? `3px solid ${violationBorder}` : undefined,
+        position: 'relative',
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -320,7 +346,7 @@ function RawEventRow({ event }: { event: RawEvent }) {
           gap: 6,
           width: '100%',
           textAlign: 'left',
-          padding: '4px 8px',
+          padding: '5px 8px',
           background: 'transparent',
           border: 'none',
           color: 'var(--fg)',
@@ -333,33 +359,53 @@ function RawEventRow({ event }: { event: RawEvent }) {
         <span
           style={{
             display: 'inline-block',
-            padding: '0 5px',
+            padding: '1px 6px',
             border: `1px solid ${colors.border}`,
             background: colors.bg,
             color: colors.fg,
-            borderRadius: 2,
-            fontSize: 9,
-            fontWeight: 600,
-            minWidth: 64,
+            borderRadius: 3,
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: 0.2,
+            minWidth: 72,
             textAlign: 'center',
           }}
         >
           {event.kind}
         </span>
+        {hasViolations && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '1px 6px',
+              background: violationBorder,
+              color: '#fff',
+              borderRadius: 3,
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: 0.3,
+            }}
+          >
+            ⚠ HARNESS
+          </span>
+        )}
         <span
           style={{
-            color: 'var(--fg-dim)',
+            color: 'var(--fg, #e5e5e5)',
             flex: 1,
             minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            fontWeight: 400,
           }}
         >
           {summary.label}
-          {summary.detail && <span style={{ color: 'var(--fg-faint)' }}> — {summary.detail}</span>}
+          {summary.detail && <span style={{ color: 'var(--fg-dim, #9ca3af)' }}> — {summary.detail}</span>}
         </span>
       </button>
+      {hasViolations && hover && <ViolationTooltip violations={event.violations!} />}
       {open && (
         <pre
           style={{
@@ -377,6 +423,61 @@ function RawEventRow({ event }: { event: RawEvent }) {
           {summary.pretty}
         </pre>
       )}
+    </div>
+  );
+}
+
+function ViolationTooltip({ violations }: { violations: ViolationInfo[] }) {
+  return (
+    <div
+      role="tooltip"
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 12,
+        marginTop: 4,
+        zIndex: 20,
+        minWidth: 260,
+        maxWidth: 480,
+        padding: '8px 10px',
+        background: 'var(--bg-surface-elevated, #0f0f0f)',
+        border: '1px solid #ef4444',
+        borderRadius: 4,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        fontSize: 11,
+        lineHeight: 1.5,
+        color: 'var(--fg, #e5e5e5)',
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#f87171', marginBottom: 6, letterSpacing: 0.3 }}>
+        ⚠ 하네스 규칙 위반 감지
+      </div>
+      {violations.map((v, i) => (
+        <div key={i} style={{ marginBottom: i === violations.length - 1 ? 0 : 4 }}>
+          <span
+            style={{
+              display: 'inline-block',
+              marginRight: 6,
+              padding: '0 5px',
+              fontSize: 9,
+              fontWeight: 600,
+              border: `1px solid ${v.severity === 'critical' ? '#ef4444' : v.severity === 'high' ? '#dc2626' : '#f59e0b'}`,
+              color: v.severity === 'critical' ? '#f87171' : v.severity === 'high' ? '#ef4444' : '#fbbf24',
+              borderRadius: 2,
+              textTransform: 'uppercase',
+            }}
+          >
+            {v.severity}
+          </span>
+          <span>{v.description}</span>
+          {v.detail && (
+            <div style={{ marginTop: 2, fontFamily: "'Fira Code', monospace", fontSize: 10, color: 'var(--fg-dim)' }}>
+              {v.detail}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
