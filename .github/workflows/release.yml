@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # 서명 관련 env는 유효한 cert 준비될 때만 추가. 빈 값/잘못된 값으로 넘기면
